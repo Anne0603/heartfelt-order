@@ -33,6 +33,8 @@ const sidebar = document.getElementById("sidebar");
 const sidebarBackdrop = document.getElementById("sidebar-backdrop");
 const btnSidebarToggle = document.getElementById("btn-sidebar-toggle");
 const btnMobileMenu = document.getElementById("btn-mobile-menu");
+const btnRefreshMobile = document.getElementById("btn-refresh-mobile");
+const btnRefreshDesktop = document.getElementById("btn-refresh-desktop");
 
 let currentModule = "orders";
 let myRole = null;
@@ -87,6 +89,12 @@ btnGoogleLogin.addEventListener("click", async () => {
 });
 btnLogout.addEventListener("click", () => logout());
 btnPendingLogout.addEventListener("click", () => logout());
+
+function hardRefresh() {
+  location.reload();
+}
+btnRefreshMobile.addEventListener("click", hardRefresh);
+btnRefreshDesktop.addEventListener("click", hardRefresh);
 
 // ---------- 側邊導覽（依角色過濾） ----------
 function visibleModules() {

@@ -288,6 +288,10 @@ a { color: inherit; }
   padding: 9px;
   font-size: 13.5px;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 .btn-logout:hover { border-color: var(--text-on-ink-muted); color: var(--text-on-ink); }
 
