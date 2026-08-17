@@ -1,0 +1,73 @@
+rules_version = '2';
+
+// ============================================================
+// heartfelt-order Firestore 安全規則（完整版）
+// 每次新增 collection 都會提供「完整版」規則，直接整份覆蓋貼到
+// Firebase Console 上比較不容易貼錯位置，貼上後記得按「發布」。
+// ============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isMember() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/members/$(request.auth.token.email));
+    }
+
+    function memberData() {
+      return get(/databases/$(database)/documents/members/$(request.auth.token.email)).data;
+    }
+
+    function isAdmin() {
+      return isMember() && memberData().role == 'admin';
+    }
+
+    // ---------- 成員白名單 ----------
+    // 只有已經是成員的人才能「看」名單；只有管理員能新增/移除成員。
+    // 例外：允許使用者讀取「自己那一筆」member 文件，這樣登入流程
+    // 才能在還不確定自己是不是成員之前，先查詢自己的權限。
+    match /members/{email} {
+      allow get: if isSignedIn() && request.auth.token.email == email;
+      allow list: if isMember();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ---------- 系統設定（Cloudinary 等） ----------
+    match /settings/{docId} {
+      allow read: if isMember();
+      allow write: if isMember();
+    }
+
+    // ---------- 訂單 ----------
+    match /orders/{orderId} {
+      allow read, write: if isMember();
+    }
+
+    // ---------- 商品定價 ----------
+    match /products/{productId} {
+      allow read, write: if isMember();
+    }
+
+    // ---------- 客戶名單 ----------
+    match /customers/{customerId} {
+      allow read, write: if isMember();
+    }
+
+    // ---------- 包材（採購與庫存） ----------
+    match /packaging/{itemId} {
+      allow read, write: if isMember();
+    }
+    match /packagingTransactions/{txId} {
+      allow read, write: if isMember();
+    }
+
+    // ---------- 其他任何未列出的路徑，一律拒絕 ----------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
