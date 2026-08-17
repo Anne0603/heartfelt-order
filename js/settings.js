@@ -1,19 +1,20 @@
 // ============================================================
-// 系統設定頁
-// 1. Cloudinary 設定（Cloud Name / Upload Preset）— 存在
-//    Firestore 的 settings/cloudinary 文件裡，不寫死在程式碼。
-// 2. 成員白名單管理 — 存在 members/{email} collection，
-//    只有 role === 'admin' 的人可以新增 / 移除成員。
+// 系統設定頁（只有超級管理員能進來）
+// 1. Cloudinary 設定
+// 2. 待審核申請：核准（指派角色）／拒絕
+// 3. 現有成員：改角色／移除
 // ============================================================
 import { db } from "./firebase-config.js";
 import {
-  doc, getDoc, setDoc,
-  collection, getDocs, deleteDoc, serverTimestamp
+  doc, getDoc, setDoc, deleteDoc,
+  collection, getDocs, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { showToast, isValidEmail } from "./utils.js";
-import { currentSession } from "./auth.js";
+import { showToast } from "./utils.js";
+import { currentSession, ROLE_LABELS } from "./auth.js";
 
 const CLOUDINARY_DOC = doc(db, "settings", "cloudinary");
+
+const ASSIGNABLE_ROLES = ["admin", "order_staff", "viewer"]; // superadmin 不開放指派
 
 export async function getCloudinarySettings() {
   const snap = await getDoc(CLOUDINARY_DOC);
@@ -29,7 +30,7 @@ async function saveCloudinarySettings(cloudName, uploadPreset) {
   });
 }
 
-async function listMembers() {
+async function listAllMembers() {
   const snap = await getDocs(collection(db, "members"));
   const list = [];
   snap.forEach((d) => list.push({ email: d.id, ...d.data() }));
@@ -37,27 +38,53 @@ async function listMembers() {
   return list;
 }
 
-async function addMember(email, role) {
-  const id = email.trim().toLowerCase();
-  await setDoc(doc(db, "members", id), {
+async function approveMember(email, role) {
+  await setDoc(doc(db, "members", email), {
+    status: "active",
     role,
-    addedAt: serverTimestamp(),
-    addedBy: currentSession.user?.email || null
-  });
+    approvedAt: serverTimestamp(),
+    approvedBy: currentSession.user?.email || null,
+  }, { merge: true });
 }
 
-async function removeMember(email) {
+async function rejectOrRemoveMember(email) {
   await deleteDoc(doc(db, "members", email));
 }
 
+async function changeRole(email, role) {
+  await setDoc(doc(db, "members", email), {
+    role,
+    approvedAt: serverTimestamp(),
+    approvedBy: currentSession.user?.email || null,
+  }, { merge: true });
+}
+
+function roleOptionsHtml(selected) {
+  return ASSIGNABLE_ROLES.map((r) =>
+    `<option value="${r}" ${r === selected ? "selected" : ""}>${ROLE_LABELS[r]}</option>`
+  ).join("");
+}
+
 export async function renderSettingsPage(container) {
-  const isAdmin = currentSession.member?.role === "admin";
+  const isSuperadmin = currentSession.member?.role === "superadmin";
+
+  if (!isSuperadmin) {
+    container.innerHTML = `
+      <div class="page-header"><h2>系統設定</h2></div>
+      <div class="card placeholder-page">
+        <div class="moon-badge"></div>
+        <h3>只有超級管理員能使用這個頁面</h3>
+        <p>如果你需要調整權限或系統設定，請聯絡超級管理員。</p>
+      </div>
+    `;
+    return;
+  }
 
   container.innerHTML = `
     <div class="page-header">
       <div>
         <h2>系統設定</h2>
-        <div class="desc">Cloudinary 圖片上傳設定，以及可以登入系統的成員名單</div>
+        <div class="desc">Cloudinary 圖片上傳設定、成員審核與權限管理</div>
       </div>
     </div>
 
@@ -66,50 +93,35 @@ export async function renderSettingsPage(container) {
       <div class="field">
         <label>Cloud Name</label>
         <input type="text" id="input-cloud-name" placeholder="例如 dxxxxxxx" />
-        <div class="hint">在 Cloudinary Dashboard 頁面上方可以看到。</div>
       </div>
       <div class="field">
         <label>Upload Preset 名稱</label>
         <input type="text" id="input-upload-preset" placeholder="例如 heartfelt-order" />
-        <div class="hint">Cloudinary → Settings → Upload → Upload presets 裡設定的名稱，Signing Mode 必須是 Unsigned。</div>
+        <div class="hint">Signing Mode 必須是 Unsigned。</div>
       </div>
       <button class="btn btn-primary" id="btn-save-cloudinary">儲存設定</button>
-      <span id="cloudinary-status" style="margin-left:10px;font-size:12px;color:var(--text-muted);"></span>
+    </div>
+
+    <div class="card" style="margin-bottom:20px;">
+      <h3 style="font-size:15px;margin-bottom:4px;">待審核申請</h3>
+      <div class="desc" style="margin-bottom:14px;">有人用 Google 登入但還沒被核准時，會出現在這裡。</div>
+      <table class="simple-table">
+        <thead><tr><th>Email</th><th>姓名</th><th style="width:220px;">指派角色</th><th></th></tr></thead>
+        <tbody id="pending-table-body"><tr><td colspan="4" style="color:var(--text-muted);">載入中…</td></tr></tbody>
+      </table>
     </div>
 
     <div class="card">
-      <h3 style="font-size:15px;margin-bottom:4px;">成員名單</h3>
-      <div class="desc" style="margin-bottom:14px;">只有列在這裡的 Google 帳號可以登入系統，其他人即使用 Google 登入也看不到任何資料。</div>
-
-      ${isAdmin ? `
-        <div class="flex-row" style="display:flex;gap:10px;align-items:flex-end;margin-bottom:18px;flex-wrap:wrap;">
-          <div class="field" style="flex:1;min-width:220px;margin-bottom:0;">
-            <label>Google 帳號 Email</label>
-            <input type="email" id="input-new-member-email" placeholder="name@gmail.com" />
-          </div>
-          <div class="field" style="width:140px;margin-bottom:0;">
-            <label>權限</label>
-            <select id="input-new-member-role">
-              <option value="staff">一般成員</option>
-              <option value="admin">管理員</option>
-            </select>
-          </div>
-          <button class="btn btn-primary" id="btn-add-member">新增成員</button>
-        </div>
-      ` : `<div class="hint" style="margin-bottom:14px;">你目前是「一般成員」，只有管理員可以新增或移除成員。</div>`}
-
+      <h3 style="font-size:15px;margin-bottom:4px;">現有成員</h3>
+      <div class="desc" style="margin-bottom:14px;">角色隨時可以調整，只有超級管理員能異動。</div>
       <table class="simple-table">
-        <thead>
-          <tr><th>Email</th><th>權限</th><th></th></tr>
-        </thead>
-        <tbody id="members-table-body">
-          <tr><td colspan="3" style="color:var(--text-muted);">載入中…</td></tr>
-        </tbody>
+        <thead><tr><th>Email</th><th style="width:220px;">角色</th><th></th></tr></thead>
+        <tbody id="members-table-body"><tr><td colspan="3" style="color:var(--text-muted);">載入中…</td></tr></tbody>
       </table>
     </div>
   `;
 
-  // --- Cloudinary 設定：載入現有值 ---
+  // ---------- Cloudinary ----------
   const cloudSettings = await getCloudinarySettings();
   container.querySelector("#input-cloud-name").value = cloudSettings.cloudName || "";
   container.querySelector("#input-upload-preset").value = cloudSettings.uploadPreset || "";
@@ -127,75 +139,120 @@ export async function renderSettingsPage(container) {
       await saveCloudinarySettings(cloudName, uploadPreset);
       showToast("Cloudinary 設定已儲存", "success");
     } catch (err) {
-      console.error(err);
       showToast("儲存失敗：" + err.message, "error");
     } finally {
       btn.disabled = false;
     }
   });
 
-  // --- 成員名單：載入 + 渲染 ---
-  async function refreshMembersTable() {
-    const tbody = container.querySelector("#members-table-body");
+  // ---------- 待審核 + 成員清單 ----------
+  async function refreshTables() {
+    const pendingBody = container.querySelector("#pending-table-body");
+    const membersBody = container.querySelector("#members-table-body");
     try {
-      const members = await listMembers();
-      if (members.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="3" style="color:var(--text-muted);">目前沒有任何成員</td></tr>`;
-        return;
-      }
-      tbody.innerHTML = members.map((m) => `
-        <tr>
-          <td>${m.email}${m.email === currentSession.user?.email ? " <span class=\"hint\">(你)</span>" : ""}</td>
-          <td>
-            <span class="seal-badge ${m.role === "admin" ? "warn" : "ok"}">
-              <span class="dot"></span>${m.role === "admin" ? "管理員" : "一般成員"}
-            </span>
-          </td>
-          <td style="text-align:right;">
-            ${isAdmin && m.email !== currentSession.user?.email
-              ? `<button class="btn btn-danger" data-remove="${m.email}" style="padding:6px 12px;font-size:12px;">移除</button>`
-              : ""}
-          </td>
-        </tr>
-      `).join("");
+      const all = await listAllMembers();
+      const pending = all.filter((m) => m.status === "pending");
+      const active = all.filter((m) => m.status === "active");
 
-      tbody.querySelectorAll("[data-remove]").forEach((btn) => {
+      pendingBody.innerHTML = pending.length === 0
+        ? `<tr><td colspan="4" style="color:var(--text-muted);">目前沒有待審核申請</td></tr>`
+        : pending.map((m) => `
+            <tr>
+              <td>${m.email}</td>
+              <td>${m.displayName || "-"}</td>
+              <td>
+                <select class="pending-role-select" data-email="${m.email}">
+                  ${roleOptionsHtml("order_staff")}
+                </select>
+              </td>
+              <td style="text-align:right;white-space:nowrap;">
+                <button class="btn btn-primary" data-approve="${m.email}" style="padding:6px 12px;font-size:12px;">核准</button>
+                <button class="btn btn-danger" data-reject="${m.email}" style="padding:6px 12px;font-size:12px;">拒絕</button>
+              </td>
+            </tr>
+          `).join("");
+
+      membersBody.innerHTML = active.length === 0
+        ? `<tr><td colspan="3" style="color:var(--text-muted);">目前沒有成員</td></tr>`
+        : active.map((m) => {
+            const isSelf = m.email === currentSession.user?.email;
+            const isTargetSuperadmin = m.role === "superadmin";
+            return `
+              <tr>
+                <td>${m.email}${isSelf ? " <span class=\"hint\">(你)</span>" : ""}</td>
+                <td>
+                  ${isTargetSuperadmin
+                    ? `<span class="seal-badge warn"><span class="dot"></span>超級管理員</span>`
+                    : `<select class="member-role-select" data-email="${m.email}">${roleOptionsHtml(m.role)}</select>`
+                  }
+                </td>
+                <td style="text-align:right;">
+                  ${isTargetSuperadmin || isSelf ? "" : `<button class="btn btn-danger" data-remove="${m.email}" style="padding:6px 12px;font-size:12px;">移除</button>`}
+                </td>
+              </tr>
+            `;
+          }).join("");
+
+      // 核准
+      pendingBody.querySelectorAll("[data-approve]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const email = btn.getAttribute("data-approve");
+          const select = pendingBody.querySelector(`.pending-role-select[data-email="${email}"]`);
+          try {
+            await approveMember(email, select.value);
+            showToast("已核准", "success");
+            refreshTables();
+          } catch (err) {
+            showToast("核准失敗：" + err.message, "error");
+          }
+        });
+      });
+      // 拒絕
+      pendingBody.querySelectorAll("[data-reject]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const email = btn.getAttribute("data-reject");
+          if (!confirm(`確定要拒絕 ${email} 的申請嗎？`)) return;
+          try {
+            await rejectOrRemoveMember(email);
+            showToast("已拒絕申請", "success");
+            refreshTables();
+          } catch (err) {
+            showToast("操作失敗：" + err.message, "error");
+          }
+        });
+      });
+      // 改角色
+      membersBody.querySelectorAll(".member-role-select").forEach((sel) => {
+        sel.addEventListener("change", async () => {
+          const email = sel.getAttribute("data-email");
+          try {
+            await changeRole(email, sel.value);
+            showToast("角色已更新", "success");
+          } catch (err) {
+            showToast("更新失敗：" + err.message, "error");
+            refreshTables();
+          }
+        });
+      });
+      // 移除
+      membersBody.querySelectorAll("[data-remove]").forEach((btn) => {
         btn.addEventListener("click", async () => {
           const email = btn.getAttribute("data-remove");
           if (!confirm(`確定要移除 ${email} 的存取權限嗎？`)) return;
           try {
-            await removeMember(email);
+            await rejectOrRemoveMember(email);
             showToast("已移除成員", "success");
-            refreshMembersTable();
+            refreshTables();
           } catch (err) {
             showToast("移除失敗：" + err.message, "error");
           }
         });
       });
     } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="3" style="color:var(--rose);">載入失敗：${err.message}</td></tr>`;
+      pendingBody.innerHTML = `<tr><td colspan="4" style="color:var(--rose);">載入失敗：${err.message}</td></tr>`;
+      membersBody.innerHTML = "";
     }
   }
 
-  if (isAdmin) {
-    container.querySelector("#btn-add-member").addEventListener("click", async () => {
-      const emailInput = container.querySelector("#input-new-member-email");
-      const roleInput = container.querySelector("#input-new-member-role");
-      const email = emailInput.value.trim();
-      if (!isValidEmail(email)) {
-        showToast("Email 格式不對", "error");
-        return;
-      }
-      try {
-        await addMember(email, roleInput.value);
-        emailInput.value = "";
-        showToast("成員已新增", "success");
-        refreshMembersTable();
-      } catch (err) {
-        showToast("新增失敗：" + err.message, "error");
-      }
-    });
-  }
-
-  refreshMembersTable();
+  refreshTables();
 }

@@ -1,12 +1,13 @@
 // ============================================================
-// 登入 / 登出 / 成員白名單檢查
+// 登入 / 登出 / 角色狀態
 //
-// 資安設計：
-// Google 登入本身任何人都能通過（只要有 Google 帳號）。
-// 所以登入成功後，還要再檢查 Firestore 的 members/{email} 這筆資料
-// 存不存在——不存在就視為「沒有權限」，直接登出、不給看任何頁面。
-// 這一層判斷同時也寫進 Firestore Rules 裡（雙重防護：前端擋一次，
-// 後端規則再擋一次，就算有人繞過前端畫面也讀不到資料）。
+// 流程：
+// 1. Google 登入成功
+// 2. 讀 Firestore members/{email}
+//    - 不存在 -> 自動建立一筆 status:'pending' 的申請紀錄，
+//      畫面顯示「審核中」，登出
+//    - 存在但 status 是 'pending' -> 顯示「審核中」，登出
+//    - 存在且 status 是 'active' -> 放行，帶著 role 一起進系統
 // ============================================================
 import { auth, db, googleProvider } from "./firebase-config.js";
 import {
@@ -16,22 +17,45 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import {
   doc,
-  getDoc
+  getDoc,
+  setDoc,
+  serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
-// 目前登入者的完整資訊（member 文件內容 + firebase user）
-export const currentSession = {
-  user: null,   // firebase auth user 物件
-  member: null  // Firestore members/{email} 文件內容，例如 { role: 'admin' }
+export const ROLES = {
+  SUPERADMIN: "superadmin",
+  ADMIN: "admin",
+  ORDER_STAFF: "order_staff",
+  VIEWER: "viewer",
 };
 
-/**
- * 依 email 讀取 members collection，判斷是否為授權成員。
- */
+export const ROLE_LABELS = {
+  superadmin: "超級管理員",
+  admin: "管理員",
+  order_staff: "訂單進出貨人員",
+  viewer: "唯讀主管",
+};
+
+export const currentSession = {
+  user: null,
+  member: null, // { status, role, ... }
+};
+
 async function loadMemberDoc(email) {
   const ref = doc(db, "members", email.toLowerCase());
   const snap = await getDoc(ref);
   return snap.exists() ? snap.data() : null;
+}
+
+async function createPendingRequest(user) {
+  const ref = doc(db, "members", user.email.toLowerCase());
+  await setDoc(ref, {
+    status: "pending",
+    role: null,
+    displayName: user.displayName || "",
+    photoURL: user.photoURL || "",
+    requestedAt: serverTimestamp(),
+  });
 }
 
 export function loginWithGoogle() {
@@ -43,12 +67,12 @@ export function logout() {
 }
 
 /**
- * 註冊登入狀態監聽。
- * onAuthorized(user, member)：通過白名單檢查後呼叫
- * onUnauthorized(user)：登入成功但不在白名單裡
- * onSignedOut()：尚未登入 / 已登出
+ * onActive(user, member)       -> status active，放行
+ * onPending(user)               -> 已送出申請，等待審核
+ * onSignedOut()                 -> 尚未登入 / 已登出
+ * onError(err)
  */
-export function watchAuthState({ onAuthorized, onUnauthorized, onSignedOut, onError }) {
+export function watchAuthState({ onActive, onPending, onSignedOut, onError }) {
   onAuthStateChanged(auth, async (user) => {
     if (!user) {
       currentSession.user = null;
@@ -57,16 +81,19 @@ export function watchAuthState({ onAuthorized, onUnauthorized, onSignedOut, onEr
       return;
     }
     try {
-      const member = await loadMemberDoc(user.email);
+      let member = await loadMemberDoc(user.email);
       if (!member) {
-        currentSession.user = user;
-        currentSession.member = null;
-        onUnauthorized && onUnauthorized(user);
-        return;
+        await createPendingRequest(user);
+        member = { status: "pending", role: null };
       }
       currentSession.user = user;
       currentSession.member = member;
-      onAuthorized && onAuthorized(user, member);
+
+      if (member.status === "active" && member.role) {
+        onActive && onActive(user, member);
+      } else {
+        onPending && onPending(user);
+      }
     } catch (err) {
       onError && onError(err);
     }

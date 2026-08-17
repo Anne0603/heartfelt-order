@@ -24,6 +24,17 @@
     </div>
   </div>
 
+  <!-- ============ 審核中畫面 ============ -->
+  <div class="login-screen" id="pending-screen" style="display:none;">
+    <div class="login-moon"></div>
+    <div class="login-card">
+      <div class="login-seal">心</div>
+      <h1>申請已送出</h1>
+      <p class="sub" id="pending-email-text">審核中，請聯絡管理員核准後再回來登入</p>
+      <button class="btn-secondary btn" id="btn-pending-logout" style="width:100%;justify-content:center;">切換帳號 / 登出</button>
+    </div>
+  </div>
+
   <!-- ============ 主應用框架 ============ -->
   <div class="app-shell" id="app-shell">
 
@@ -46,7 +57,7 @@
               <div class="sub">訂單管理系統</div>
             </div>
           </div>
-          <button class="sidebar-toggle" id="btn-sidebar-toggle" aria-label="收合側邊欄" title="收合／展開側邊欄">◂</button>
+          <button class="sidebar-toggle" id="btn-sidebar-toggle" aria-label="收合側邊欄" title="收合／展開側邊欄">☰</button>
         </div>
       </div>
 

@@ -1,25 +1,28 @@
 // ============================================================
 // 主程式：登入流程 + 側邊導覽 + 簡易路由
 // ============================================================
-import { loginWithGoogle, logout, watchAuthState, currentSession } from "./auth.js";
+import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS } from "./auth.js";
 import { renderSettingsPage } from "./settings.js";
 import { showToast } from "./utils.js";
 
 const MODULES = [
-  { id: "orders",    label: "訂單管理",       icon: "📋", group: "營運" },
-  { id: "products",  label: "商品定價",       icon: "🏷️", group: "營運" },
-  { id: "packaging", label: "包材採購與庫存", icon: "📦", group: "營運" },
-  { id: "customers", label: "客戶名單",       icon: "🙋", group: "營運" },
-  { id: "reports",   label: "統計報表",       icon: "📊", group: "分析" },
-  { id: "profit",    label: "利潤總覽",       icon: "💰", group: "分析" },
-  { id: "settings",  label: "系統設定",       icon: "⚙️", group: "管理" },
+  { id: "orders",    label: "訂單管理",       icon: "📋", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
+  { id: "products",  label: "商品定價",       icon: "🏷️", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
+  { id: "packaging", label: "包材採購與庫存", icon: "📦", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
+  { id: "customers", label: "客戶名單",       icon: "🙋", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
+  { id: "reports",   label: "統計報表",       icon: "📊", group: "分析", roles: ["superadmin","admin","viewer"] },
+  { id: "profit",    label: "利潤總覽",       icon: "💰", group: "分析", roles: ["superadmin","admin","viewer"] },
+  { id: "settings",  label: "系統設定",       icon: "⚙️", group: "管理", roles: ["superadmin"] },
 ];
 
 const loginScreen = document.getElementById("login-screen");
+const pendingScreen = document.getElementById("pending-screen");
 const appShell = document.getElementById("app-shell");
 const loginError = document.getElementById("login-error");
 const loginLoading = document.getElementById("login-loading");
 const btnGoogleLogin = document.getElementById("btn-google-login");
+const pendingEmailText = document.getElementById("pending-email-text");
+const btnPendingLogout = document.getElementById("btn-pending-logout");
 const navContainer = document.getElementById("nav-container");
 const mainContent = document.getElementById("main-content");
 const userChipName = document.getElementById("user-chip-name");
@@ -32,6 +35,7 @@ const btnSidebarToggle = document.getElementById("btn-sidebar-toggle");
 const btnMobileMenu = document.getElementById("btn-mobile-menu");
 
 let currentModule = "orders";
+let myRole = null;
 
 // ---------- 側邊欄：桌面收合 / 手機抽屜 ----------
 const SIDEBAR_COLLAPSE_KEY = "heartfelt-order:sidebarCollapsed";
@@ -41,15 +45,11 @@ function applyStoredCollapseState() {
   if (isMobileViewport()) return;
   const collapsed = localStorage.getItem(SIDEBAR_COLLAPSE_KEY) === "1";
   sidebar.classList.toggle("collapsed", collapsed);
-  btnSidebarToggle.textContent = collapsed ? "▸" : "◂";
 }
-
 function toggleDesktopCollapse() {
   const collapsed = sidebar.classList.toggle("collapsed");
   localStorage.setItem(SIDEBAR_COLLAPSE_KEY, collapsed ? "1" : "0");
-  btnSidebarToggle.textContent = collapsed ? "▸" : "◂";
 }
-
 function openMobileDrawer() {
   sidebar.classList.add("mobile-open");
   sidebarBackdrop.classList.add("show");
@@ -58,7 +58,6 @@ function closeMobileDrawer() {
   sidebar.classList.remove("mobile-open");
   sidebarBackdrop.classList.remove("show");
 }
-
 btnSidebarToggle.addEventListener("click", toggleDesktopCollapse);
 btnMobileMenu.addEventListener("click", openMobileDrawer);
 sidebarBackdrop.addEventListener("click", closeMobileDrawer);
@@ -70,14 +69,13 @@ window.addEventListener("resize", () => {
 });
 applyStoredCollapseState();
 
-// ---------- 登入按鈕 ----------
+// ---------- 登入 / 登出 ----------
 btnGoogleLogin.addEventListener("click", async () => {
   loginError.classList.remove("show");
   loginLoading.classList.add("show");
   btnGoogleLogin.disabled = true;
   try {
     await loginWithGoogle();
-    // 後續畫面切換交給 watchAuthState 處理
   } catch (err) {
     console.error(err);
     loginError.textContent = "登入失敗：" + (err.message || "未知錯誤");
@@ -87,18 +85,21 @@ btnGoogleLogin.addEventListener("click", async () => {
     btnGoogleLogin.disabled = false;
   }
 });
+btnLogout.addEventListener("click", () => logout());
+btnPendingLogout.addEventListener("click", () => logout());
 
-btnLogout.addEventListener("click", async () => {
-  await logout();
-});
+// ---------- 側邊導覽（依角色過濾） ----------
+function visibleModules() {
+  return MODULES.filter((m) => myRole && m.roles.includes(myRole));
+}
 
-// ---------- 側邊導覽 ----------
 function renderNav() {
-  const groups = [...new Set(MODULES.map((m) => m.group))];
+  const mods = visibleModules();
+  const groups = [...new Set(mods.map((m) => m.group))];
   navContainer.innerHTML = groups.map((group) => `
     <div class="nav-group">
       <div class="nav-label">${group}</div>
-      ${MODULES.filter((m) => m.group === group).map((m) => `
+      ${mods.filter((m) => m.group === group).map((m) => `
         <div class="nav-item ${m.id === currentModule ? "active" : ""}" data-module="${m.id}">
           <span class="nav-icon">${m.icon}</span><span>${m.label}</span>
         </div>
@@ -121,12 +122,23 @@ function renderNav() {
 async function renderCurrentModule() {
   const meta = MODULES.find((m) => m.id === currentModule) || MODULES[0];
 
+  if (!meta.roles.includes(myRole)) {
+    mainContent.innerHTML = `
+      <div class="page-header"><h2>沒有權限</h2></div>
+      <div class="card placeholder-page">
+        <div class="moon-badge"></div>
+        <h3>你目前的角色無法使用這個模組</h3>
+        <p>如需要調整權限，請聯絡超級管理員。</p>
+      </div>
+    `;
+    return;
+  }
+
   if (currentModule === "settings") {
     await renderSettingsPage(mainContent);
     return;
   }
 
-  // 其餘模組目前為佔位頁面，之後依序開發
   mainContent.innerHTML = `
     <div class="page-header">
       <div>
@@ -144,25 +156,34 @@ async function renderCurrentModule() {
 
 function handleHashRoute() {
   const hash = location.hash.replace("#/", "");
-  const valid = MODULES.some((m) => m.id === hash);
-  currentModule = valid ? hash : "orders";
+  const mods = visibleModules();
+  const valid = mods.some((m) => m.id === hash);
+  currentModule = valid ? hash : (mods[0]?.id || "orders");
   renderNav();
   renderCurrentModule();
 }
 window.addEventListener("hashchange", handleHashRoute);
 
-// ---------- 登入狀態切換 ----------
-function showLogin() {
+// ---------- 畫面狀態切換 ----------
+function showLoginScreen() {
   loginScreen.style.display = "flex";
+  pendingScreen.style.display = "none";
   appShell.classList.remove("show");
 }
-
+function showPendingScreen(user) {
+  loginScreen.style.display = "none";
+  pendingScreen.style.display = "flex";
+  appShell.classList.remove("show");
+  pendingEmailText.textContent = `${user.email} 的存取申請已送出，審核中，請聯絡管理員核准後再回來登入`;
+}
 function showApp(user, member) {
   loginScreen.style.display = "none";
+  pendingScreen.style.display = "none";
   appShell.classList.add("show");
 
+  myRole = member.role;
   userChipName.textContent = user.displayName || user.email;
-  userChipRole.textContent = member.role === "admin" ? "管理員" : "一般成員";
+  userChipRole.textContent = ROLE_LABELS[member.role] || member.role;
   if (user.photoURL) {
     userAvatar.innerHTML = `<img src="${user.photoURL}" alt="">`;
   } else {
@@ -173,17 +194,9 @@ function showApp(user, member) {
 }
 
 watchAuthState({
-  onSignedOut: () => {
-    showLogin();
-  },
-  onAuthorized: (user, member) => {
-    showApp(user, member);
-  },
-  onUnauthorized: async (user) => {
-    loginError.textContent = `此 Google 帳號（${user.email}）尚未被加入系統成員名單，請聯絡管理員。`;
-    loginError.classList.add("show");
-    await logout();
-  },
+  onSignedOut: () => showLoginScreen(),
+  onActive: (user, member) => showApp(user, member),
+  onPending: (user) => showPendingScreen(user),
   onError: (err) => {
     console.error(err);
     showToast("讀取權限資料失敗：" + err.message, "error");

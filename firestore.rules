@@ -1,9 +1,24 @@
 rules_version = '2';
 
 // ============================================================
-// heartfelt-order Firestore 安全規則（完整版）
+// heartfelt-order Firestore 安全規則（完整版 v2 — 角色制）
 // 每次新增 collection 都會提供「完整版」規則，直接整份覆蓋貼到
 // Firebase Console 上比較不容易貼錯位置，貼上後記得按「發布」。
+//
+// 角色說明：
+//   superadmin — 唯一、固定，最高權限，唯一能核准/異動任何人角色的人
+//   admin      — 業務功能全權（訂單/商品/包材/客戶/報表/利潤），但不能碰
+//                系統設定與成員審核
+//   order_staff— 訂單/客戶讀寫、可處理出貨，商品與包材唯讀（畫面上會
+//                再把成本欄位藏起來；純前端架構下「畫面隱藏」不等於
+//                「資料庫層級隔離」，之後做商品/報表模組時，成本相關
+//                的敏感欄位會拆到管理員以上才能讀的子路徑）
+//   viewer     — 訂單/客戶/包材/報表/利潤全部唯讀，不能寫入任何東西
+//
+// 成員文件結構 members/{email}：
+//   { status: 'pending' | 'active', role: null | 'superadmin' | 'admin' |
+//     'order_staff' | 'viewer', requestedAt, approvedAt, approvedBy,
+//     displayName, photoURL }
 // ============================================================
 
 service cloud.firestore {
@@ -13,56 +28,85 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isMember() {
-      return isSignedIn() &&
-        exists(/databases/$(database)/documents/members/$(request.auth.token.email));
+    function memberPath() {
+      return /databases/$(database)/documents/members/$(request.auth.token.email);
+    }
+
+    function memberExists() {
+      return isSignedIn() && exists(memberPath());
     }
 
     function memberData() {
-      return get(/databases/$(database)/documents/members/$(request.auth.token.email)).data;
+      return get(memberPath()).data;
     }
 
-    function isAdmin() {
-      return isMember() && memberData().role == 'admin';
+    function isActiveMember() {
+      return memberExists() && memberData().status == 'active';
     }
 
-    // ---------- 成員白名單 ----------
-    // 只有已經是成員的人才能「看」名單；只有管理員能新增/移除成員。
-    // 例外：允許使用者讀取「自己那一筆」member 文件，這樣登入流程
-    // 才能在還不確定自己是不是成員之前，先查詢自己的權限。
+    function myRole() {
+      return isActiveMember() ? memberData().role : null;
+    }
+
+    function hasRole(roles) {
+      return isActiveMember() && (myRole() in roles);
+    }
+
+    function isSuperadmin() {
+      return hasRole(['superadmin']);
+    }
+
+    // ---------- 成員 / 待審核申請 ----------
     match /members/{email} {
       allow get: if isSignedIn() && request.auth.token.email == email;
-      allow list: if isMember();
-      allow create, update, delete: if isAdmin();
+      allow list: if isSuperadmin();
+
+      allow create: if isSignedIn()
+        && request.auth.token.email == email
+        && !exists(memberPath())
+        && request.resource.data.status == 'pending'
+        && request.resource.data.role == null;
+
+      allow update, delete: if isSuperadmin();
     }
 
-    // ---------- 系統設定（Cloudinary 等） ----------
+    // ---------- 系統設定（Cloudinary 等）：只有超級管理員 ----------
     match /settings/{docId} {
-      allow read: if isMember();
-      allow write: if isMember();
+      allow read, write: if isSuperadmin();
     }
 
     // ---------- 訂單 ----------
     match /orders/{orderId} {
-      allow read, write: if isMember();
+      allow read: if hasRole(['superadmin', 'admin', 'order_staff', 'viewer']);
+      allow write: if hasRole(['superadmin', 'admin', 'order_staff']);
     }
 
     // ---------- 商品定價 ----------
     match /products/{productId} {
-      allow read, write: if isMember();
+      allow read: if hasRole(['superadmin', 'admin', 'order_staff', 'viewer']);
+      allow write: if hasRole(['superadmin', 'admin']);
     }
 
     // ---------- 客戶名單 ----------
     match /customers/{customerId} {
-      allow read, write: if isMember();
+      allow read: if hasRole(['superadmin', 'admin', 'order_staff', 'viewer']);
+      allow write: if hasRole(['superadmin', 'admin', 'order_staff']);
     }
 
     // ---------- 包材（採購與庫存） ----------
     match /packaging/{itemId} {
-      allow read, write: if isMember();
+      allow read: if hasRole(['superadmin', 'admin', 'order_staff', 'viewer']);
+      allow write: if hasRole(['superadmin', 'admin', 'order_staff']);
     }
     match /packagingTransactions/{txId} {
-      allow read, write: if isMember();
+      allow read: if hasRole(['superadmin', 'admin', 'order_staff', 'viewer']);
+      allow write: if hasRole(['superadmin', 'admin', 'order_staff']);
+    }
+
+    // ---------- 利潤總覽的預先算好結果（之後報表模組會用到） ----------
+    match /profitSummaries/{docId} {
+      allow read: if hasRole(['superadmin', 'admin', 'viewer']);
+      allow write: if hasRole(['superadmin', 'admin']);
     }
 
     // ---------- 其他任何未列出的路徑，一律拒絕 ----------
