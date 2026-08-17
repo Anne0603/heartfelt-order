@@ -2,7 +2,7 @@
 // 主程式：登入流程 + 側邊導覽 + 簡易路由
 // ============================================================
 import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS } from "./auth.js";
-import { renderSettingsPage } from "./settings.js";
+import { renderSettingsPage, uploadImageToCloudinary, saveBrandLogoUrl } from "./settings.js";
 import { showToast } from "./utils.js";
 import { db } from "./firebase-config.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
@@ -32,7 +32,7 @@ const MODULES = [
   { id: "customers", label: "客戶名單",       icon: "🙋", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
   { id: "reports",   label: "統計報表",       icon: "📊", group: "分析", roles: ["superadmin","admin","viewer"] },
   { id: "profit",    label: "利潤總覽",       icon: "💰", group: "分析", roles: ["superadmin","admin","viewer"] },
-  { id: "settings",  label: "系統設定",       icon: "⚙️", group: "管理", roles: ["superadmin","admin"] },
+  { id: "settings",  label: "系統設定",       icon: "⚙️", group: "管理", roles: ["superadmin"] },
 ];
 
 const loginScreen = document.getElementById("login-screen");
@@ -48,6 +48,7 @@ const mainContent = document.getElementById("main-content");
 const userChipName = document.getElementById("user-chip-name");
 const userChipRole = document.getElementById("user-chip-role");
 const userAvatar = document.getElementById("user-avatar");
+const avatarFileInput = document.getElementById("avatar-file-input");
 const btnLogout = document.getElementById("btn-logout");
 const sidebar = document.getElementById("sidebar");
 const sidebarBackdrop = document.getElementById("sidebar-backdrop");
@@ -153,8 +154,7 @@ async function renderCurrentModule() {
       <div class="page-header"><h2>沒有權限</h2></div>
       <div class="card placeholder-page">
         <div class="icon-badge">心</div>
-        <h3>你目前的角色無法使用這個模組</h3>
-        <p>如需要調整權限，請聯絡超級管理員。</p>
+        <h3>無法使用這個功能</h3>
       </div>
     `;
     return;
@@ -166,16 +166,10 @@ async function renderCurrentModule() {
   }
 
   mainContent.innerHTML = `
-    <div class="page-header">
-      <div>
-        <h2>${meta.label}</h2>
-        <div class="desc">這個模組還在製作中</div>
-      </div>
-    </div>
+    <div class="page-header"><h2>${meta.label}</h2></div>
     <div class="card placeholder-page">
       <div class="icon-badge">心</div>
       <h3>${meta.label}即將推出</h3>
-      <p>骨架已經搭好，接下來會依照約定的順序陸續完成這個模組。</p>
     </div>
   `;
 }
@@ -216,8 +210,35 @@ function showApp(user, member) {
     userAvatar.textContent = "心";
   }
 
+  const canEditBrand = member.role === "superadmin" || member.role === "admin";
+  userAvatar.classList.toggle("clickable", canEditBrand);
+  userAvatar.title = canEditBrand ? "點擊更換品牌圖案" : "";
+
   handleHashRoute();
 }
+
+userAvatar.addEventListener("click", () => {
+  if (!userAvatar.classList.contains("clickable")) return;
+  avatarFileInput.click();
+});
+
+avatarFileInput.addEventListener("change", async () => {
+  const file = avatarFileInput.files?.[0];
+  if (!file) return;
+  const originalContent = userAvatar.innerHTML;
+  userAvatar.textContent = "…";
+  try {
+    const url = await uploadImageToCloudinary(file);
+    await saveBrandLogoUrl(url);
+    showToast("品牌圖案已更新", "success");
+    setTimeout(() => location.reload(), 700);
+  } catch (err) {
+    userAvatar.innerHTML = originalContent;
+    showToast(err.message, "error");
+  } finally {
+    avatarFileInput.value = "";
+  }
+});
 
 watchAuthState({
   onSignedOut: () => showLoginScreen(),
