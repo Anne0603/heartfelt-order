@@ -126,7 +126,7 @@ async function renderCurrentModule() {
     mainContent.innerHTML = `
       <div class="page-header"><h2>沒有權限</h2></div>
       <div class="card placeholder-page">
-        <div class="moon-badge"></div>
+        <div class="icon-badge">心</div>
         <h3>你目前的角色無法使用這個模組</h3>
         <p>如需要調整權限，請聯絡超級管理員。</p>
       </div>
@@ -147,7 +147,7 @@ async function renderCurrentModule() {
       </div>
     </div>
     <div class="card placeholder-page">
-      <div class="moon-badge"></div>
+      <div class="icon-badge">心</div>
       <h3>${meta.label}即將推出</h3>
       <p>骨架已經搭好，接下來會依照約定的順序陸續完成這個模組。</p>
     </div>
