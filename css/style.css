@@ -442,8 +442,8 @@ table.simple-table tr:last-child td { border-bottom: none; }
 .settings-tab-btn.active { color: var(--gold-deep); border-bottom-color: var(--gold-deep); }
 .settings-tab-btn:hover { color: var(--ink); }
 
-.user-avatar.clickable { cursor: pointer; }
-.user-avatar.clickable:hover { opacity: 0.85; }
+.clickable-seal { cursor: pointer; }
+.clickable-seal:hover { opacity: 0.85; }
 
 .toast {
   position: fixed;

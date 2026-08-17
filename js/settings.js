@@ -1,7 +1,7 @@
 // ============================================================
-// 系統設定頁（僅超級管理員能進來）
-// 分頁籤：Cloudinary / 待審核申請 / 成員
-// 品牌圖案改成「直接點側邊欄頭像上傳」，不在這裡（見 app.js）
+// 管理功能（超級管理員專用，側邊欄直接顯示為獨立項目）：
+// Cloudinary 設定 / 待審核申請 / 成員
+// 品牌圖案改成「直接點側邊欄 Logo 上傳」，邏輯在 app.js
 // ============================================================
 import { db } from "./firebase-config.js";
 import {
@@ -90,93 +90,58 @@ function roleOptionsHtml(selected) {
   ).join("");
 }
 
-const TABS = [
-  { id: "cloudinary", label: "Cloudinary" },
-  { id: "pending", label: "待審核申請" },
-  { id: "members", label: "成員" },
-];
-
-export async function renderSettingsPage(container) {
-  const isSuperadmin = currentSession.member?.role === "superadmin";
-  if (!isSuperadmin) return;
-
-  let activeTab = "cloudinary";
-
+// ---------- Cloudinary ----------
+export async function renderCloudinaryPage(container) {
+  const cloudSettings = await getCloudinarySettings();
   container.innerHTML = `
-    <div class="page-header"><h2>系統設定</h2></div>
-    <div class="settings-tabs" id="settings-tabs"></div>
-    <div id="settings-tab-content"></div>
+    <div class="page-header"><h2>Cloudinary</h2></div>
+    <div class="card">
+      <div class="field">
+        <label>Cloud Name</label>
+        <input type="text" id="input-cloud-name" value="${cloudSettings.cloudName || ""}" />
+      </div>
+      <div class="field">
+        <label>Upload Preset</label>
+        <input type="text" id="input-upload-preset" value="${cloudSettings.uploadPreset || ""}" />
+      </div>
+      <button class="btn btn-primary" id="btn-save-cloudinary">儲存</button>
+    </div>
   `;
+  container.querySelector("#btn-save-cloudinary").addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    const cloudName = container.querySelector("#input-cloud-name").value;
+    const uploadPreset = container.querySelector("#input-upload-preset").value;
+    if (!cloudName || !uploadPreset) {
+      showToast("請填寫完整", "error");
+      return;
+    }
+    btn.disabled = true;
+    try {
+      await saveCloudinarySettings(cloudName, uploadPreset);
+      showToast("已儲存", "success");
+    } catch (err) {
+      showToast("儲存失敗：" + err.message, "error");
+    } finally {
+      btn.disabled = false;
+    }
+  });
+}
 
-  const tabsEl = container.querySelector("#settings-tabs");
-  const contentEl = container.querySelector("#settings-tab-content");
+// ---------- 待審核申請 ----------
+export async function renderPendingPage(container) {
+  container.innerHTML = `
+    <div class="page-header"><h2>待審核申請</h2></div>
+    <div class="card">
+      <table class="simple-table">
+        <thead><tr><th>Email</th><th>姓名</th><th style="width:200px;">角色</th><th></th></tr></thead>
+        <tbody id="pending-table-body"><tr><td colspan="4">載入中…</td></tr></tbody>
+      </table>
+    </div>
+  `;
+  const body = container.querySelector("#pending-table-body");
+  await refresh();
 
-  function renderTabs() {
-    tabsEl.innerHTML = TABS.map((t) => `
-      <button class="settings-tab-btn ${t.id === activeTab ? "active" : ""}" data-tab="${t.id}">${t.label}</button>
-    `).join("");
-    tabsEl.querySelectorAll("[data-tab]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        activeTab = btn.getAttribute("data-tab");
-        renderTabs();
-        renderContent();
-      });
-    });
-  }
-
-  async function renderContent() {
-    if (activeTab === "cloudinary") return renderCloudinaryTab();
-    if (activeTab === "pending") return renderPendingTab();
-    if (activeTab === "members") return renderMembersTab();
-  }
-
-  // ---------- Cloudinary ----------
-  async function renderCloudinaryTab() {
-    const cloudSettings = await getCloudinarySettings();
-    contentEl.innerHTML = `
-      <div class="card">
-        <div class="field">
-          <label>Cloud Name</label>
-          <input type="text" id="input-cloud-name" value="${cloudSettings.cloudName || ""}" />
-        </div>
-        <div class="field">
-          <label>Upload Preset</label>
-          <input type="text" id="input-upload-preset" value="${cloudSettings.uploadPreset || ""}" />
-        </div>
-        <button class="btn btn-primary" id="btn-save-cloudinary">儲存</button>
-      </div>
-    `;
-    contentEl.querySelector("#btn-save-cloudinary").addEventListener("click", async (e) => {
-      const btn = e.currentTarget;
-      const cloudName = contentEl.querySelector("#input-cloud-name").value;
-      const uploadPreset = contentEl.querySelector("#input-upload-preset").value;
-      if (!cloudName || !uploadPreset) {
-        showToast("請填寫完整", "error");
-        return;
-      }
-      btn.disabled = true;
-      try {
-        await saveCloudinarySettings(cloudName, uploadPreset);
-        showToast("已儲存", "success");
-      } catch (err) {
-        showToast("儲存失敗：" + err.message, "error");
-      } finally {
-        btn.disabled = false;
-      }
-    });
-  }
-
-  // ---------- 待審核 ----------
-  async function renderPendingTab() {
-    contentEl.innerHTML = `
-      <div class="card">
-        <table class="simple-table">
-          <thead><tr><th>Email</th><th>姓名</th><th style="width:200px;">角色</th><th></th></tr></thead>
-          <tbody id="pending-table-body"><tr><td colspan="4">載入中…</td></tr></tbody>
-        </table>
-      </div>
-    `;
-    const body = contentEl.querySelector("#pending-table-body");
+  async function refresh() {
     try {
       const all = await listAllMembers();
       const pending = all.filter((m) => m.status === "pending");
@@ -201,7 +166,7 @@ export async function renderSettingsPage(container) {
           try {
             await approveMember(email, select.value);
             showToast("已核准", "success");
-            renderPendingTab();
+            refresh();
           } catch (err) {
             showToast("失敗：" + err.message, "error");
           }
@@ -214,7 +179,7 @@ export async function renderSettingsPage(container) {
           try {
             await rejectOrRemoveMember(email);
             showToast("已拒絕", "success");
-            renderPendingTab();
+            refresh();
           } catch (err) {
             showToast("失敗：" + err.message, "error");
           }
@@ -224,18 +189,23 @@ export async function renderSettingsPage(container) {
       body.innerHTML = `<tr><td colspan="4" style="color:var(--rose);">載入失敗</td></tr>`;
     }
   }
+}
 
-  // ---------- 成員 ----------
-  async function renderMembersTab() {
-    contentEl.innerHTML = `
-      <div class="card">
-        <table class="simple-table">
-          <thead><tr><th>Email</th><th style="width:200px;">角色</th><th></th></tr></thead>
-          <tbody id="members-table-body"><tr><td colspan="3">載入中…</td></tr></tbody>
-        </table>
-      </div>
-    `;
-    const body = contentEl.querySelector("#members-table-body");
+// ---------- 成員 ----------
+export async function renderMembersPage(container) {
+  container.innerHTML = `
+    <div class="page-header"><h2>成員</h2></div>
+    <div class="card">
+      <table class="simple-table">
+        <thead><tr><th>Email</th><th style="width:200px;">角色</th><th></th></tr></thead>
+        <tbody id="members-table-body"><tr><td colspan="3">載入中…</td></tr></tbody>
+      </table>
+    </div>
+  `;
+  const body = container.querySelector("#members-table-body");
+  await refresh();
+
+  async function refresh() {
     try {
       const all = await listAllMembers();
       const active = all.filter((m) => m.status === "active");
@@ -268,7 +238,7 @@ export async function renderSettingsPage(container) {
             showToast("已更新", "success");
           } catch (err) {
             showToast("失敗：" + err.message, "error");
-            renderMembersTab();
+            refresh();
           }
         });
       });
@@ -279,7 +249,7 @@ export async function renderSettingsPage(container) {
           try {
             await rejectOrRemoveMember(email);
             showToast("已移除", "success");
-            renderMembersTab();
+            refresh();
           } catch (err) {
             showToast("失敗：" + err.message, "error");
           }
@@ -289,7 +259,4 @@ export async function renderSettingsPage(container) {
       body.innerHTML = `<tr><td colspan="3" style="color:var(--rose);">載入失敗</td></tr>`;
     }
   }
-
-  renderTabs();
-  renderContent();
 }

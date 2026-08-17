@@ -2,7 +2,7 @@
 // 主程式：登入流程 + 側邊導覽 + 簡易路由
 // ============================================================
 import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS } from "./auth.js";
-import { renderSettingsPage, uploadImageToCloudinary, saveBrandLogoUrl } from "./settings.js";
+import { renderCloudinaryPage, renderPendingPage, renderMembersPage, uploadImageToCloudinary, saveBrandLogoUrl } from "./settings.js";
 import { showToast } from "./utils.js";
 import { db } from "./firebase-config.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
@@ -18,7 +18,7 @@ async function loadAndApplyBrandLogo() {
     brandLogoUrl = null;
   }
   if (brandLogoUrl) {
-    document.querySelectorAll(".login-seal, .brand-seal").forEach((el) => {
+    document.querySelectorAll(".login-seal, .brand-seal, .user-avatar").forEach((el) => {
       el.innerHTML = `<img src="${brandLogoUrl}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
     });
   }
@@ -32,7 +32,9 @@ const MODULES = [
   { id: "customers", label: "客戶名單",       icon: "🙋", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
   { id: "reports",   label: "統計報表",       icon: "📊", group: "分析", roles: ["superadmin","admin","viewer"] },
   { id: "profit",    label: "利潤總覽",       icon: "💰", group: "分析", roles: ["superadmin","admin","viewer"] },
-  { id: "settings",  label: "系統設定",       icon: "⚙️", group: "管理", roles: ["superadmin"] },
+  { id: "cloudinary", label: "Cloudinary",   icon: "☁️", group: "超級管理員", roles: ["superadmin"] },
+  { id: "pending",    label: "待審核申請",     icon: "🕓", group: "超級管理員", roles: ["superadmin"] },
+  { id: "members",    label: "成員",         icon: "👥", group: "超級管理員", roles: ["superadmin"] },
 ];
 
 const loginScreen = document.getElementById("login-screen");
@@ -160,10 +162,9 @@ async function renderCurrentModule() {
     return;
   }
 
-  if (currentModule === "settings") {
-    await renderSettingsPage(mainContent);
-    return;
-  }
+  if (currentModule === "cloudinary") return renderCloudinaryPage(mainContent);
+  if (currentModule === "pending") return renderPendingPage(mainContent);
+  if (currentModule === "members") return renderMembersPage(mainContent);
 
   mainContent.innerHTML = `
     <div class="page-header"><h2>${meta.label}</h2></div>
@@ -211,29 +212,30 @@ function showApp(user, member) {
   }
 
   const canEditBrand = member.role === "superadmin" || member.role === "admin";
-  userAvatar.classList.toggle("clickable", canEditBrand);
-  userAvatar.title = canEditBrand ? "點擊更換品牌圖案" : "";
+  document.querySelectorAll(".app-brand-seal").forEach((el) => {
+    el.classList.toggle("clickable-seal", canEditBrand);
+    el.title = canEditBrand ? "點擊更換品牌圖案" : "";
+  });
 
   handleHashRoute();
 }
 
-userAvatar.addEventListener("click", () => {
-  if (!userAvatar.classList.contains("clickable")) return;
-  avatarFileInput.click();
+document.querySelectorAll(".app-brand-seal").forEach((el) => {
+  el.addEventListener("click", () => {
+    if (!el.classList.contains("clickable-seal")) return;
+    avatarFileInput.click();
+  });
 });
 
 avatarFileInput.addEventListener("change", async () => {
   const file = avatarFileInput.files?.[0];
   if (!file) return;
-  const originalContent = userAvatar.innerHTML;
-  userAvatar.textContent = "…";
   try {
     const url = await uploadImageToCloudinary(file);
     await saveBrandLogoUrl(url);
     showToast("品牌圖案已更新", "success");
     setTimeout(() => location.reload(), 700);
   } catch (err) {
-    userAvatar.innerHTML = originalContent;
     showToast(err.message, "error");
   } finally {
     avatarFileInput.value = "";
