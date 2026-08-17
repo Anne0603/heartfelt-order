@@ -1,24 +1,22 @@
 rules_version = '2';
 
 // ============================================================
-// heartfelt-order Firestore 安全規則（完整版 v2 — 角色制）
+// heartfelt-order Firestore 安全規則（完整版 v3）
 // 每次新增 collection 都會提供「完整版」規則，直接整份覆蓋貼到
 // Firebase Console 上比較不容易貼錯位置，貼上後記得按「發布」。
 //
 // 角色說明：
 //   superadmin — 唯一、固定，最高權限，唯一能核准/異動任何人角色的人
-//   admin      — 業務功能全權（訂單/商品/包材/客戶/報表/利潤），但不能碰
-//                系統設定與成員審核
-//   order_staff— 訂單/客戶讀寫、可處理出貨，商品與包材唯讀（畫面上會
-//                再把成本欄位藏起來；純前端架構下「畫面隱藏」不等於
-//                「資料庫層級隔離」，之後做商品/報表模組時，成本相關
-//                的敏感欄位會拆到管理員以上才能讀的子路徑）
+//   admin      — 業務功能全權（訂單/商品/包材/客戶/報表/利潤）+ 可換品牌圖案，
+//                但不能碰 Cloudinary 系統設定與成員審核
+//   order_staff— 訂單/客戶讀寫、可處理出貨，商品與包材唯讀
 //   viewer     — 訂單/客戶/包材/報表/利潤全部唯讀，不能寫入任何東西
 //
-// 成員文件結構 members/{email}：
-//   { status: 'pending' | 'active', role: null | 'superadmin' | 'admin' |
-//     'order_staff' | 'viewer', requestedAt, approvedAt, approvedBy,
-//     displayName, photoURL }
+// publicSettings 說明：
+//   這個 collection 存放「不敏感、需要在登入前就顯示」的設定，例如
+//   品牌 Logo 網址、Cloudinary Cloud Name / Upload Preset（這些本來就是
+//   設計成給前端瀏覽器直接呼叫的公開值，不是密鑰）。任何人都能讀，
+//   但只有特定角色能寫。
 // ============================================================
 
 service cloud.firestore {
@@ -70,9 +68,18 @@ service cloud.firestore {
       allow update, delete: if isSuperadmin();
     }
 
-    // ---------- 系統設定（Cloudinary 等）：只有超級管理員 ----------
-    match /settings/{docId} {
-      allow read, write: if isSuperadmin();
+    // ---------- 公開設定（登入前就要能讀） ----------
+    match /publicSettings/brand {
+      allow read: if true;
+      allow write: if hasRole(['superadmin', 'admin']);
+    }
+    match /publicSettings/cloudinary {
+      allow read: if true;
+      allow write: if isSuperadmin();
+    }
+    match /publicSettings/{docId} {
+      allow read: if true;
+      allow write: if false;
     }
 
     // ---------- 訂單 ----------
@@ -103,7 +110,7 @@ service cloud.firestore {
       allow write: if hasRole(['superadmin', 'admin', 'order_staff']);
     }
 
-    // ---------- 利潤總覽的預先算好結果（之後報表模組會用到） ----------
+    // ---------- 利潤總覽的預先算好結果 ----------
     match /profitSummaries/{docId} {
       allow read: if hasRole(['superadmin', 'admin', 'viewer']);
       allow write: if hasRole(['superadmin', 'admin']);

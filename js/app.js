@@ -4,6 +4,26 @@
 import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS } from "./auth.js";
 import { renderSettingsPage } from "./settings.js";
 import { showToast } from "./utils.js";
+import { db } from "./firebase-config.js";
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+// ---------- 品牌圖案：統一套用在登入頁 / 側邊欄 / 每個人的頭像位置 ----------
+let brandLogoUrl = null;
+
+async function loadAndApplyBrandLogo() {
+  try {
+    const snap = await getDoc(doc(db, "publicSettings", "brand"));
+    brandLogoUrl = snap.exists() ? (snap.data().logoUrl || null) : null;
+  } catch (err) {
+    brandLogoUrl = null;
+  }
+  if (brandLogoUrl) {
+    document.querySelectorAll(".login-seal, .brand-seal").forEach((el) => {
+      el.innerHTML = `<img src="${brandLogoUrl}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+    });
+  }
+}
+loadAndApplyBrandLogo();
 
 const MODULES = [
   { id: "orders",    label: "訂單管理",       icon: "📋", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
@@ -12,7 +32,7 @@ const MODULES = [
   { id: "customers", label: "客戶名單",       icon: "🙋", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
   { id: "reports",   label: "統計報表",       icon: "📊", group: "分析", roles: ["superadmin","admin","viewer"] },
   { id: "profit",    label: "利潤總覽",       icon: "💰", group: "分析", roles: ["superadmin","admin","viewer"] },
-  { id: "settings",  label: "系統設定",       icon: "⚙️", group: "管理", roles: ["superadmin"] },
+  { id: "settings",  label: "系統設定",       icon: "⚙️", group: "管理", roles: ["superadmin","admin"] },
 ];
 
 const loginScreen = document.getElementById("login-screen");
@@ -33,7 +53,6 @@ const sidebar = document.getElementById("sidebar");
 const sidebarBackdrop = document.getElementById("sidebar-backdrop");
 const btnSidebarToggle = document.getElementById("btn-sidebar-toggle");
 const btnMobileMenu = document.getElementById("btn-mobile-menu");
-const btnRefreshMobile = document.getElementById("btn-refresh-mobile");
 const btnRefreshDesktop = document.getElementById("btn-refresh-desktop");
 
 let currentModule = "orders";
@@ -93,7 +112,6 @@ btnPendingLogout.addEventListener("click", () => logout());
 function hardRefresh() {
   location.reload();
 }
-btnRefreshMobile.addEventListener("click", hardRefresh);
 btnRefreshDesktop.addEventListener("click", hardRefresh);
 
 // ---------- 側邊導覽（依角色過濾） ----------
@@ -192,10 +210,10 @@ function showApp(user, member) {
   myRole = member.role;
   userChipName.textContent = user.displayName || user.email;
   userChipRole.textContent = ROLE_LABELS[member.role] || member.role;
-  if (user.photoURL) {
-    userAvatar.innerHTML = `<img src="${user.photoURL}" alt="">`;
+  if (brandLogoUrl) {
+    userAvatar.innerHTML = `<img src="${brandLogoUrl}" alt="">`;
   } else {
-    userAvatar.textContent = (user.displayName || user.email || "?").charAt(0).toUpperCase();
+    userAvatar.textContent = "心";
   }
 
   handleHashRoute();
