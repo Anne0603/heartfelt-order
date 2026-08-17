@@ -176,12 +176,49 @@ a { color: inherit; }
   position: sticky;
   top: 0;
   height: 100vh;
+  transition: width .18s ease;
 }
+.sidebar-toggle {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 1px solid var(--ink-line);
+  background: transparent;
+  color: var(--text-on-ink-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.sidebar-toggle:hover { color: var(--text-on-ink); border-color: var(--text-on-ink-muted); }
+
+/* ---------- 收合狀態（僅桌面） ---------- */
+.sidebar.collapsed { width: 68px; }
+.sidebar.collapsed .brand { justify-content: center; padding-left: 0; padding-right: 0; }
+.sidebar.collapsed .brand-text,
+.sidebar.collapsed .nav-label,
+.sidebar.collapsed .nav-item span:not(.nav-icon),
+.sidebar.collapsed .user-meta,
+.sidebar.collapsed .btn-logout-label {
+  display: none;
+}
+.sidebar.collapsed .nav-item { justify-content: center; }
+.sidebar.collapsed .user-chip { justify-content: center; }
+.sidebar.collapsed .btn-logout { display: flex; align-items: center; justify-content: center; }
+
 .brand {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 6px 10px 22px;
+}
+.brand-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 .brand-seal {
   width: 34px;
@@ -403,12 +440,71 @@ table.simple-table tr:last-child td { border-bottom: none; }
 .toast.error { background: var(--rose); }
 .toast.success { background: var(--jade); }
 
+/* ============================================================
+   手機版：側滑抽屜
+   ============================================================ */
+.mobile-topbar { display: none; }
+.sidebar-backdrop { display: none; }
+
 @media (max-width: 720px) {
   .app-shell.show { flex-direction: column; }
-  .sidebar { width: 100%; height: auto; position: relative; flex-direction: row; align-items: center; overflow-x: auto; }
-  .brand { padding: 0 10px; }
-  .nav-group { display: flex; margin-top: 0; }
-  .nav-label { display: none; }
-  .sidebar-footer { display: none; }
+
+  .mobile-topbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--ink);
+    color: var(--text-on-ink);
+    padding: 14px 16px;
+    position: sticky;
+    top: 0;
+    z-index: 30;
+  }
+  .mobile-topbar .brand-seal { width: 28px; height: 28px; font-size: 13px; }
+  .mobile-topbar .name { font-family: var(--font-display); font-size: 15px; font-weight: 700; }
+  .mobile-menu-btn {
+    width: 34px; height: 34px;
+    border-radius: 8px;
+    border: 1px solid var(--ink-line);
+    background: transparent;
+    color: var(--text-on-ink);
+    font-size: 16px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0; left: 0;
+    height: 100vh;
+    width: min(260px, 78vw);
+    transform: translateX(-100%);
+    transition: transform .2s ease;
+    z-index: 50;
+    padding-top: 18px;
+  }
+  .sidebar.mobile-open { transform: translateX(0); }
+  .sidebar.collapsed { width: min(260px, 78vw); } /* 手機版不使用收合寬度 */
+  .sidebar.collapsed .brand-text,
+  .sidebar.collapsed .nav-label,
+  .sidebar.collapsed .nav-item span:not(.nav-icon),
+  .sidebar.collapsed .user-meta { display: block; }
+  .sidebar.collapsed .nav-item { justify-content: flex-start; }
+  .sidebar.collapsed .user-chip { justify-content: flex-start; }
+  .sidebar-toggle { display: none; } /* 手機版不用桌面收合鈕，改用漢堡鈕 */
+  .sidebar-footer { display: block; }
+
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(20,22,28,0.45);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s ease;
+    z-index: 40;
+  }
+  .sidebar-backdrop.show { opacity: 1; pointer-events: auto; }
+
   .main { padding: 20px; }
 }

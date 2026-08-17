@@ -26,8 +26,49 @@ const userChipName = document.getElementById("user-chip-name");
 const userChipRole = document.getElementById("user-chip-role");
 const userAvatar = document.getElementById("user-avatar");
 const btnLogout = document.getElementById("btn-logout");
+const sidebar = document.getElementById("sidebar");
+const sidebarBackdrop = document.getElementById("sidebar-backdrop");
+const btnSidebarToggle = document.getElementById("btn-sidebar-toggle");
+const btnMobileMenu = document.getElementById("btn-mobile-menu");
 
 let currentModule = "orders";
+
+// ---------- 側邊欄：桌面收合 / 手機抽屜 ----------
+const SIDEBAR_COLLAPSE_KEY = "heartfelt-order:sidebarCollapsed";
+const isMobileViewport = () => window.matchMedia("(max-width: 720px)").matches;
+
+function applyStoredCollapseState() {
+  if (isMobileViewport()) return;
+  const collapsed = localStorage.getItem(SIDEBAR_COLLAPSE_KEY) === "1";
+  sidebar.classList.toggle("collapsed", collapsed);
+  btnSidebarToggle.textContent = collapsed ? "▸" : "◂";
+}
+
+function toggleDesktopCollapse() {
+  const collapsed = sidebar.classList.toggle("collapsed");
+  localStorage.setItem(SIDEBAR_COLLAPSE_KEY, collapsed ? "1" : "0");
+  btnSidebarToggle.textContent = collapsed ? "▸" : "◂";
+}
+
+function openMobileDrawer() {
+  sidebar.classList.add("mobile-open");
+  sidebarBackdrop.classList.add("show");
+}
+function closeMobileDrawer() {
+  sidebar.classList.remove("mobile-open");
+  sidebarBackdrop.classList.remove("show");
+}
+
+btnSidebarToggle.addEventListener("click", toggleDesktopCollapse);
+btnMobileMenu.addEventListener("click", openMobileDrawer);
+sidebarBackdrop.addEventListener("click", closeMobileDrawer);
+window.addEventListener("resize", () => {
+  if (!isMobileViewport()) {
+    closeMobileDrawer();
+    applyStoredCollapseState();
+  }
+});
+applyStoredCollapseState();
 
 // ---------- 登入按鈕 ----------
 btnGoogleLogin.addEventListener("click", async () => {
@@ -71,6 +112,7 @@ function renderNav() {
       location.hash = `#/${currentModule}`;
       renderNav();
       renderCurrentModule();
+      if (isMobileViewport()) closeMobileDrawer();
     });
   });
 }

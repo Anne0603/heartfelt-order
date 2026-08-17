@@ -26,12 +26,27 @@
 
   <!-- ============ 主應用框架 ============ -->
   <div class="app-shell" id="app-shell">
-    <aside class="sidebar">
+
+    <!-- 手機版頂部列 -->
+    <div class="mobile-topbar">
+      <button class="mobile-menu-btn" id="btn-mobile-menu" aria-label="開啟選單">☰</button>
+      <div class="brand-seal">心</div>
+      <div class="name">心意月餅</div>
+    </div>
+
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+    <aside class="sidebar" id="sidebar">
       <div class="brand">
-        <div class="brand-seal">心</div>
-        <div class="brand-text">
-          <div class="name">心意月餅</div>
-          <div class="sub">訂單管理系統</div>
+        <div class="brand-row" style="flex:1;">
+          <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+            <div class="brand-seal">心</div>
+            <div class="brand-text">
+              <div class="name">心意月餅</div>
+              <div class="sub">訂單管理系統</div>
+            </div>
+          </div>
+          <button class="sidebar-toggle" id="btn-sidebar-toggle" aria-label="收合側邊欄" title="收合／展開側邊欄">◂</button>
         </div>
       </div>
 
@@ -45,7 +60,7 @@
             <div class="role" id="user-chip-role"></div>
           </div>
         </div>
-        <button class="btn-logout" id="btn-logout">登出</button>
+        <button class="btn-logout" id="btn-logout" title="登出">⏻ <span class="btn-logout-label">登出</span></button>
       </div>
     </aside>
 
