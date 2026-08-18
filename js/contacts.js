@@ -1,0 +1,71 @@
+// ============================================================
+// 客戶與廠商模組
+// 一份聯絡人清單，用 roles 陣列區分身份（可以同時是客戶+廠商）：
+//   roles: ['customer'] | ['supplier'] | ['customer','supplier']
+// ============================================================
+import { db } from "./firebase-config.js";
+import {
+  collection, doc, getDoc, getDocs, addDoc, updateDoc,
+  serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+import { currentSession } from "./auth.js";
+
+const contactsCol = collection(db, "contacts");
+
+function whoAmI() {
+  return {
+    email: currentSession.user?.email || null,
+    name: currentSession.user?.displayName || currentSession.user?.email || "未知",
+  };
+}
+
+export async function listContacts({ includeArchived = false } = {}) {
+  const snap = await getDocs(contactsCol);
+  const list = [];
+  snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
+  const filtered = includeArchived ? list : list.filter((c) => c.status !== "archived");
+  filtered.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  return filtered;
+}
+
+export async function getContact(id) {
+  const snap = await getDoc(doc(db, "contacts", id));
+  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+}
+
+export async function createContact(data) {
+  const who = whoAmI();
+  await addDoc(contactsCol, {
+    ...normalize(data),
+    status: "active",
+    createdBy: who.email,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function updateContact(id, data) {
+  await updateDoc(doc(db, "contacts", id), {
+    ...normalize(data),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function setContactArchived(id, archived) {
+  await updateDoc(doc(db, "contacts", id), {
+    status: archived ? "archived" : "active",
+    updatedAt: serverTimestamp(),
+  });
+}
+
+function normalize(data) {
+  return {
+    name: data.name.trim(),
+    roles: data.roles || [],
+    phone: data.phone?.trim() || "",
+    address: data.address?.trim() || "",
+    note: data.note?.trim() || "",
+    orderChannel: data.roles?.includes("customer") ? (data.orderChannel?.trim() || "") : "",
+    supplyCategory: data.roles?.includes("supplier") ? (data.supplyCategory || "") : "",
+  };
+}

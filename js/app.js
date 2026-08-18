@@ -6,6 +6,7 @@ import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCateg
 import { renderHomePage } from "./home.js";
 import { renderInventoryPage } from "./inventory-ui.js";
 import { renderProductsPage } from "./products-ui.js";
+import { renderContactsPage } from "./contacts-ui.js";
 import { lowStockItems } from "./inventory.js";
 import { showToast } from "./utils.js";
 import { db } from "./firebase-config.js";
@@ -34,7 +35,7 @@ const MODULES = [
   { id: "orders",    label: "訂單管理",       icon: "📋", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
   { id: "products",  label: "商品定價",       icon: "🏷️", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
   { id: "inventory", label: "採購與庫存",     icon: "📦", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
-  { id: "customers", label: "客戶名單",       icon: "🙋", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
+  { id: "contacts",  label: "客戶與廠商",     icon: "🙋", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
   { id: "reports",   label: "統計報表",       icon: "📊", group: "分析", roles: ["superadmin","admin","viewer"] },
   { id: "profit",    label: "利潤總覽",       icon: "💰", group: "分析", roles: ["superadmin","admin","viewer"] },
   { id: "cloudinary", label: "Cloudinary",   icon: "☁️", group: "超級管理員", roles: ["superadmin"] },
@@ -185,6 +186,7 @@ async function renderCurrentModule() {
     return;
   }
   if (currentModule === "products") return renderProductsPage(mainContent);
+  if (currentModule === "contacts") return renderContactsPage(mainContent);
   if (currentModule === "cloudinary") return renderCloudinaryPage(mainContent);
   if (currentModule === "categories") return renderCategoriesPage(mainContent);
   if (currentModule === "pending") {

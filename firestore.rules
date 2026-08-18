@@ -100,8 +100,8 @@ service cloud.firestore {
       allow write: if hasRole(['superadmin', 'admin']);
     }
 
-    // ---------- 客戶名單 ----------
-    match /customers/{customerId} {
+    // ---------- 客戶與廠商 ----------
+    match /contacts/{contactId} {
       allow read: if hasRole(['superadmin', 'admin', 'order_staff', 'viewer']);
       allow write: if hasRole(['superadmin', 'admin', 'order_staff']);
     }

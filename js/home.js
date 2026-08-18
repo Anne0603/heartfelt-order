@@ -12,7 +12,7 @@ const QUICK_ACTIONS = [
   { id: "orders",    label: "訂單列表",     icon: "🔍", roles: ["superadmin","admin","order_staff","viewer"] },
   { id: "orders",    label: "今日出貨",     icon: "🚚", roles: ["superadmin","admin","order_staff","viewer"] },
   { id: "products",  label: "商品管理",     icon: "🏷️", roles: ["superadmin","admin"] },
-  { id: "customers", label: "客戶列表",     icon: "📇", roles: ["superadmin","admin","order_staff","viewer"] },
+  { id: "contacts",  label: "客戶與廠商",   icon: "📇", roles: ["superadmin","admin","order_staff","viewer"] },
 ];
 
 export async function renderHomePage(container, navigateTo) {
