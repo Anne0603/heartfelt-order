@@ -63,6 +63,11 @@ async function listAllMembers() {
   return list;
 }
 
+export async function getPendingCount() {
+  const all = await listAllMembers();
+  return all.filter((m) => m.status === "pending").length;
+}
+
 async function approveMember(email, role) {
   await setDoc(doc(db, "members", email), {
     status: "active",

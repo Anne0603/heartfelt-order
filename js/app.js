@@ -2,7 +2,9 @@
 // 主程式：登入流程 + 側邊導覽 + 簡易路由
 // ============================================================
 import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS } from "./auth.js";
-import { renderCloudinaryPage, renderPendingPage, renderMembersPage, uploadImageToCloudinary, saveBrandLogoUrl } from "./settings.js";
+import { renderCloudinaryPage, renderPendingPage, renderMembersPage, uploadImageToCloudinary, saveBrandLogoUrl, getPendingCount } from "./settings.js";
+import { renderHomePage } from "./home.js";
+import { renderInventoryPage } from "./inventory-ui.js";
 import { showToast } from "./utils.js";
 import { db } from "./firebase-config.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
@@ -26,9 +28,10 @@ async function loadAndApplyBrandLogo() {
 loadAndApplyBrandLogo();
 
 const MODULES = [
+  { id: "home",      label: "首頁",           icon: "🏠", group: "", roles: ["superadmin","admin","order_staff","viewer"] },
   { id: "orders",    label: "訂單管理",       icon: "📋", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
   { id: "products",  label: "商品定價",       icon: "🏷️", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
-  { id: "packaging", label: "包材採購與庫存", icon: "📦", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
+  { id: "inventory", label: "採購與庫存",     icon: "📦", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
   { id: "customers", label: "客戶名單",       icon: "🙋", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
   { id: "reports",   label: "統計報表",       icon: "📊", group: "分析", roles: ["superadmin","admin","viewer"] },
   { id: "profit",    label: "利潤總覽",       icon: "💰", group: "分析", roles: ["superadmin","admin","viewer"] },
@@ -57,8 +60,10 @@ const sidebarBackdrop = document.getElementById("sidebar-backdrop");
 const btnSidebarToggle = document.getElementById("btn-sidebar-toggle");
 const btnMobileMenu = document.getElementById("btn-mobile-menu");
 const btnRefreshDesktop = document.getElementById("btn-refresh-desktop");
+const btnNotifBell = document.getElementById("btn-notif-bell");
+const notifBadge = document.getElementById("notif-badge");
 
-let currentModule = "orders";
+let currentModule = "home";
 let myRole = null;
 
 // ---------- 側邊欄：桌面收合 / 手機抽屜 ----------
@@ -127,7 +132,7 @@ function renderNav() {
   const groups = [...new Set(mods.map((m) => m.group))];
   navContainer.innerHTML = groups.map((group) => `
     <div class="nav-group">
-      <div class="nav-label">${group}</div>
+      ${group ? `<div class="nav-label">${group}</div>` : ""}
       ${mods.filter((m) => m.group === group).map((m) => `
         <div class="nav-item ${m.id === currentModule ? "active" : ""}" data-module="${m.id}">
           <span class="nav-icon">${m.icon}</span><span>${m.label}</span>
@@ -138,13 +143,17 @@ function renderNav() {
 
   navContainer.querySelectorAll("[data-module]").forEach((el) => {
     el.addEventListener("click", () => {
-      currentModule = el.getAttribute("data-module");
-      location.hash = `#/${currentModule}`;
-      renderNav();
-      renderCurrentModule();
-      if (isMobileViewport()) closeMobileDrawer();
+      goToModule(el.getAttribute("data-module"));
     });
   });
+}
+
+function goToModule(id) {
+  currentModule = id;
+  location.hash = `#/${currentModule}`;
+  renderNav();
+  renderCurrentModule();
+  if (isMobileViewport()) closeMobileDrawer();
 }
 
 // ---------- 頁面內容 ----------
@@ -162,8 +171,14 @@ async function renderCurrentModule() {
     return;
   }
 
+  if (currentModule === "home") return renderHomePage(mainContent, goToModule);
+  if (currentModule === "inventory") return renderInventoryPage(mainContent);
   if (currentModule === "cloudinary") return renderCloudinaryPage(mainContent);
-  if (currentModule === "pending") return renderPendingPage(mainContent);
+  if (currentModule === "pending") {
+    await renderPendingPage(mainContent);
+    if (myRole === "superadmin") refreshNotifBell();
+    return;
+  }
   if (currentModule === "members") return renderMembersPage(mainContent);
 
   mainContent.innerHTML = `
@@ -179,7 +194,7 @@ function handleHashRoute() {
   const hash = location.hash.replace("#/", "");
   const mods = visibleModules();
   const valid = mods.some((m) => m.id === hash);
-  currentModule = valid ? hash : (mods[0]?.id || "orders");
+  currentModule = valid ? hash : (mods.find(m=>m.id==='home') ? 'home' : (mods[0]?.id || "orders"));
   renderNav();
   renderCurrentModule();
 }
@@ -217,8 +232,30 @@ function showApp(user, member) {
     el.title = canEditBrand ? "點擊更換品牌圖案" : "";
   });
 
+  if (member.role === "superadmin") {
+    btnNotifBell.style.display = "flex";
+    refreshNotifBell();
+  } else {
+    btnNotifBell.style.display = "none";
+  }
+
   handleHashRoute();
 }
+
+async function refreshNotifBell() {
+  try {
+    const count = await getPendingCount();
+    if (count > 0) {
+      notifBadge.textContent = count;
+      notifBadge.style.display = "inline-block";
+    } else {
+      notifBadge.style.display = "none";
+    }
+  } catch (err) {
+    notifBadge.style.display = "none";
+  }
+}
+btnNotifBell.addEventListener("click", () => goToModule("pending"));
 
 document.querySelectorAll(".app-brand-seal").forEach((el) => {
   el.addEventListener("click", () => {

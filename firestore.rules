@@ -100,14 +100,28 @@ service cloud.firestore {
       allow write: if hasRole(['superadmin', 'admin', 'order_staff']);
     }
 
-    // ---------- 包材（採購與庫存） ----------
-    match /packaging/{itemId} {
+    // ---------- 採購與庫存 ----------
+    match /inventoryItems/{itemId} {
       allow read: if hasRole(['superadmin', 'admin', 'order_staff', 'viewer']);
-      allow write: if hasRole(['superadmin', 'admin', 'order_staff']);
+      allow create, update: if hasRole(['superadmin', 'admin', 'order_staff']);
+      allow delete: if isSuperadmin();
     }
-    match /packagingTransactions/{txId} {
+    match /inventoryPurchases/{recId} {
       allow read: if hasRole(['superadmin', 'admin', 'order_staff', 'viewer']);
-      allow write: if hasRole(['superadmin', 'admin', 'order_staff']);
+      allow create: if hasRole(['superadmin', 'admin', 'order_staff']);
+      allow update: if hasRole(['superadmin', 'admin']);
+      allow delete: if isSuperadmin();
+    }
+    match /inventoryUsages/{recId} {
+      allow read: if hasRole(['superadmin', 'admin', 'order_staff', 'viewer']);
+      allow create: if hasRole(['superadmin', 'admin', 'order_staff']);
+      allow update: if hasRole(['superadmin', 'admin']);
+      allow delete: if isSuperadmin();
+    }
+    match /inventoryStocktakes/{recId} {
+      allow read: if hasRole(['superadmin', 'admin', 'order_staff', 'viewer']);
+      allow create: if hasRole(['superadmin', 'admin', 'order_staff']);
+      allow delete: if isSuperadmin();
     }
 
     // ---------- 利潤總覽的預先算好結果 ----------
