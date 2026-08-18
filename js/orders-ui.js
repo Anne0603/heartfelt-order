@@ -11,6 +11,7 @@ import {
 import { listProducts, calcProductCost } from "./products.js";
 import { listItems, buildItemsIndex } from "./inventory.js";
 import { listContacts, createContact } from "./contacts.js";
+import { printOrderSlip } from "./print-slip.js";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
@@ -266,12 +267,15 @@ export async function renderOrdersPage(container, initialFilter = null) {
 
       const contactSel = overlay.querySelector("#o-contact");
       const contactName = contactSel.selectedOptions[0]?.textContent === "不指定" ? "" : contactSel.selectedOptions[0]?.textContent;
+      const selectedContact = contacts.find((c) => c.id === contactSel.value);
 
       const data = {
         orderDate: overlay.querySelector("#o-date").value,
         orderChannel: overlay.querySelector("#o-channel").value,
         contactId: contactSel.value || null,
         contactName,
+        contactPhone: selectedContact?.phone || "",
+        contactAddress: selectedContact?.address || "",
         lineItems: validLines,
         shippingFee: overlay.querySelector("#o-shipping").value,
         pickupMethod: overlay.querySelector("#o-pickup").value,
@@ -373,7 +377,8 @@ export async function renderOrdersPage(container, initialFilter = null) {
 
       <div id="detail-actions" style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;"></div>
       <div id="detail-msg" class="hint" style="margin-top:8px;"></div>
-      <div style="display:flex;justify-content:flex-end;margin-top:14px;">
+      <div style="display:flex;justify-content:space-between;margin-top:14px;">
+        <button class="btn btn-secondary" id="d-print">列印出貨單</button>
         <button class="btn btn-secondary" id="d-close">關閉</button>
       </div>
     `;
@@ -381,6 +386,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
 
   function wireDetailEvents(overlay, order) {
     overlay.querySelector("#d-close").addEventListener("click", () => overlay.remove());
+    overlay.querySelector("#d-print").addEventListener("click", () => printOrderSlip(order));
     const actionsEl = overlay.querySelector("#detail-actions");
     const msgEl = overlay.querySelector("#detail-msg");
 
