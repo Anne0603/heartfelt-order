@@ -1,21 +1,26 @@
 // ============================================================
 // 採購與庫存模組
-// 項目分兩種類型：
-//   packaging（包材）— 幕後消耗品，靠配方被扣，不直接賣
+// 項目分三種類型：
+//   packaging（包材）— 單一幕後消耗品，靠配方被扣，不直接賣
+//   bundle（組合包）— 由好幾種包材組成的一組（例如禮盒＝盒子+緞帶+提袋），
+//                      本身不用「採購」，庫存/成本都是即時從組成的包材算出來
 //   resale（現貨商品）— 直接進貨轉賣，出貨直接扣庫存
 //
 // 資料模型（用「累積總量」而不是直接存庫存/均價，這樣作廢/刪除
 // 才能正確回推正確的庫存與加權平均單價，不會兜不起來）：
 //   inventoryItems/{id}:
 //     name, type, category, lowStockThreshold, status,
-//     totalPurchasedQty, totalPurchasedCost,   // 加權平均單價 = cost/qty
-//     totalUsedQty,                            // 消耗掉的量
-//     stocktakeAdjustment                      // 盤點校正的正負值
-//   stock = totalPurchasedQty - totalUsedQty + stocktakeAdjustment
-//   avgCost = totalPurchasedQty > 0 ? totalPurchasedCost / totalPurchasedQty : 0
+//     totalPurchasedQty, totalPurchasedCost,   // 加權平均單價 = cost/qty（packaging/resale 用）
+//     totalUsedQty,                            // 消耗掉的量（packaging/resale 用）
+//     stocktakeAdjustment                      // 盤點校正的正負值（packaging/resale 用）
+//     components: [{ itemId, name, qty }]      // 只有 bundle 用：這組裡面包含哪些包材、各自幾個
+//   stock(packaging/resale) = totalPurchasedQty - totalUsedQty + stocktakeAdjustment
+//   avgCost(packaging/resale) = totalPurchasedQty > 0 ? totalPurchasedCost / totalPurchasedQty : 0
+//   stock(bundle) = 組成包材裡，「最少能組成幾組」（取每個組件 floor(庫存/用量) 的最小值）
+//   avgCost(bundle) = Σ(組件均價 × 用量)
 //
-//   inventoryPurchases/{id}  進貨記錄
-//   inventoryUsages/{id}     領用/消耗記錄（含出貨自動扣、手動例外）
+//   inventoryPurchases/{id}  進貨記錄（只會是 packaging/resale）
+//   inventoryUsages/{id}     領用/消耗記錄（含出貨自動扣、手動例外；bundle 會展開成多筆組件記錄）
 //   inventoryStocktakes/{id} 盤點記錄
 // ============================================================
 import { db } from "./firebase-config.js";
@@ -37,11 +42,40 @@ function whoAmI() {
   };
 }
 
-export function computeStock(item) {
+export function buildItemsIndex(items) {
+  const map = new Map();
+  items.forEach((i) => map.set(i.id, i));
+  return map;
+}
+
+function leafStock(item) {
   return (item.totalPurchasedQty || 0) - (item.totalUsedQty || 0) + (item.stocktakeAdjustment || 0);
 }
-export function computeAvgCost(item) {
+function leafAvgCost(item) {
   return item.totalPurchasedQty > 0 ? item.totalPurchasedCost / item.totalPurchasedQty : 0;
+}
+
+// itemsById 只有算 bundle 的時候才需要（要去查組件）
+export function computeStock(item, itemsById) {
+  if (item.type !== "bundle") return leafStock(item);
+  if (!itemsById || !item.components?.length) return 0;
+  let min = Infinity;
+  for (const c of item.components) {
+    const comp = itemsById.get(c.itemId);
+    if (!comp || !c.qty) return 0;
+    const possible = Math.floor(computeStock(comp, itemsById) / c.qty);
+    min = Math.min(min, possible);
+  }
+  return min === Infinity ? 0 : min;
+}
+export function computeAvgCost(item, itemsById) {
+  if (item.type !== "bundle") return leafAvgCost(item);
+  if (!itemsById || !item.components?.length) return 0;
+  return item.components.reduce((sum, c) => {
+    const comp = itemsById.get(c.itemId);
+    if (!comp) return sum;
+    return sum + computeAvgCost(comp, itemsById) * c.qty;
+  }, 0);
 }
 
 // ---------- 項目主檔 ----------
@@ -54,11 +88,12 @@ export async function listItems({ includeArchived = false } = {}) {
   return filtered;
 }
 
-export async function createItem({ name, type, category, lowStockThreshold }) {
+// components 只有 type === 'bundle' 時需要： [{ itemId, name, qty }]
+export async function createItem({ name, type, category, lowStockThreshold, components }) {
   const who = whoAmI();
   await addDoc(itemsCol, {
     name: name.trim(),
-    type, // 'packaging' | 'resale'
+    type, // 'packaging' | 'bundle' | 'resale'
     category: category?.trim() || "",
     lowStockThreshold: Number(lowStockThreshold) || 0,
     status: "active",
@@ -66,19 +101,22 @@ export async function createItem({ name, type, category, lowStockThreshold }) {
     totalPurchasedCost: 0,
     totalUsedQty: 0,
     stocktakeAdjustment: 0,
+    components: type === "bundle" ? (components || []) : null,
     createdBy: who.email,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
 }
 
-export async function updateItem(itemId, { name, category, lowStockThreshold }) {
-  await updateDoc(doc(db, "inventoryItems", itemId), {
+export async function updateItem(itemId, { name, category, lowStockThreshold, components, type }) {
+  const payload = {
     name: name.trim(),
     category: category?.trim() || "",
     lowStockThreshold: Number(lowStockThreshold) || 0,
     updatedAt: serverTimestamp(),
-  });
+  };
+  if (type === "bundle") payload.components = components || [];
+  await updateDoc(doc(db, "inventoryItems", itemId), payload);
 }
 
 export async function setItemArchived(itemId, archived) {
@@ -88,7 +126,7 @@ export async function setItemArchived(itemId, archived) {
   });
 }
 
-// ---------- 進貨（可批次） ----------
+// ---------- 進貨（可批次，只能是 packaging / resale） ----------
 // rows: [{ itemId, qty, amount, note }]
 export async function addPurchaseBatch(rows, { date, freightTotal = 0 } = {}) {
   const who = whoAmI();
@@ -105,6 +143,7 @@ export async function addPurchaseBatch(rows, { date, freightTotal = 0 } = {}) {
       const itemSnap = await tx.get(itemRef);
       if (!itemSnap.exists()) throw new Error("找不到項目");
       const item = itemSnap.data();
+      if (item.type === "bundle") throw new Error("組合包不能直接採購，請採購裡面的包材");
       tx.update(itemRef, {
         totalPurchasedQty: (item.totalPurchasedQty || 0) + qty,
         totalPurchasedCost: (item.totalPurchasedCost || 0) + amount,
@@ -127,7 +166,7 @@ export async function addPurchaseBatch(rows, { date, freightTotal = 0 } = {}) {
   }
 }
 
-// ---------- 領用/消耗 ----------
+// ---------- 領用/消耗（單一葉節點項目：packaging 或 resale） ----------
 export async function addUsage({ itemId, qty, note, source = "manual", orderId = null }) {
   const who = whoAmI();
   const itemRef = doc(db, "inventoryItems", itemId);
@@ -135,7 +174,7 @@ export async function addUsage({ itemId, qty, note, source = "manual", orderId =
     const itemSnap = await tx.get(itemRef);
     if (!itemSnap.exists()) throw new Error("找不到項目");
     const item = itemSnap.data();
-    const stock = computeStock(item);
+    const stock = leafStock(item);
     if (qty > stock) {
       throw new Error(`庫存不足：${item.name} 只剩 ${stock}，不能領用 ${qty}`);
     }
@@ -160,7 +199,27 @@ export async function addUsage({ itemId, qty, note, source = "manual", orderId =
   });
 }
 
-// ---------- 盤點 ----------
+// ---------- 領用/消耗（任何項目：packaging / resale 直接扣；bundle 會展開扣所有組件） ----------
+export async function consumeItem({ itemId, qty, note, source = "manual", orderId = null }) {
+  const itemSnap = await getDoc(doc(db, "inventoryItems", itemId));
+  if (!itemSnap.exists()) throw new Error("找不到項目");
+  const item = itemSnap.data();
+  if (item.type === "bundle") {
+    for (const c of item.components || []) {
+      await addUsage({
+        itemId: c.itemId,
+        qty: qty * c.qty,
+        note: `${note || ""}（來自組合包：${item.name}）`.trim(),
+        source,
+        orderId,
+      });
+    }
+  } else {
+    await addUsage({ itemId, qty, note, source, orderId });
+  }
+}
+
+// ---------- 盤點（只能對 packaging / resale 做，bundle 是算出來的不能盤點） ----------
 export async function stocktakeAdjust({ itemId, countedQty, note }) {
   const who = whoAmI();
   const itemRef = doc(db, "inventoryItems", itemId);
@@ -168,7 +227,8 @@ export async function stocktakeAdjust({ itemId, countedQty, note }) {
     const itemSnap = await tx.get(itemRef);
     if (!itemSnap.exists()) throw new Error("找不到項目");
     const item = itemSnap.data();
-    const systemQtyBefore = computeStock(item);
+    if (item.type === "bundle") throw new Error("組合包的庫存是自動算出來的，請盤點裡面的包材");
+    const systemQtyBefore = leafStock(item);
     const diff = Number(countedQty) - systemQtyBefore;
     tx.update(itemRef, {
       stocktakeAdjustment: (item.stocktakeAdjustment || 0) + diff,
@@ -231,7 +291,6 @@ export async function permanentlyDelete(kind, recordId) {
   const recRef = doc(db, colName, recordId);
   const recSnap = await getDoc(recRef);
   if (recSnap.exists() && recSnap.data().status !== "void") {
-    // 如果還沒作廢，先把庫存影響還原，再刪除
     await voidRecord(kind, recordId);
   }
   await deleteDoc(recRef);
@@ -265,5 +324,6 @@ export async function listStocktakes(itemId) {
 
 export async function lowStockItems() {
   const items = await listItems();
-  return items.filter((i) => i.lowStockThreshold > 0 && computeStock(i) <= i.lowStockThreshold);
+  const itemsById = buildItemsIndex(items);
+  return items.filter((i) => i.lowStockThreshold > 0 && computeStock(i, itemsById) <= i.lowStockThreshold);
 }

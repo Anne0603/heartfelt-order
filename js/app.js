@@ -5,6 +5,7 @@ import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS } 
 import { renderCloudinaryPage, renderPendingPage, renderMembersPage, uploadImageToCloudinary, saveBrandLogoUrl, getPendingCount } from "./settings.js";
 import { renderHomePage } from "./home.js";
 import { renderInventoryPage } from "./inventory-ui.js";
+import { renderProductsPage } from "./products-ui.js";
 import { lowStockItems } from "./inventory.js";
 import { showToast } from "./utils.js";
 import { db } from "./firebase-config.js";
@@ -182,6 +183,7 @@ async function renderCurrentModule() {
     refreshNotifBell();
     return;
   }
+  if (currentModule === "products") return renderProductsPage(mainContent);
   if (currentModule === "cloudinary") return renderCloudinaryPage(mainContent);
   if (currentModule === "pending") {
     await renderPendingPage(mainContent);

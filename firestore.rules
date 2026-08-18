@@ -93,6 +93,9 @@ service cloud.firestore {
       allow read: if hasRole(['superadmin', 'admin', 'order_staff', 'viewer']);
       allow write: if hasRole(['superadmin', 'admin']);
     }
+    match /actualCostLogs/{logId} {
+      allow read, write: if hasRole(['superadmin', 'admin']);
+    }
 
     // ---------- 客戶名單 ----------
     match /customers/{customerId} {
