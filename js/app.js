@@ -8,6 +8,8 @@ import { renderInventoryPage } from "./inventory-ui.js";
 import { renderProductsPage } from "./products-ui.js";
 import { renderContactsPage } from "./contacts-ui.js";
 import { renderOrdersPage } from "./orders-ui.js";
+import { renderReportsPage } from "./reports-ui.js";
+import { renderProfitPage } from "./profit-ui.js";
 import { lowStockItems } from "./inventory.js";
 import { showToast } from "./utils.js";
 import { db } from "./firebase-config.js";
@@ -195,6 +197,8 @@ async function renderCurrentModule() {
   }
   if (currentModule === "products") return renderProductsPage(mainContent);
   if (currentModule === "contacts") return renderContactsPage(mainContent);
+  if (currentModule === "reports") return renderReportsPage(mainContent);
+  if (currentModule === "profit") return renderProfitPage(mainContent);
   if (currentModule === "cloudinary") return renderCloudinaryPage(mainContent);
   if (currentModule === "categories") return renderCategoriesPage(mainContent);
   if (currentModule === "pending") {

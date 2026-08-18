@@ -139,8 +139,8 @@ service cloud.firestore {
       allow delete: if isSuperadmin();
     }
 
-    // ---------- 利潤總覽的預先算好結果 ----------
-    match /profitSummaries/{docId} {
+    // ---------- 營業支出（利潤總覽用） ----------
+    match /expenses/{expenseId} {
       allow read: if hasRole(['superadmin', 'admin', 'viewer']);
       allow write: if hasRole(['superadmin', 'admin']);
     }
