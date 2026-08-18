@@ -85,7 +85,16 @@ service cloud.firestore {
     // ---------- 訂單 ----------
     match /orders/{orderId} {
       allow read: if hasRole(['superadmin', 'admin', 'order_staff', 'viewer']);
-      allow write: if hasRole(['superadmin', 'admin', 'order_staff']);
+      allow create: if hasRole(['superadmin', 'admin', 'order_staff']);
+      // 訂單進出貨人員可以編輯/推進狀態，但不能把 voided 改成 true（作廢限管理員以上）
+      allow update: if hasRole(['superadmin', 'admin'])
+        || (hasRole(['order_staff']) && request.resource.data.voided == resource.data.voided);
+      allow delete: if isSuperadmin();
+    }
+
+    // ---------- 訂單編號流水號（跟訂單一樣的寫入權限） ----------
+    match /counters/{counterId} {
+      allow read, write: if hasRole(['superadmin', 'admin', 'order_staff']);
     }
 
     // ---------- 分類管理（商品/採購與庫存共用） ----------

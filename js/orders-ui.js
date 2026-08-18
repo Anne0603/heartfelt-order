@@ -1,0 +1,473 @@
+// ============================================================
+// 訂單管理頁面 UI
+// ============================================================
+import { showToast } from "./utils.js";
+import { currentSession } from "./auth.js";
+import {
+  listOrders, createOrder, updateOrderBeforeShip, updatePaymentStatus,
+  markPreparing, markShipped, markDone, voidOrder,
+  SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS,
+} from "./orders.js";
+import { listProducts, calcProductCost } from "./products.js";
+import { listItems, buildItemsIndex } from "./inventory.js";
+import { listContacts, createContact } from "./contacts.js";
+
+function canSeeCost() {
+  return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
+}
+function canWrite() {
+  return ["superadmin", "admin", "order_staff"].includes(currentSession.member?.role);
+}
+function canVoid() {
+  return ["superadmin", "admin"].includes(currentSession.member?.role);
+}
+
+function shipBadgeClass(status) {
+  if (status === "done") return "ok";
+  if (status === "shipped") return "ok";
+  if (status === "preparing") return "warn";
+  return "warn";
+}
+function paymentBadgeClass(status) {
+  if (status === "paid") return "ok";
+  if (status === "deposit") return "warn";
+  return "bad";
+}
+
+export async function renderOrdersPage(container, initialFilter = null) {
+  let orders = [];
+  let products = [];
+  let productsById = new Map();
+  let invItems = [];
+  let itemsById = new Map();
+  let contacts = [];
+  let searchText = "";
+  let filterShipStatus = initialFilter?.shipStatus || "all";
+  let filterToday = !!initialFilter?.today;
+
+  container.innerHTML = `
+    <div class="page-header">
+      <h2>訂單管理</h2>
+      ${canWrite() ? `<button class="btn btn-primary" id="btn-new-order">新增訂單</button>` : ""}
+    </div>
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <input type="text" id="search-input" placeholder="搜尋訂單編號/客戶" style="flex:1;min-width:160px;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;" />
+        <select id="filter-status" style="padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;">
+          <option value="all">全部狀態</option>
+          <option value="pending">待處理</option>
+          <option value="preparing">備貨中</option>
+          <option value="shipped">已出貨</option>
+          <option value="done">已完成</option>
+        </select>
+        <label style="display:flex;align-items:center;gap:6px;font-size:14px;color:var(--text-muted);">
+          <input type="checkbox" id="filter-today" ${filterToday ? "checked" : ""} /> 只看今天應出貨
+        </label>
+      </div>
+    </div>
+    <div id="orders-list"></div>
+  `;
+
+  container.querySelector("#filter-status").value = filterShipStatus;
+  container.querySelector("#search-input").addEventListener("input", (e) => {
+    searchText = e.target.value.trim().toLowerCase();
+    renderList();
+  });
+  container.querySelector("#filter-status").addEventListener("change", (e) => {
+    filterShipStatus = e.target.value;
+    renderList();
+  });
+  container.querySelector("#filter-today").addEventListener("change", (e) => {
+    filterToday = e.target.checked;
+    renderList();
+  });
+  if (canWrite()) {
+    container.querySelector("#btn-new-order").addEventListener("click", () => openOrderModal());
+  }
+
+  async function reload() {
+    const listEl = container.querySelector("#orders-list");
+    listEl.innerHTML = `<div class="card" style="color:var(--text-muted);">載入中…</div>`;
+    try {
+      [orders, products, invItems, contacts] = await Promise.all([
+        listOrders(),
+        listProducts(),
+        listItems({ includeArchived: true }),
+        listContacts(),
+      ]);
+      productsById = new Map(products.map((p) => [p.id, p]));
+      itemsById = buildItemsIndex(invItems);
+      renderList();
+    } catch (err) {
+      listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${err.message}</div>`;
+    }
+  }
+
+  function renderList() {
+    const listEl = container.querySelector("#orders-list");
+    const today = new Date().toISOString().slice(0, 10);
+    let filtered = orders;
+    if (filterShipStatus !== "all") filtered = filtered.filter((o) => o.shipStatus === filterShipStatus);
+    if (filterToday) filtered = filtered.filter((o) => o.expectedDate === today && !o.voided);
+    if (searchText) {
+      filtered = filtered.filter((o) =>
+        (o.orderNumber || "").toLowerCase().includes(searchText) ||
+        (o.contactName || "").toLowerCase().includes(searchText)
+      );
+    }
+
+    if (filtered.length === 0) {
+      listEl.innerHTML = `<div class="card" style="color:var(--text-muted);text-align:center;">沒有符合的訂單</div>`;
+      return;
+    }
+
+    listEl.innerHTML = filtered.map((o) => {
+      const profit = o.lineItems.reduce((s, li) => s + (li.subtotal - li.unitCost * li.qty), 0);
+      return `
+        <div class="card" style="margin-bottom:10px;${o.voided ? "opacity:0.5;" : ""}" data-order-row="${o.id}">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+            <div>
+              <div style="font-weight:700;font-size:15px;color:var(--ink);font-family:var(--font-mono);">${o.orderNumber} ${o.voided ? `<span class="hint">(已作廢)</span>` : ""}</div>
+              <div style="font-size:14px;margin-top:2px;">${o.contactName || "（未指定客戶）"} · ${o.orderDate}</div>
+              ${o.expectedDate ? `<div class="hint">預計出貨/取貨：${o.expectedDate}</div>` : ""}
+            </div>
+            <div style="text-align:right;">
+              <div style="font-family:var(--font-mono);font-size:18px;font-weight:700;color:var(--ink);">$${o.totalAmount}</div>
+              ${canSeeCost() ? `<div style="font-size:12px;color:${profit>=0?"var(--jade)":"var(--rose)"};">毛利 $${profit.toFixed(0)}</div>` : ""}
+            </div>
+          </div>
+          <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
+            <span class="seal-badge ${shipBadgeClass(o.shipStatus)}"><span class="dot"></span>${SHIP_STATUS_LABELS[o.shipStatus]}</span>
+            <span class="seal-badge ${paymentBadgeClass(o.paymentStatus)}"><span class="dot"></span>${PAYMENT_STATUS_LABELS[o.paymentStatus]}</span>
+          </div>
+          <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-secondary" data-detail="${o.id}" style="padding:7px 14px;font-size:13px;">查看/處理</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    listEl.querySelectorAll("[data-detail]").forEach((btn) => {
+      btn.addEventListener("click", () => openDetailModal(btn.getAttribute("data-detail")));
+    });
+  }
+
+  function openModal(innerHtml, width = 560) {
+    const overlay = document.createElement("div");
+    overlay.style.cssText = "position:fixed;inset:0;background:rgba(20,22,28,0.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;";
+    overlay.innerHTML = `<div class="card" style="max-width:${width}px;width:100%;max-height:90vh;overflow-y:auto;" id="modal-box">${innerHtml}</div>`;
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+    return overlay;
+  }
+
+  // ---------- 新增 / 編輯訂單（出貨前） ----------
+  function openOrderModal(order = null) {
+    const isEdit = !!order;
+    const activeProducts = products.filter((p) => p.status !== "archived");
+    let lineItems = isEdit
+      ? order.lineItems.map((li) => ({ ...li }))
+      : [{ productId: "", productName: "", qty: 1, unitPrice: 0 }];
+    let selectedContactId = order?.contactId || "";
+
+    const overlay = openModal(`
+      <h3 style="margin-bottom:16px;">${isEdit ? "編輯訂單" : "新增訂單"}</h3>
+
+      <div class="field"><label>客戶</label>
+        <div style="display:flex;gap:8px;">
+          <select id="o-contact" style="flex:1;">
+            <option value="">不指定</option>
+            ${contacts.filter(c=>c.roles?.includes("customer")).map((c) => `<option value="${c.id}" ${c.id === selectedContactId ? "selected" : ""}>${c.name}</option>`).join("")}
+          </select>
+          <button class="btn btn-secondary" id="o-new-contact" type="button" style="padding:8px 12px;">新增客戶</button>
+        </div>
+      </div>
+      <div class="field"><label>訂購管道（選填）</label><input type="text" id="o-channel" value="${order?.orderChannel || ""}" /></div>
+      <div class="field"><label>訂購日期</label><input type="text" id="o-date" value="${order?.orderDate || new Date().toISOString().slice(0,10)}" /></div>
+
+      <label style="display:block;font-size:14.5px;font-weight:600;color:var(--ink);margin:14px 0 6px;">商品品項</label>
+      <div id="o-lineitems"></div>
+      <button class="btn btn-secondary" id="o-add-line" type="button" style="margin:8px 0 14px;">+ 新增品項</button>
+
+      <div class="field"><label>運費（選填）</label><input type="number" id="o-shipping" value="${order?.shippingFee || 0}" /></div>
+      <div class="field"><label>取貨方式（選填）</label><input type="text" id="o-pickup" placeholder="例如 自取 / 宅配" value="${order?.pickupMethod || ""}" /></div>
+      <div class="field"><label>預計出貨/取貨日期（選填）</label><input type="text" id="o-expected" value="${order?.expectedDate || ""}" /></div>
+      <div class="field"><label>備註（選填）</label><input type="text" id="o-note" value="${order?.note || ""}" /></div>
+
+      <div id="o-total-preview" style="text-align:right;font-size:15px;font-weight:700;margin:10px 0;"></div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn btn-secondary" id="o-cancel">取消</button>
+        <button class="btn btn-primary" id="o-save">儲存</button>
+      </div>
+    `, 640);
+
+    function productOptions(selected) {
+      return `<option value="">選擇商品</option>` + activeProducts.map((p) =>
+        `<option value="${p.id}" ${p.id === selected ? "selected" : ""}>${p.name}（$${p.price}）</option>`
+      ).join("");
+    }
+
+    function updateTotalPreview() {
+      const itemsTotal = lineItems.reduce((s, li) => s + (Number(li.qty) || 0) * (Number(li.unitPrice) || 0), 0);
+      const shipping = Number(overlay.querySelector("#o-shipping").value || 0);
+      overlay.querySelector("#o-total-preview").textContent = `總金額：$${(itemsTotal + shipping).toFixed(0)}`;
+    }
+
+    function renderLineItems() {
+      const wrap = overlay.querySelector("#o-lineitems");
+      wrap.innerHTML = lineItems.map((li, idx) => `
+        <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;" data-line="${idx}">
+          <select class="l-product" style="flex:2;padding:8px;border:1px solid var(--paper-line);border-radius:8px;">${productOptions(li.productId)}</select>
+          <input type="number" class="l-qty" placeholder="數量" value="${li.qty}" style="width:70px;padding:8px;border:1px solid var(--paper-line);border-radius:8px;" />
+          <input type="number" class="l-price" placeholder="單價" value="${li.unitPrice}" style="width:80px;padding:8px;border:1px solid var(--paper-line);border-radius:8px;" />
+          ${lineItems.length > 1 ? `<button class="btn btn-danger l-remove" type="button" style="padding:6px 10px;font-size:12px;">刪</button>` : ""}
+        </div>
+      `).join("");
+
+      wrap.querySelectorAll("[data-line]").forEach((rowEl) => {
+        const idx = Number(rowEl.getAttribute("data-line"));
+        rowEl.querySelector(".l-product").addEventListener("change", (e) => {
+          const p = activeProducts.find((x) => x.id === e.target.value);
+          lineItems[idx].productId = e.target.value;
+          lineItems[idx].productName = p?.name || "";
+          if (p) { lineItems[idx].unitPrice = p.price; renderLineItems(); }
+          updateTotalPreview();
+        });
+        rowEl.querySelector(".l-qty").addEventListener("input", (e) => { lineItems[idx].qty = e.target.value; updateTotalPreview(); });
+        rowEl.querySelector(".l-price").addEventListener("input", (e) => { lineItems[idx].unitPrice = e.target.value; updateTotalPreview(); });
+        const rm = rowEl.querySelector(".l-remove");
+        if (rm) rm.addEventListener("click", () => { lineItems.splice(idx, 1); renderLineItems(); updateTotalPreview(); });
+      });
+    }
+    renderLineItems();
+    updateTotalPreview();
+    overlay.querySelector("#o-shipping").addEventListener("input", updateTotalPreview);
+
+    overlay.querySelector("#o-add-line").addEventListener("click", () => {
+      lineItems.push({ productId: "", productName: "", qty: 1, unitPrice: 0 });
+      renderLineItems();
+    });
+
+    overlay.querySelector("#o-new-contact").addEventListener("click", () => {
+      openQuickContactModal((newContact) => {
+        contacts.push(newContact);
+        const sel = overlay.querySelector("#o-contact");
+        sel.insertAdjacentHTML("beforeend", `<option value="${newContact.id}" selected>${newContact.name}</option>`);
+        sel.value = newContact.id;
+      });
+    });
+
+    overlay.querySelector("#o-cancel").addEventListener("click", () => overlay.remove());
+    overlay.querySelector("#o-save").addEventListener("click", async (e) => {
+      const btn = e.currentTarget;
+      const validLines = lineItems.filter((li) => li.productId && Number(li.qty) > 0);
+      if (validLines.length === 0) { showToast("請至少選一個商品品項", "error"); return; }
+
+      const contactSel = overlay.querySelector("#o-contact");
+      const contactName = contactSel.selectedOptions[0]?.textContent === "不指定" ? "" : contactSel.selectedOptions[0]?.textContent;
+
+      const data = {
+        orderDate: overlay.querySelector("#o-date").value,
+        orderChannel: overlay.querySelector("#o-channel").value,
+        contactId: contactSel.value || null,
+        contactName,
+        lineItems: validLines,
+        shippingFee: overlay.querySelector("#o-shipping").value,
+        pickupMethod: overlay.querySelector("#o-pickup").value,
+        expectedDate: overlay.querySelector("#o-expected").value,
+        note: overlay.querySelector("#o-note").value,
+      };
+
+      btn.disabled = true;
+      try {
+        if (isEdit) await updateOrderBeforeShip(order.id, data, productsById, itemsById);
+        else await createOrder(data, productsById, itemsById);
+        showToast("已儲存", "success");
+        overlay.remove();
+        await reload();
+      } catch (err) {
+        showToast("失敗：" + err.message, "error");
+        btn.disabled = false;
+      }
+    });
+  }
+
+  // ---------- 快速新增客戶（訂單表單內用） ----------
+  function openQuickContactModal(onCreated) {
+    const overlay = openModal(`
+      <h3 style="margin-bottom:16px;">新增客戶</h3>
+      <div class="field"><label>名稱</label><input type="text" id="qc-name" /></div>
+      <div class="field"><label>聯絡電話（選填）</label><input type="text" id="qc-phone" /></div>
+      <div class="field"><label>地址（選填）</label><input type="text" id="qc-address" /></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn btn-secondary" id="qc-cancel">取消</button>
+        <button class="btn btn-primary" id="qc-save">新增</button>
+      </div>
+    `, 420);
+    overlay.querySelector("#qc-cancel").addEventListener("click", () => overlay.remove());
+    overlay.querySelector("#qc-save").addEventListener("click", async (e) => {
+      const name = overlay.querySelector("#qc-name").value.trim();
+      if (!name) { showToast("請輸入名稱", "error"); return; }
+      e.currentTarget.disabled = true;
+      try {
+        const data = {
+          name,
+          roles: ["customer"],
+          phone: overlay.querySelector("#qc-phone").value,
+          address: overlay.querySelector("#qc-address").value,
+        };
+        await createContact(data);
+        const fresh = await listContacts();
+        const created = fresh.find((c) => c.name === name) || { id: "", name };
+        showToast("已新增客戶", "success");
+        overlay.remove();
+        onCreated(created);
+      } catch (err) {
+        showToast("失敗：" + err.message, "error");
+        e.currentTarget.disabled = false;
+      }
+    });
+  }
+
+  // ---------- 查看 / 處理訂單 ----------
+  async function openDetailModal(orderId) {
+    const order = orders.find((o) => o.id === orderId);
+    const overlay = openModal(renderDetailHtml(order), 600);
+    wireDetailEvents(overlay, order);
+  }
+
+  function renderDetailHtml(order) {
+    const profit = order.lineItems.reduce((s, li) => s + (li.subtotal - li.unitCost * li.qty), 0);
+    return `
+      <h3 style="margin-bottom:4px;font-family:var(--font-mono);">${order.orderNumber}</h3>
+      <div class="hint" style="margin-bottom:14px;">${order.contactName || "（未指定客戶）"} · ${order.orderDate}${order.orderChannel ? " · " + order.orderChannel : ""}</div>
+
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
+        <span class="seal-badge ${shipBadgeClass(order.shipStatus)}"><span class="dot"></span>${SHIP_STATUS_LABELS[order.shipStatus]}</span>
+        <span class="seal-badge ${paymentBadgeClass(order.paymentStatus)}"><span class="dot"></span>${PAYMENT_STATUS_LABELS[order.paymentStatus]}</span>
+        ${order.voided ? `<span class="seal-badge bad"><span class="dot"></span>已作廢</span>` : ""}
+      </div>
+
+      <table class="simple-table" style="margin-bottom:10px;">
+        <thead><tr><th>品項</th><th>數量</th><th>單價</th><th>小計</th></tr></thead>
+        <tbody>
+          ${order.lineItems.map((li) => `<tr><td>${li.productName}</td><td>${li.qty}</td><td>$${li.unitPrice}</td><td>$${li.subtotal}</td></tr>`).join("")}
+        </tbody>
+      </table>
+      <div style="text-align:right;font-size:14px;">
+        <div>商品小計：$${order.itemsTotal}</div>
+        <div>運費：$${order.shippingFee}</div>
+        <div style="font-weight:700;font-size:16px;margin-top:4px;">總金額：$${order.totalAmount}</div>
+        ${canSeeCost() ? `<div style="color:${profit>=0?"var(--jade)":"var(--rose)"};margin-top:4px;">毛利：$${profit.toFixed(0)}</div>` : ""}
+      </div>
+
+      ${order.pickupMethod || order.expectedDate ? `
+        <div class="hint" style="margin-top:10px;">
+          ${order.pickupMethod ? `取貨方式：${order.pickupMethod}　` : ""}
+          ${order.expectedDate ? `預計出貨/取貨：${order.expectedDate}` : ""}
+        </div>
+      ` : ""}
+      ${order.note ? `<div class="hint" style="margin-top:6px;">備註：${order.note}</div>` : ""}
+      ${order.shippedByName ? `<div class="hint" style="margin-top:6px;">出貨紀錄：${order.shippedByName}</div>` : ""}
+
+      <div id="detail-actions" style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;"></div>
+      <div id="detail-msg" class="hint" style="margin-top:8px;"></div>
+      <div style="display:flex;justify-content:flex-end;margin-top:14px;">
+        <button class="btn btn-secondary" id="d-close">關閉</button>
+      </div>
+    `;
+  }
+
+  function wireDetailEvents(overlay, order) {
+    overlay.querySelector("#d-close").addEventListener("click", () => overlay.remove());
+    const actionsEl = overlay.querySelector("#detail-actions");
+    const msgEl = overlay.querySelector("#detail-msg");
+
+    function addActionButton(label, cls, handler) {
+      const btn = document.createElement("button");
+      btn.className = `btn ${cls}`;
+      btn.style.cssText = "padding:8px 14px;font-size:13px;";
+      btn.textContent = label;
+      btn.addEventListener("click", handler);
+      actionsEl.appendChild(btn);
+    }
+
+    if (order.voided) return; // 作廢的訂單不給任何操作按鈕
+
+    if (canWrite() && order.shipStatus === "pending") {
+      addActionButton("編輯訂單", "btn-secondary", () => { overlay.remove(); openOrderModal(order); });
+      addActionButton("開始備貨", "btn-secondary", async () => {
+        try { await markPreparing(order.id); showToast("已標記備貨中", "success"); overlay.remove(); await reload(); }
+        catch (err) { msgEl.textContent = "失敗：" + err.message; }
+      });
+    }
+    if (canWrite() && order.shipStatus === "preparing") {
+      addActionButton("編輯訂單", "btn-secondary", () => { overlay.remove(); openOrderModal(order); });
+      addActionButton("標記已出貨", "btn-primary", async (e) => {
+        e.currentTarget.disabled = true;
+        try {
+          await markShipped(order.id, productsById);
+          showToast("已出貨，庫存已自動扣除", "success");
+          overlay.remove();
+          await reload();
+        } catch (err) {
+          msgEl.textContent = "失敗：" + err.message;
+          e.currentTarget.disabled = false;
+        }
+      });
+    }
+    if (canWrite() && order.shipStatus === "pending") {
+      // 待處理狀態也允許直接跳過備貨直接標記出貨
+      addActionButton("直接標記已出貨", "btn-primary", async (e) => {
+        e.currentTarget.disabled = true;
+        try {
+          await markShipped(order.id, productsById);
+          showToast("已出貨，庫存已自動扣除", "success");
+          overlay.remove();
+          await reload();
+        } catch (err) {
+          msgEl.textContent = "失敗：" + err.message;
+          e.currentTarget.disabled = false;
+        }
+      });
+    }
+    if (canWrite() && order.shipStatus === "shipped") {
+      addActionButton("標記已完成", "btn-primary", async () => {
+        try { await markDone(order.id); showToast("已標記完成", "success"); overlay.remove(); await reload(); }
+        catch (err) { msgEl.textContent = "失敗：" + err.message; }
+      });
+    }
+    if (canWrite()) {
+      const paymentOptions = Object.keys(PAYMENT_STATUS_LABELS).map((k) =>
+        `<option value="${k}" ${k === order.paymentStatus ? "selected" : ""}>${PAYMENT_STATUS_LABELS[k]}</option>`
+      ).join("");
+      const sel = document.createElement("select");
+      sel.style.cssText = "padding:8px 10px;border:1px solid var(--paper-line);border-radius:8px;font-size:13px;";
+      sel.innerHTML = paymentOptions;
+      sel.addEventListener("change", async () => {
+        try { await updatePaymentStatus(order.id, sel.value); showToast("收款狀態已更新", "success"); await reload(); }
+        catch (err) { msgEl.textContent = "失敗：" + err.message; }
+      });
+      actionsEl.appendChild(sel);
+    }
+    if (canVoid()) {
+      addActionButton("作廢訂單", "btn-danger", async (e) => {
+        const willRestoreStock = ["shipped", "done"].includes(order.shipStatus);
+        if (!confirm(willRestoreStock ? "這張訂單已出貨，作廢後會自動還原庫存，確定嗎？" : "確定要作廢這張訂單嗎？")) return;
+        e.currentTarget.disabled = true;
+        try {
+          await voidOrder(order.id);
+          showToast("已作廢" + (willRestoreStock ? "，庫存已還原" : ""), "success");
+          overlay.remove();
+          await reload();
+        } catch (err) {
+          msgEl.textContent = "失敗：" + err.message;
+          e.currentTarget.disabled = false;
+        }
+      });
+    }
+  }
+
+  await reload();
+}

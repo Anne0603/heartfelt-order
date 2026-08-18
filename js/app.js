@@ -7,6 +7,7 @@ import { renderHomePage } from "./home.js";
 import { renderInventoryPage } from "./inventory-ui.js";
 import { renderProductsPage } from "./products-ui.js";
 import { renderContactsPage } from "./contacts-ui.js";
+import { renderOrdersPage } from "./orders-ui.js";
 import { lowStockItems } from "./inventory.js";
 import { showToast } from "./utils.js";
 import { db } from "./firebase-config.js";
@@ -70,6 +71,7 @@ const notifDropdown = document.getElementById("notif-dropdown");
 
 let currentModule = "home";
 let myRole = null;
+let pendingModuleFilter = null;
 
 // ---------- 側邊欄：桌面收合 / 手機抽屜 ----------
 const SIDEBAR_COLLAPSE_KEY = "heartfelt-order:sidebarCollapsed";
@@ -156,8 +158,9 @@ function renderNav() {
   });
 }
 
-function goToModule(id) {
+function goToModule(id, filter = null) {
   currentModule = id;
+  pendingModuleFilter = filter;
   location.hash = `#/${currentModule}`;
   renderNav();
   renderCurrentModule();
@@ -184,6 +187,11 @@ async function renderCurrentModule() {
     await renderInventoryPage(mainContent);
     refreshNotifBell();
     return;
+  }
+  if (currentModule === "orders") {
+    const filter = pendingModuleFilter;
+    pendingModuleFilter = null;
+    return renderOrdersPage(mainContent, filter);
   }
   if (currentModule === "products") return renderProductsPage(mainContent);
   if (currentModule === "contacts") return renderContactsPage(mainContent);

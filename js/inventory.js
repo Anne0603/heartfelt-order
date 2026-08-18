@@ -322,6 +322,14 @@ export async function listStocktakes(itemId) {
   return list;
 }
 
+export async function listUsagesByOrder(orderId) {
+  const q = query(usagesCol, where("orderId", "==", orderId), where("status", "==", "active"));
+  const snap = await getDocs(q);
+  const list = [];
+  snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
+  return list;
+}
+
 export async function lowStockItems() {
   const items = await listItems();
   const itemsById = buildItemsIndex(items);
