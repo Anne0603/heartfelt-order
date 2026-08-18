@@ -2,7 +2,7 @@
 // 主程式：登入流程 + 側邊導覽 + 簡易路由
 // ============================================================
 import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS } from "./auth.js";
-import { renderCloudinaryPage, renderPendingPage, renderMembersPage, uploadImageToCloudinary, saveBrandLogoUrl, getPendingCount } from "./settings.js";
+import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, uploadImageToCloudinary, saveBrandLogoUrl, getPendingCount } from "./settings.js";
 import { renderHomePage } from "./home.js";
 import { renderInventoryPage } from "./inventory-ui.js";
 import { renderProductsPage } from "./products-ui.js";
@@ -38,6 +38,7 @@ const MODULES = [
   { id: "reports",   label: "統計報表",       icon: "📊", group: "分析", roles: ["superadmin","admin","viewer"] },
   { id: "profit",    label: "利潤總覽",       icon: "💰", group: "分析", roles: ["superadmin","admin","viewer"] },
   { id: "cloudinary", label: "Cloudinary",   icon: "☁️", group: "超級管理員", roles: ["superadmin"] },
+  { id: "categories", label: "分類管理",       icon: "🏷️", group: "超級管理員", roles: ["superadmin"] },
   { id: "pending",    label: "待審核申請",     icon: "🕓", group: "超級管理員", roles: ["superadmin"] },
   { id: "members",    label: "成員",         icon: "👥", group: "超級管理員", roles: ["superadmin"] },
 ];
@@ -185,6 +186,7 @@ async function renderCurrentModule() {
   }
   if (currentModule === "products") return renderProductsPage(mainContent);
   if (currentModule === "cloudinary") return renderCloudinaryPage(mainContent);
+  if (currentModule === "categories") return renderCategoriesPage(mainContent);
   if (currentModule === "pending") {
     await renderPendingPage(mainContent);
     if (myRole === "superadmin") refreshNotifBell();

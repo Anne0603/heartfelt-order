@@ -88,13 +88,16 @@ service cloud.firestore {
       allow write: if hasRole(['superadmin', 'admin', 'order_staff']);
     }
 
+    // ---------- 分類管理（商品/採購與庫存共用） ----------
+    match /categories/{categoryId} {
+      allow read: if hasRole(['superadmin', 'admin', 'order_staff', 'viewer']);
+      allow write: if isSuperadmin();
+    }
+
     // ---------- 商品定價 ----------
     match /products/{productId} {
       allow read: if hasRole(['superadmin', 'admin', 'order_staff', 'viewer']);
       allow write: if hasRole(['superadmin', 'admin']);
-    }
-    match /actualCostLogs/{logId} {
-      allow read, write: if hasRole(['superadmin', 'admin']);
     }
 
     // ---------- 客戶名單 ----------

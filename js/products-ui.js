@@ -3,14 +3,16 @@
 // ============================================================
 import { showToast } from "./utils.js";
 import { currentSession } from "./auth.js";
-import {
-  listProducts, createProduct, updateProduct, setProductArchived,
-  calcProductCost, addActualCostLog, listActualCostLogs, deleteActualCostLog,
-} from "./products.js";
+import { listProducts, createProduct, updateProduct, setProductArchived, calcProductCost } from "./products.js";
 import { listItems, buildItemsIndex, computeStock } from "./inventory.js";
+import { listCategories } from "./categories.js";
 import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js";
 
-const TYPE_LABELS = { self_made: "自製", resale: "現貨" };
+const TYPE_LABELS = { self_made: "自製商品", resale: "現貨商品" };
+const TYPE_HINTS = {
+  self_made: "自己現做的東西，成本只算包材（不含原料/人工，那些每月一次算在「利潤總覽」）。",
+  resale: "直接進貨轉賣的東西，成本跟庫存都直接抓「採購與庫存」裡的資料。",
+};
 
 function canSeeCost() {
   const r = currentSession.member?.role;
@@ -25,6 +27,7 @@ export async function renderProductsPage(container) {
   let products = [];
   let invItems = [];
   let itemsById = new Map();
+  let productCategories = [];
   let searchText = "";
   let showArchived = false;
 
@@ -60,9 +63,10 @@ export async function renderProductsPage(container) {
     const listEl = container.querySelector("#products-list");
     listEl.innerHTML = `<div class="card" style="color:var(--text-muted);">載入中…</div>`;
     try {
-      [products, invItems] = await Promise.all([
+      [products, invItems, productCategories] = await Promise.all([
         listProducts({ includeArchived: showArchived }),
         listItems({ includeArchived: true }),
+        listCategories("products"),
       ]);
       itemsById = buildItemsIndex(invItems);
       renderList();
@@ -96,7 +100,7 @@ export async function renderProductsPage(container) {
             </div>
             <div style="text-align:right;">
               <div style="font-family:var(--font-mono);font-size:18px;font-weight:700;color:var(--ink);">$${p.price}</div>
-              ${canSeeCost() ? `<div style="font-size:12px;color:${calc.profit >= 0 ? "var(--jade)" : "var(--rose)"};">毛利 $${calc.profit.toFixed(1)}（${(calc.margin*100).toFixed(0)}%）</div>` : ""}
+              ${canSeeCost() ? `<div style="font-size:12px;color:${calc.profit >= 0 ? "var(--jade)" : "var(--rose)"};">毛利 $${calc.profit.toFixed(1)}${calc.isFullCost ? "" : "*"}</div>` : ""}
             </div>
           </div>
           <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
@@ -107,6 +111,9 @@ export async function renderProductsPage(container) {
         </div>
       `;
     }).join("");
+    if (products.some((p) => p.productType === "self_made") && canSeeCost()) {
+      listEl.insertAdjacentHTML("beforeend", `<div class="hint" style="text-align:center;margin-top:6px;">* 自製商品的毛利未扣原料/人工，那些算在「利潤總覽」</div>`);
+    }
 
     listEl.querySelectorAll("[data-costdetail]").forEach((btn) => {
       btn.addEventListener("click", () => openCostDetailModal(btn.getAttribute("data-costdetail")));
@@ -145,62 +152,97 @@ export async function renderProductsPage(container) {
   // ---------- 新增 / 編輯商品 ----------
   function openProductModal(product = null) {
     const isEdit = !!product;
-    const mainItemOptions = invItems.filter((i) => i.status !== "archived");
+    const packagingLikeItems = invItems.filter((i) => i.type !== "resale" && i.status !== "archived");
     const resaleItemOptions = invItems.filter((i) => i.type === "resale" && i.status !== "archived");
+    const initialType = product?.productType || "self_made";
 
     const overlay = openModal(`
       <h3 style="margin-bottom:16px;">${isEdit ? "編輯商品" : "新增商品"}</h3>
-      <div class="field"><label>商品照片（選填）</label>
-        <div style="display:flex;align-items:center;gap:12px;">
-          <div id="photo-preview" style="width:56px;height:56px;border-radius:8px;overflow:hidden;background:var(--paper);flex-shrink:0;">
-            ${product?.photoUrl ? `<img src="${product.photoUrl}" style="width:100%;height:100%;object-fit:cover;">` : ""}
+
+      <div class="card" style="background:var(--paper);box-shadow:none;margin-bottom:16px;">
+        <div class="hint" style="margin-bottom:10px;font-weight:600;color:var(--ink);">基本資料（必填）</div>
+
+        <div class="field"><label>商品照片（選填）</label>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div id="photo-preview" style="width:56px;height:56px;border-radius:8px;overflow:hidden;background:#fff;flex-shrink:0;">
+              ${product?.photoUrl ? `<img src="${product.photoUrl}" style="width:100%;height:100%;object-fit:cover;">` : ""}
+            </div>
+            <input type="file" accept="image/*" id="m-photo-input" />
           </div>
-          <input type="file" accept="image/*" id="m-photo-input" />
         </div>
-      </div>
-      <div class="field"><label>名稱</label><input type="text" id="m-name" value="${product?.name || ""}" /></div>
-      <div class="field"><label>分類（選填）</label><input type="text" id="m-category" value="${product?.category || ""}" /></div>
-      ${!isEdit ? `
-        <div class="field"><label>商品類型</label>
-          <select id="m-type">
-            <option value="self_made">自製（現做）</option>
-            <option value="resale">現貨（進貨轉賣）</option>
+        <div class="field"><label>商品名稱</label><input type="text" id="m-name" value="${product?.name || ""}" /></div>
+        <div class="field">
+          <label>商品類型</label>
+          <select id="m-type" ${isEdit ? "disabled" : ""}>
+            <option value="self_made" ${initialType === "self_made" ? "selected" : ""}>自製商品</option>
+            <option value="resale" ${initialType === "resale" ? "selected" : ""}>現貨商品</option>
           </select>
+          <div class="hint" id="m-type-hint">${TYPE_HINTS[initialType]}</div>
         </div>
-      ` : `<div class="hint" style="margin-bottom:14px;">類型：${TYPE_LABELS[product.productType]}（建立後不能改）</div>`}
-      <div class="field"><label>售價</label><input type="number" id="m-price" value="${product?.price || ""}" /></div>
-
-      <div id="m-selfmade-fields" style="display:${(isEdit ? product.productType : "self_made") === "self_made" ? "block" : "none"};">
-        <div class="field"><label>原料成本（試算，手動輸入）</label><input type="number" id="m-raw-cost" value="${product?.rawMaterialCost || ""}" /></div>
-        <div class="field"><label>主料（選填）</label>
-          <select id="m-main-item">
-            <option value="">不使用</option>
-            ${mainItemOptions.map((i) => `<option value="${i.id}" ${i.id === product?.mainItemId ? "selected" : ""}>${i.name}</option>`).join("")}
+        <div class="field"><label>分類（選填）</label>
+          <select id="m-category">
+            <option value="">不分類</option>
+            ${productCategories.map((c) => `<option value="${c.name}" ${c.name === product?.category ? "selected" : ""}>${c.name}</option>`).join("")}
           </select>
+          ${productCategories.length === 0 ? `<div class="hint">尚未建立任何分類，可以到「系統設定 → 分類管理」新增。</div>` : ""}
         </div>
-        <div class="field"><label>主料用量</label><input type="number" id="m-main-qty" value="${product?.mainItemQty || 1}" /></div>
-        <div class="field"><label>人工成本比例（%）</label><input type="number" id="m-labor" value="${product?.laborPercent ?? 30}" /></div>
-        <div class="field"><label>損耗比例（%）</label><input type="number" id="m-waste" value="${product?.wastePercent ?? 8}" /></div>
+        <div class="field"><label>售價</label><input type="number" id="m-price" value="${product?.price ?? ""}" /></div>
       </div>
 
-      <div id="m-resale-fields" style="display:${(isEdit ? product.productType : "self_made") === "resale" ? "block" : "none"};">
-        <div class="field"><label>對應「採購與庫存」的現貨商品</label>
-          <select id="m-linked-item">
-            <option value="">選擇項目</option>
-            ${resaleItemOptions.map((i) => `<option value="${i.id}" ${i.id === product?.linkedInventoryItemId ? "selected" : ""}>${i.name}</option>`).join("")}
-          </select>
-          <div class="hint">成本與庫存都會直接抓那個項目的資料，這裡不用另外設定。</div>
+      <div class="card" style="background:var(--paper);box-shadow:none;margin-bottom:16px;" id="m-selfmade-section">
+        <div class="hint" style="margin-bottom:10px;font-weight:600;color:var(--ink);">自製商品設定</div>
+        <div class="field"><label>這個商品要扣哪個包材（選填）</label>
+          ${packagingLikeItems.length === 0
+            ? `<div class="hint">你還沒建立任何包材，<a href="#/inventory" style="color:var(--gold-deep);">點這裡先去新增</a>。</div>`
+            : `<select id="m-main-item">
+                <option value="">不使用</option>
+                ${packagingLikeItems.map((i) => `<option value="${i.id}" ${i.id === product?.mainItemId ? "selected" : ""}>${i.name}</option>`).join("")}
+              </select>`
+          }
+        </div>
+        <div class="field" id="m-qty-field" style="display:${product?.mainItemId ? "block" : "none"};">
+          <label>用幾個</label>
+          <input type="number" id="m-main-qty" value="${product?.mainItemQty || 1}" />
+          <div class="hint">例如這個商品出貨一次要用掉 1 個緞帶，這裡就填 1。</div>
         </div>
       </div>
 
-      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px;">
+      <div class="card" style="background:var(--paper);box-shadow:none;margin-bottom:16px;" id="m-resale-section">
+        <div class="hint" style="margin-bottom:10px;font-weight:600;color:var(--ink);">現貨商品設定</div>
+        <div class="field"><label>對應「採購與庫存」的現貨項目</label>
+          ${resaleItemOptions.length === 0
+            ? `<div class="hint">你還沒建立任何現貨商品項目，<a href="#/inventory" style="color:var(--gold-deep);">點這裡先去新增</a>。</div>`
+            : `<select id="m-linked-item">
+                <option value="">選擇項目</option>
+                ${resaleItemOptions.map((i) => `<option value="${i.id}" ${i.id === product?.linkedInventoryItemId ? "selected" : ""}>${i.name}</option>`).join("")}
+              </select>
+              <div class="hint">成本與庫存都會直接抓那個項目的資料。</div>`
+          }
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
         <button class="btn btn-secondary" id="m-cancel">取消</button>
         <button class="btn btn-primary" id="m-save">儲存</button>
       </div>
     `);
 
-    let uploadedPhotoUrl = product?.photoUrl || "";
+    function syncTypeSections(type) {
+      overlay.querySelector("#m-selfmade-section").style.display = type === "self_made" ? "block" : "none";
+      overlay.querySelector("#m-resale-section").style.display = type === "resale" ? "block" : "none";
+      overlay.querySelector("#m-type-hint").textContent = TYPE_HINTS[type];
+    }
+    syncTypeSections(initialType);
+    overlay.querySelector("#m-type").addEventListener("change", (e) => syncTypeSections(e.target.value));
 
+    const mainItemSelect = overlay.querySelector("#m-main-item");
+    if (mainItemSelect) {
+      mainItemSelect.addEventListener("change", (e) => {
+        overlay.querySelector("#m-qty-field").style.display = e.target.value ? "block" : "none";
+      });
+    }
+
+    let uploadedPhotoUrl = product?.photoUrl || "";
     overlay.querySelector("#m-photo-input").addEventListener("change", async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
@@ -216,14 +258,6 @@ export async function renderProductsPage(container) {
         preview.innerHTML = "";
       }
     });
-
-    if (!isEdit) {
-      overlay.querySelector("#m-type").addEventListener("change", (e) => {
-        const isSelfMade = e.target.value === "self_made";
-        overlay.querySelector("#m-selfmade-fields").style.display = isSelfMade ? "block" : "none";
-        overlay.querySelector("#m-resale-fields").style.display = isSelfMade ? "none" : "block";
-      });
-    }
 
     overlay.querySelector("#m-cancel").addEventListener("click", () => overlay.remove());
     overlay.querySelector("#m-save").addEventListener("click", async (e) => {
@@ -242,13 +276,10 @@ export async function renderProductsPage(container) {
         price,
       };
       if (productType === "self_made") {
-        data.rawMaterialCost = overlay.querySelector("#m-raw-cost").value;
-        data.mainItemId = overlay.querySelector("#m-main-item").value || null;
-        data.mainItemQty = overlay.querySelector("#m-main-qty").value;
-        data.laborPercent = overlay.querySelector("#m-labor").value;
-        data.wastePercent = overlay.querySelector("#m-waste").value;
+        data.mainItemId = overlay.querySelector("#m-main-item")?.value || null;
+        data.mainItemQty = overlay.querySelector("#m-main-qty")?.value || 1;
       } else {
-        data.linkedInventoryItemId = overlay.querySelector("#m-linked-item").value || null;
+        data.linkedInventoryItemId = overlay.querySelector("#m-linked-item")?.value || null;
       }
 
       btn.disabled = true;
@@ -265,85 +296,24 @@ export async function renderProductsPage(container) {
     });
   }
 
-  // ---------- 成本明細 + 實際成本記錄 ----------
-  async function openCostDetailModal(productId) {
+  // ---------- 成本明細 ----------
+  function openCostDetailModal(productId) {
     const product = products.find((p) => p.id === productId);
     const calc = calcProductCost(product, itemsById);
-    const overlay = openModal(`<div style="color:var(--text-muted);">載入中…</div>`);
-    const logs = product.productType === "self_made" ? await listActualCostLogs(productId) : [];
-
-    function render() {
-      overlay.querySelector("#modal-box").innerHTML = `
-        <h3 style="margin-bottom:4px;">${product.name}</h3>
-        <div class="hint" style="margin-bottom:14px;">試算成本明細（訂單成立時會把這組數字鎖進訂單，之後調整不會動到舊訂單）</div>
-        <table class="simple-table" style="margin-bottom:14px;">
-          ${calc.breakdown.map((b) => `<tr><td>${b.label}</td><td style="text-align:right;font-family:var(--font-mono);">$${b.amount.toFixed(2)}</td></tr>`).join("")}
-          <tr style="font-weight:700;"><td>試算成本合計</td><td style="text-align:right;font-family:var(--font-mono);">$${calc.cost.toFixed(2)}</td></tr>
-          <tr><td>售價</td><td style="text-align:right;font-family:var(--font-mono);">$${product.price}</td></tr>
-          <tr style="font-weight:700;color:${calc.profit>=0?"var(--jade)":"var(--rose)"};"><td>毛利（${(calc.margin*100).toFixed(1)}%）</td><td style="text-align:right;font-family:var(--font-mono);">$${calc.profit.toFixed(2)}</td></tr>
-        </table>
-
-        ${product.productType === "self_made" ? `
-          <h4 style="font-size:13px;color:var(--text-muted);margin:14px 0 8px;">實際成本記錄（校準用，不影響訂單/報表）</h4>
-          <div id="actual-log-list">
-            ${logs.length ? logs.map((l) => `
-              <div style="padding:8px 0;border-bottom:1px solid var(--paper-line);display:flex;justify-content:space-between;">
-                <div>
-                  <div style="font-size:14px;">${l.date} · 花費 $${l.actualAmount} ÷ ${l.batchQty} 份 = 單位 $${l.unitCost.toFixed(2)}</div>
-                  ${l.note ? `<div class="hint">${l.note}</div>` : ""}
-                </div>
-                ${canWrite() ? `<button class="btn btn-danger" data-del-log="${l.id}" style="padding:3px 10px;font-size:12px;">刪除</button>` : ""}
-              </div>
-            `).join("") : `<div class="hint">尚無記錄</div>`}
-          </div>
-          ${canWrite() ? `
-            <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
-              <input type="number" id="log-amount" placeholder="這次花費" style="flex:1;min-width:90px;padding:8px;border:1px solid var(--paper-line);border-radius:8px;" />
-              <input type="number" id="log-qty" placeholder="做了幾份" style="flex:1;min-width:90px;padding:8px;border:1px solid var(--paper-line);border-radius:8px;" />
-              <button class="btn btn-secondary" id="log-add" style="padding:8px 14px;">登記</button>
-            </div>
-          ` : ""}
-        ` : ""}
-
-        <div style="display:flex;justify-content:flex-end;margin-top:14px;">
-          <button class="btn btn-secondary" id="d-close">關閉</button>
-        </div>
-      `;
-      overlay.querySelector("#d-close").addEventListener("click", () => overlay.remove());
-      const addBtn = overlay.querySelector("#log-add");
-      if (addBtn) {
-        addBtn.addEventListener("click", async () => {
-          const amount = overlay.querySelector("#log-amount").value;
-          const qty = overlay.querySelector("#log-qty").value;
-          if (!amount || !qty) { showToast("請填花費跟份數", "error"); return; }
-          try {
-            await addActualCostLog({ productId, actualAmount: amount, batchQty: qty });
-            showToast("已登記", "success");
-            const newLogs = await listActualCostLogs(productId);
-            logs.length = 0;
-            logs.push(...newLogs);
-            render();
-          } catch (err) {
-            showToast("失敗：" + err.message, "error");
-          }
-        });
-      }
-      overlay.querySelectorAll("[data-del-log]").forEach((btn) => {
-        btn.addEventListener("click", async () => {
-          if (!confirm("確定要刪除這筆記錄嗎？")) return;
-          try {
-            await deleteActualCostLog(btn.getAttribute("data-del-log"));
-            const newLogs = await listActualCostLogs(productId);
-            logs.length = 0;
-            logs.push(...newLogs);
-            render();
-          } catch (err) {
-            showToast("失敗：" + err.message, "error");
-          }
-        });
-      });
-    }
-    render();
+    const overlay = openModal(`
+      <h3 style="margin-bottom:4px;">${product.name}</h3>
+      ${!calc.isFullCost ? `<div class="hint" style="margin-bottom:14px;">這是包材成本，還沒扣原料/人工。原料每月一筆總帳、人工算進「利潤總覽」的營業費用。</div>` : ""}
+      <table class="simple-table" style="margin-bottom:14px;">
+        ${calc.breakdown.map((b) => `<tr><td>${b.label}</td><td style="text-align:right;font-family:var(--font-mono);">$${b.amount.toFixed(2)}</td></tr>`).join("")}
+        <tr style="font-weight:700;"><td>成本合計</td><td style="text-align:right;font-family:var(--font-mono);">$${calc.cost.toFixed(2)}</td></tr>
+        <tr><td>售價</td><td style="text-align:right;font-family:var(--font-mono);">$${product.price}</td></tr>
+        <tr style="font-weight:700;color:${calc.profit>=0?"var(--jade)":"var(--rose)"};"><td>毛利（${(calc.margin*100).toFixed(1)}%）</td><td style="text-align:right;font-family:var(--font-mono);">$${calc.profit.toFixed(2)}</td></tr>
+      </table>
+      <div style="display:flex;justify-content:flex-end;">
+        <button class="btn btn-secondary" id="d-close">關閉</button>
+      </div>
+    `);
+    overlay.querySelector("#d-close").addEventListener("click", () => overlay.remove());
   }
 
   await reload();

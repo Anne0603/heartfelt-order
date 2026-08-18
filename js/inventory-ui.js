@@ -10,6 +10,7 @@ import {
   voidRecord, permanentlyDelete,
   computeStock, computeAvgCost, buildItemsIndex,
 } from "./inventory.js";
+import { listCategories } from "./categories.js";
 
 const TYPE_LABELS = { packaging: "包材", bundle: "組合包", resale: "現貨商品" };
 
@@ -28,6 +29,7 @@ function canDelete() {
 export async function renderInventoryPage(container) {
   let items = [];
   let itemsById = new Map();
+  let inventoryCategories = [];
   let filterType = "all";
   let searchText = "";
   let showArchived = false;
@@ -85,6 +87,7 @@ export async function renderInventoryPage(container) {
     try {
       items = await listItems({ includeArchived: showArchived });
       itemsById = buildItemsIndex(items);
+      inventoryCategories = await listCategories("inventory");
       renderList();
     } catch (err) {
       listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${err.message}</div>`;
@@ -185,7 +188,13 @@ export async function renderInventoryPage(container) {
           </select>
         </div>
       ` : `<div class="hint" style="margin-bottom:14px;">類型：${TYPE_LABELS[item.type]}（建立後不能改類型）</div>`}
-      <div class="field"><label>分類（選填）</label><input type="text" id="m-category" value="${item?.category || ""}" /></div>
+      <div class="field"><label>分類（選填）</label>
+        <select id="m-category">
+          <option value="">不分類</option>
+          ${inventoryCategories.map((c) => `<option value="${c.name}" ${c.name === item?.category ? "selected" : ""}>${c.name}</option>`).join("")}
+        </select>
+        ${inventoryCategories.length === 0 ? `<div class="hint">尚未建立任何分類，可以到「系統設定 → 分類管理」新增。</div>` : ""}
+      </div>
       <div id="m-bundle-section" style="display:${(isEdit ? item.type : "packaging") === "bundle" ? "block" : "none"};">
         <label style="display:block;font-size:14.5px;font-weight:600;color:var(--ink);margin-bottom:6px;">組成內容</label>
         <div id="m-component-rows"></div>

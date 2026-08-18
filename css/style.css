@@ -61,6 +61,16 @@ a { color: inherit; }
 .flex-row input, .flex-row select, .flex-row textarea { min-width: 0; }
 
 /* ---------- 捲軸 ---------- */
+/* 全站數字輸入框拿掉瀏覽器內建的上下箭頭，看起來更像一般金額/數量輸入框 */
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--paper-line); border-radius: 8px; }
 

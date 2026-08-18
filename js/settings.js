@@ -10,6 +10,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { showToast } from "./utils.js";
 import { currentSession, ROLE_LABELS } from "./auth.js";
+import { listCategories, createCategory, renameCategory, deleteCategory } from "./categories.js";
 
 const CLOUDINARY_DOC = doc(db, "publicSettings", "cloudinary");
 const BRAND_DOC = doc(db, "publicSettings", "brand");
@@ -263,5 +264,99 @@ export async function renderMembersPage(container) {
     } catch (err) {
       body.innerHTML = `<tr><td colspan="3" style="color:var(--rose);">載入失敗</td></tr>`;
     }
+  }
+}
+
+// ---------- 分類管理 ----------
+export async function renderCategoriesPage(container) {
+  container.innerHTML = `
+    <div class="page-header"><h2>分類管理</h2></div>
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="font-size:15px;margin-bottom:10px;">商品分類</h3>
+      <div id="cat-products-list"></div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <input type="text" id="cat-products-input" placeholder="新增分類名稱" style="flex:1;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;" />
+        <button class="btn btn-primary" id="cat-products-add" style="padding:9px 16px;">新增</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3 style="font-size:15px;margin-bottom:10px;">採購與庫存分類</h3>
+      <div id="cat-inventory-list"></div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <input type="text" id="cat-inventory-input" placeholder="新增分類名稱" style="flex:1;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;" />
+        <button class="btn btn-primary" id="cat-inventory-add" style="padding:9px 16px;">新增</button>
+      </div>
+    </div>
+  `;
+
+  await setupCategorySection("products", "cat-products-list", "cat-products-input", "cat-products-add");
+  await setupCategorySection("inventory", "cat-inventory-list", "cat-inventory-input", "cat-inventory-add");
+
+  async function setupCategorySection(module, listId, inputId, addBtnId) {
+    const listEl = container.querySelector(`#${listId}`);
+    const inputEl = container.querySelector(`#${inputId}`);
+    const addBtn = container.querySelector(`#${addBtnId}`);
+
+    async function refresh() {
+      listEl.innerHTML = `<div class="hint">載入中…</div>`;
+      try {
+        const cats = await listCategories(module);
+        listEl.innerHTML = cats.length === 0
+          ? `<div class="hint">尚未新增任何分類</div>`
+          : cats.map((c) => `
+              <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--paper-line);">
+                <input type="text" class="cat-name-input" data-id="${c.id}" value="${c.name}" style="flex:1;padding:6px 10px;border:1px solid transparent;border-radius:6px;font-size:14px;" />
+                <button class="btn btn-secondary cat-rename" data-id="${c.id}" style="padding:5px 10px;font-size:12px;">改名</button>
+                <button class="btn btn-danger cat-delete" data-id="${c.id}" style="padding:5px 10px;font-size:12px;">刪除</button>
+              </div>
+            `).join("");
+
+        listEl.querySelectorAll(".cat-rename").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const id = btn.getAttribute("data-id");
+            const input = listEl.querySelector(`.cat-name-input[data-id="${id}"]`);
+            const newName = input.value.trim();
+            if (!newName) { showToast("名稱不能空白", "error"); return; }
+            try {
+              await renameCategory(id, newName);
+              showToast("已更新分類名稱", "success");
+              refresh();
+            } catch (err) {
+              showToast("失敗：" + err.message, "error");
+            }
+          });
+        });
+        listEl.querySelectorAll(".cat-delete").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const id = btn.getAttribute("data-id");
+            if (!confirm("確定要刪除這個分類嗎？")) return;
+            try {
+              await deleteCategory(id);
+              showToast("已刪除", "success");
+              refresh();
+            } catch (err) {
+              showToast(err.message, "error");
+            }
+          });
+        });
+      } catch (err) {
+        listEl.innerHTML = `<div style="color:var(--rose);">載入失敗：${err.message}</div>`;
+      }
+    }
+
+    addBtn.addEventListener("click", async () => {
+      const name = inputEl.value.trim();
+      if (!name) { showToast("請輸入分類名稱", "error"); return; }
+      try {
+        await createCategory(module, name);
+        inputEl.value = "";
+        showToast("已新增", "success");
+        refresh();
+      } catch (err) {
+        showToast("失敗：" + err.message, "error");
+      }
+    });
+
+    await refresh();
   }
 }
