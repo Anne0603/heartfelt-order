@@ -153,8 +153,95 @@ a { color: inherit; }
 /* ============================================================
    主框架
    ============================================================ */
-.app-shell { display: none; min-height: 100vh; }
+.app-shell { display: none; height: 100vh; flex-direction: column; overflow: hidden; }
 .app-shell.show { display: flex; }
+
+/* ---------- 常駐上方 Bar（手機電腦都顯示） ---------- */
+.app-topbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--ink);
+  color: var(--text-on-ink);
+  padding: 10px 16px;
+  position: relative;
+  z-index: 30;
+}
+.mobile-menu-btn {
+  width: 34px; height: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--ink-line);
+  background: transparent;
+  color: var(--text-on-ink);
+  font-size: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 8px;
+}
+.topbar-brand:hover { background: var(--ink-soft); }
+.topbar-brand .name { font-family: var(--font-display); font-size: 16.5px; font-weight: 700; color: var(--text-on-ink); }
+#topbar-brand-seal { width: 28px; height: 28px; font-size: 13px; }
+
+.notif-bell-wrap { position: relative; }
+.notif-badge-dot {
+  position: absolute;
+  top: 3px; right: 3px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: var(--rose);
+  color: #fff;
+  font-size: 10px;
+  line-height: 15px;
+  text-align: center;
+  display: none;
+}
+.notif-dropdown {
+  display: none;
+  position: absolute;
+  top: 44px;
+  right: 0;
+  width: 260px;
+  background: var(--paper-raised);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+  padding: 8px;
+  z-index: 40;
+}
+.notif-dropdown.show { display: block; }
+.notif-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 10px 10px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-family: var(--font-body);
+}
+.notif-item:hover { background: var(--paper); }
+.notif-empty { padding: 14px 10px; font-size: 13.5px; color: var(--text-muted); text-align: center; }
+
+/* ---------- 下方主體：側邊欄 + 內容 ---------- */
+.app-body { flex: 1; min-height: 0; display: flex; }
 
 .sidebar {
   width: var(--sidebar-w);
@@ -163,27 +250,11 @@ a { color: inherit; }
   color: var(--text-on-ink);
   display: flex;
   flex-direction: column;
-  padding: 22px 14px;
-  position: sticky;
-  top: 0;
-  height: 100vh;
+  padding: 18px 14px;
+  height: 100%;
+  overflow-y: auto;
   transition: width .18s ease;
 }
-.sidebar-toggle {
-  width: 26px;
-  height: 26px;
-  border-radius: 6px;
-  border: 1px solid var(--ink-line);
-  background: transparent;
-  color: var(--text-on-ink-muted);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  flex-shrink: 0;
-}
-.sidebar-toggle:hover { color: var(--text-on-ink); border-color: var(--text-on-ink-muted); }
 
 /* ---------- 收合狀態（僅桌面） ---------- */
 .sidebar.collapsed { width: 68px; }
@@ -204,12 +275,6 @@ a { color: inherit; }
   align-items: center;
   gap: 10px;
   padding: 6px 10px 22px;
-}
-.brand-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
 }
 .brand-seal {
   width: 34px;
@@ -299,6 +364,8 @@ a { color: inherit; }
 .main {
   flex: 1;
   min-width: 0;
+  overflow-y: auto;
+  height: 100%;
   padding: 30px 40px 60px;
 }
 .page-header {
@@ -467,36 +534,9 @@ table.simple-table tr:last-child td { border-bottom: none; }
 /* ============================================================
    手機版：側滑抽屜
    ============================================================ */
-.mobile-topbar { display: none; }
 .sidebar-backdrop { display: none; }
 
 @media (max-width: 720px) {
-  .app-shell.show { flex-direction: column; }
-
-  .mobile-topbar {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    background: var(--ink);
-    color: var(--text-on-ink);
-    padding: 14px 16px;
-    position: sticky;
-    top: 0;
-    z-index: 30;
-  }
-  .mobile-topbar .brand-seal { width: 30px; height: 30px; font-size: 14px; }
-  .mobile-topbar .name { font-family: var(--font-display); font-size: 17px; font-weight: 700; }
-  .mobile-menu-btn {
-    width: 34px; height: 34px;
-    border-radius: 8px;
-    border: 1px solid var(--ink-line);
-    background: transparent;
-    color: var(--text-on-ink);
-    font-size: 16px;
-    cursor: pointer;
-    flex-shrink: 0;
-  }
-
   .sidebar {
     position: fixed;
     top: 0; left: 0;
@@ -515,7 +555,6 @@ table.simple-table tr:last-child td { border-bottom: none; }
   .sidebar.collapsed .user-meta { display: block; }
   .sidebar.collapsed .nav-item { justify-content: flex-start; }
   .sidebar.collapsed .user-chip { justify-content: flex-start; }
-  .sidebar-toggle { display: none; } /* 手機版不用桌面收合鈕，改用漢堡鈕 */
   .sidebar-footer { display: block; }
 
   .sidebar-backdrop {
@@ -531,4 +570,5 @@ table.simple-table tr:last-child td { border-bottom: none; }
   .sidebar-backdrop.show { opacity: 1; pointer-events: auto; }
 
   .main { padding: 20px; }
+  .notif-dropdown { width: 230px; right: -8px; }
 }

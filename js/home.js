@@ -8,9 +8,9 @@ import { lowStockItems } from "./inventory.js";
 
 const QUICK_ACTIONS = [
   { id: "orders",    label: "新增訂單",     icon: "📝", roles: ["superadmin","admin","order_staff"] },
-  { id: "customers", label: "新增客戶",     icon: "🙋", roles: ["superadmin","admin","order_staff"] },
   { id: "inventory", label: "採購入庫",     icon: "📦", roles: ["superadmin","admin","order_staff"] },
   { id: "orders",    label: "訂單列表",     icon: "🔍", roles: ["superadmin","admin","order_staff","viewer"] },
+  { id: "orders",    label: "今日出貨",     icon: "🚚", roles: ["superadmin","admin","order_staff","viewer"] },
   { id: "products",  label: "商品管理",     icon: "🏷️", roles: ["superadmin","admin"] },
   { id: "customers", label: "客戶列表",     icon: "📇", roles: ["superadmin","admin","order_staff","viewer"] },
 ];

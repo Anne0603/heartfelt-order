@@ -5,6 +5,7 @@ import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS } 
 import { renderCloudinaryPage, renderPendingPage, renderMembersPage, uploadImageToCloudinary, saveBrandLogoUrl, getPendingCount } from "./settings.js";
 import { renderHomePage } from "./home.js";
 import { renderInventoryPage } from "./inventory-ui.js";
+import { lowStockItems } from "./inventory.js";
 import { showToast } from "./utils.js";
 import { db } from "./firebase-config.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
@@ -57,11 +58,12 @@ const avatarFileInput = document.getElementById("avatar-file-input");
 const btnLogout = document.getElementById("btn-logout");
 const sidebar = document.getElementById("sidebar");
 const sidebarBackdrop = document.getElementById("sidebar-backdrop");
-const btnSidebarToggle = document.getElementById("btn-sidebar-toggle");
-const btnMobileMenu = document.getElementById("btn-mobile-menu");
+const btnMenuToggle = document.getElementById("btn-menu-toggle");
+const btnTopbarHome = document.getElementById("btn-topbar-home");
 const btnRefreshDesktop = document.getElementById("btn-refresh-desktop");
 const btnNotifBell = document.getElementById("btn-notif-bell");
 const notifBadge = document.getElementById("notif-badge");
+const notifDropdown = document.getElementById("notif-dropdown");
 
 let currentModule = "home";
 let myRole = null;
@@ -75,10 +77,6 @@ function applyStoredCollapseState() {
   const collapsed = localStorage.getItem(SIDEBAR_COLLAPSE_KEY) === "1";
   sidebar.classList.toggle("collapsed", collapsed);
 }
-function toggleDesktopCollapse() {
-  const collapsed = sidebar.classList.toggle("collapsed");
-  localStorage.setItem(SIDEBAR_COLLAPSE_KEY, collapsed ? "1" : "0");
-}
 function openMobileDrawer() {
   sidebar.classList.add("mobile-open");
   sidebarBackdrop.classList.add("show");
@@ -87,8 +85,15 @@ function closeMobileDrawer() {
   sidebar.classList.remove("mobile-open");
   sidebarBackdrop.classList.remove("show");
 }
-btnSidebarToggle.addEventListener("click", toggleDesktopCollapse);
-btnMobileMenu.addEventListener("click", openMobileDrawer);
+function toggleDesktopCollapse() {
+  const collapsed = sidebar.classList.toggle("collapsed");
+  localStorage.setItem(SIDEBAR_COLLAPSE_KEY, collapsed ? "1" : "0");
+}
+btnMenuToggle.addEventListener("click", () => {
+  if (isMobileViewport()) openMobileDrawer();
+  else toggleDesktopCollapse();
+});
+btnTopbarHome.addEventListener("click", () => goToModule("home"));
 sidebarBackdrop.addEventListener("click", closeMobileDrawer);
 window.addEventListener("resize", () => {
   if (!isMobileViewport()) {
@@ -172,7 +177,11 @@ async function renderCurrentModule() {
   }
 
   if (currentModule === "home") return renderHomePage(mainContent, goToModule);
-  if (currentModule === "inventory") return renderInventoryPage(mainContent);
+  if (currentModule === "inventory") {
+    await renderInventoryPage(mainContent);
+    refreshNotifBell();
+    return;
+  }
   if (currentModule === "cloudinary") return renderCloudinaryPage(mainContent);
   if (currentModule === "pending") {
     await renderPendingPage(mainContent);
@@ -232,30 +241,54 @@ function showApp(user, member) {
     el.title = canEditBrand ? "點擊更換品牌圖案" : "";
   });
 
-  if (member.role === "superadmin") {
-    btnNotifBell.style.display = "flex";
-    refreshNotifBell();
-  } else {
-    btnNotifBell.style.display = "none";
-  }
+  btnNotifBell.style.display = "flex";
+  refreshNotifBell();
 
   handleHashRoute();
 }
 
 async function refreshNotifBell() {
   try {
-    const count = await getPendingCount();
-    if (count > 0) {
-      notifBadge.textContent = count;
-      notifBadge.style.display = "inline-block";
+    const low = await lowStockItems();
+    let pendingCount = 0;
+    if (myRole === "superadmin") {
+      pendingCount = await getPendingCount();
+    }
+    const total = low.length + pendingCount;
+    if (total > 0) {
+      notifBadge.textContent = total;
+      notifBadge.style.display = "flex";
     } else {
       notifBadge.style.display = "none";
     }
+    notifDropdown.innerHTML = "";
+    if (low.length === 0 && pendingCount === 0) {
+      notifDropdown.innerHTML = `<div class="notif-empty">目前沒有通知</div>`;
+      return;
+    }
+    let html = "";
+    if (low.length > 0) {
+      html += `<button class="notif-item" data-goto="inventory">📦 ${low.length} 項庫存偏低</button>`;
+    }
+    if (pendingCount > 0) {
+      html += `<button class="notif-item" data-goto="pending">🕓 ${pendingCount} 筆待審核申請</button>`;
+    }
+    notifDropdown.innerHTML = html;
+    notifDropdown.querySelectorAll("[data-goto]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        notifDropdown.classList.remove("show");
+        goToModule(btn.getAttribute("data-goto"));
+      });
+    });
   } catch (err) {
     notifBadge.style.display = "none";
   }
 }
-btnNotifBell.addEventListener("click", () => goToModule("pending"));
+btnNotifBell.addEventListener("click", (e) => {
+  e.stopPropagation();
+  notifDropdown.classList.toggle("show");
+});
+document.addEventListener("click", () => notifDropdown.classList.remove("show"));
 
 document.querySelectorAll(".app-brand-seal").forEach((el) => {
   el.addEventListener("click", () => {

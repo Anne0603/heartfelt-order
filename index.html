@@ -36,52 +36,52 @@
   <!-- ============ 主應用框架 ============ -->
   <div class="app-shell" id="app-shell">
 
-    <!-- 手機版頂部列 -->
-    <div class="mobile-topbar">
-      <button class="mobile-menu-btn" id="btn-mobile-menu" aria-label="開啟選單">☰</button>
-      <div class="brand-seal app-brand-seal" id="mobile-brand-seal">心</div>
-      <div class="name" style="flex:1;">心意</div>
+    <!-- 常駐上方 Bar：不管手機電腦都顯示 -->
+    <div class="app-topbar">
+      <button class="mobile-menu-btn" id="btn-menu-toggle" aria-label="開啟選單">☰</button>
+      <button class="topbar-brand" id="btn-topbar-home" aria-label="回首頁">
+        <div class="brand-seal" id="topbar-brand-seal">心</div>
+        <span class="name">心意</span>
+      </button>
+      <div style="flex:1;"></div>
+      <div class="notif-bell-wrap">
+        <button class="mobile-menu-btn" id="btn-notif-bell" aria-label="通知">🔔<span id="notif-badge" class="notif-badge-dot"></span></button>
+        <div class="notif-dropdown" id="notif-dropdown"></div>
+      </div>
     </div>
 
-    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+    <div class="app-body">
+      <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
-    <aside class="sidebar" id="sidebar">
-      <div class="brand">
-        <div class="brand-row" style="flex:1;">
-          <div style="display:flex;align-items:center;gap:10px;min-width:0;">
-            <div class="brand-seal app-brand-seal" id="desktop-brand-seal">心</div>
-            <div class="brand-text">
-              <div class="name">心意</div>
-              <div class="sub">訂單管理系統</div>
+      <aside class="sidebar" id="sidebar">
+        <div class="brand">
+          <div class="brand-seal app-brand-seal" id="desktop-brand-seal">心</div>
+          <div class="brand-text">
+            <div class="name">心意</div>
+            <div class="sub">訂單管理系統</div>
+          </div>
+        </div>
+
+        <nav id="nav-container"></nav>
+
+        <div class="sidebar-footer">
+          <div class="user-chip">
+            <div class="user-avatar" id="user-avatar"></div>
+            <input type="file" accept="image/*" id="avatar-file-input" style="display:none;" />
+            <div class="user-meta">
+              <div class="name" id="user-chip-name"></div>
+              <div class="role" id="user-chip-role"></div>
             </div>
           </div>
-          <button class="sidebar-toggle" id="btn-sidebar-toggle" aria-label="收合側邊欄" title="收合／展開側邊欄">☰</button>
+          <button class="btn-logout" id="btn-refresh-desktop" title="重新整理" style="margin-top:8px;">⟳ <span class="btn-logout-label">重新整理</span></button>
+          <button class="btn-logout" id="btn-logout" title="登出">⏻ <span class="btn-logout-label">登出</span></button>
         </div>
-      </div>
+      </aside>
 
-      <nav id="nav-container"></nav>
-
-      <div class="sidebar-footer">
-        <button class="btn-logout" id="btn-notif-bell" style="display:none;margin-top:0;margin-bottom:8px;justify-content:space-between;">
-          <span>🔔 待審核申請</span>
-          <span id="notif-badge" style="background:var(--rose);color:#fff;border-radius:999px;padding:1px 8px;font-size:12px;display:none;"></span>
-        </button>
-        <div class="user-chip">
-          <div class="user-avatar" id="user-avatar"></div>
-          <input type="file" accept="image/*" id="avatar-file-input" style="display:none;" />
-          <div class="user-meta">
-            <div class="name" id="user-chip-name"></div>
-            <div class="role" id="user-chip-role"></div>
-          </div>
-        </div>
-        <button class="btn-logout" id="btn-refresh-desktop" title="重新整理" style="margin-top:0;">⟳ <span class="btn-logout-label">重新整理</span></button>
-        <button class="btn-logout" id="btn-logout" title="登出">⏻ <span class="btn-logout-label">登出</span></button>
-      </div>
-    </aside>
-
-    <main class="main">
-      <div id="main-content"></div>
-    </main>
+      <main class="main">
+        <div id="main-content"></div>
+      </main>
+    </div>
   </div>
 
   <script type="module" src="js/app.js"></script>
