@@ -12,7 +12,7 @@ import { openSearchPicker } from "./picker-ui.js";
 
 const TYPE_LABELS = { self_made: "自製商品", resale: "現貨商品" };
 const TYPE_HINTS = {
-  self_made: "自製商品，成本只算包材（原料/人工等費用直接計算金額）。",
+  self_made: "只算包材成本，原料/人工在「利潤總覽」按月計算。",
   resale: "直接進貨轉賣的東西，成本跟庫存都直接抓「採購與庫存」裡的資料。",
 };
 
