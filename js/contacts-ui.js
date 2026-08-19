@@ -6,6 +6,7 @@ import { currentSession } from "./auth.js";
 import { openModal, confirmDialog } from "./modal-ui.js";
 import { listContacts, createContact, updateContact, setContactArchived } from "./contacts.js";
 import { listCategories } from "./categories.js";
+import { exportContacts } from "./export-xlsx.js";
 
 const ROLE_LABELS = { customer: "客戶", supplier: "廠商" };
 
@@ -24,7 +25,10 @@ export async function renderContactsPage(container) {
   container.innerHTML = `
     <div class="page-header">
       <h2>客戶與廠商</h2>
-      ${canWrite() ? `<button class="btn btn-primary" id="btn-new-contact">新增聯絡人</button>` : ""}
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-secondary" id="btn-export-contacts">匯出 Excel</button>
+        ${canWrite() ? `<button class="btn btn-primary" id="btn-new-contact">新增聯絡人</button>` : ""}
+      </div>
     </div>
     <div class="card" style="margin-bottom:16px;">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
@@ -57,6 +61,18 @@ export async function renderContactsPage(container) {
   if (canWrite()) {
     container.querySelector("#btn-new-contact").addEventListener("click", () => openContactModal());
   }
+  container.querySelector("#btn-export-contacts").addEventListener("click", () => {
+    const filtered = getFilteredContacts();
+    if (filtered.length === 0) { showToast("沒有可以匯出的聯絡人", "error"); return; }
+    exportContacts(filtered);
+  });
+
+  function getFilteredContacts() {
+    let filtered = contacts;
+    if (filterRole !== "all") filtered = filtered.filter((c) => (c.roles || []).includes(filterRole));
+    if (searchText) filtered = filtered.filter((c) => (c.name || "").toLowerCase().includes(searchText));
+    return filtered;
+  }
 
   async function reload() {
     const listEl = container.querySelector("#contacts-list");
@@ -64,7 +80,7 @@ export async function renderContactsPage(container) {
     try {
       [contacts, inventoryCategories] = await Promise.all([
         listContacts({ includeArchived: showArchived }),
-        listCategories("inventory"),
+        listCategories("items"),
       ]);
       renderList();
     } catch (err) {
@@ -74,9 +90,7 @@ export async function renderContactsPage(container) {
 
   function renderList() {
     const listEl = container.querySelector("#contacts-list");
-    let filtered = contacts;
-    if (filterRole !== "all") filtered = filtered.filter((c) => (c.roles || []).includes(filterRole));
-    if (searchText) filtered = filtered.filter((c) => (c.name || "").toLowerCase().includes(searchText));
+    const filtered = getFilteredContacts();
 
     if (filtered.length === 0) {
       listEl.innerHTML = `<div class="card" style="color:var(--text-muted);text-align:center;">沒有聯絡人</div>`;

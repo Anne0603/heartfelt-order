@@ -11,6 +11,7 @@ import {
 import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js";
 import { listContacts, createContact } from "./contacts.js";
 import { printOrderSlip } from "./print-slip.js";
+import { exportOrders } from "./export-xlsx.js";
 import { openSearchPicker } from "./picker-ui.js";
 import { openModal, confirmDialog } from "./modal-ui.js";
 
@@ -48,7 +49,10 @@ export async function renderOrdersPage(container, initialFilter = null) {
   container.innerHTML = `
     <div class="page-header">
       <h2>訂單管理</h2>
-      ${canWrite() ? `<button class="btn btn-primary" id="btn-new-order">新增訂單</button>` : ""}
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-secondary" id="btn-export-orders">匯出 Excel</button>
+        ${canWrite() ? `<button class="btn btn-primary" id="btn-new-order">新增訂單</button>` : ""}
+      </div>
     </div>
     <div class="card" style="margin-bottom:16px;">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
@@ -84,6 +88,25 @@ export async function renderOrdersPage(container, initialFilter = null) {
   if (canWrite()) {
     container.querySelector("#btn-new-order").addEventListener("click", () => openOrderModal());
   }
+  container.querySelector("#btn-export-orders").addEventListener("click", () => {
+    const filtered = getFilteredOrders();
+    if (filtered.length === 0) { showToast("沒有可以匯出的訂單", "error"); return; }
+    exportOrders(filtered, { includeCost: canSeeCost() });
+  });
+
+  function getFilteredOrders() {
+    const today = new Date().toISOString().slice(0, 10);
+    let filtered = orders;
+    if (filterShipStatus !== "all") filtered = filtered.filter((o) => o.shipStatus === filterShipStatus);
+    if (filterToday) filtered = filtered.filter((o) => o.expectedDate === today && !o.voided);
+    if (searchText) {
+      filtered = filtered.filter((o) =>
+        (o.orderNumber || "").toLowerCase().includes(searchText) ||
+        (o.contactName || "").toLowerCase().includes(searchText)
+      );
+    }
+    return filtered;
+  }
 
   async function reload() {
     const listEl = container.querySelector("#orders-list");
@@ -103,16 +126,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
 
   function renderList() {
     const listEl = container.querySelector("#orders-list");
-    const today = new Date().toISOString().slice(0, 10);
-    let filtered = orders;
-    if (filterShipStatus !== "all") filtered = filtered.filter((o) => o.shipStatus === filterShipStatus);
-    if (filterToday) filtered = filtered.filter((o) => o.expectedDate === today && !o.voided);
-    if (searchText) {
-      filtered = filtered.filter((o) =>
-        (o.orderNumber || "").toLowerCase().includes(searchText) ||
-        (o.contactName || "").toLowerCase().includes(searchText)
-      );
-    }
+    const filtered = getFilteredOrders();
 
     if (filtered.length === 0) {
       listEl.innerHTML = `<div class="card" style="color:var(--text-muted);text-align:center;">沒有符合的訂單</div>`;

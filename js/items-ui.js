@@ -16,6 +16,7 @@ import { listUnits } from "./units.js";
 import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js";
 import { openModal, confirmDialog } from "./modal-ui.js";
 import { openSearchPicker } from "./picker-ui.js";
+import { exportItems } from "./export-xlsx.js";
 
 const TYPE_HINTS = {
   self_made: "自己現做的東西，客戶可訂購。不追蹤庫存量，成本 = 配方裡每一項包材的成本加總（原料/人工每月算在「利潤總覽」）。",
@@ -72,13 +73,14 @@ export async function renderItemsPage(container, initialFilter = null) {
     container.innerHTML = `
       <div class="page-header">
         <h2>商品與庫存</h2>
-        ${canWrite() ? `
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-secondary" id="btn-export-items">匯出 Excel</button>
+          ${canWrite() ? `
             <button class="btn btn-secondary" id="btn-open-stocktake">盤點</button>
             <button class="btn btn-primary" id="btn-open-purchase">採購登記</button>
             <button class="btn btn-primary" id="btn-open-new-item">新增項目</button>
-          </div>
-        ` : ""}
+          ` : ""}
+        </div>
       </div>
       <div class="card" style="margin-bottom:16px;">
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
@@ -115,8 +117,20 @@ export async function renderItemsPage(container, initialFilter = null) {
       container.querySelector("#btn-open-purchase").addEventListener("click", () => openPurchaseModal());
       container.querySelector("#btn-open-stocktake").addEventListener("click", () => openStocktakeModal());
     }
+    container.querySelector("#btn-export-items").addEventListener("click", () => {
+      const filtered = getFilteredItems();
+      if (filtered.length === 0) { showToast("沒有可以匯出的項目", "error"); return; }
+      exportItems(filtered, { includeCost: canSeeCost() });
+    });
 
     renderList();
+  }
+
+  function getFilteredItems() {
+    let filtered = items;
+    if (filterType !== "all") filtered = filtered.filter((i) => i.type === filterType);
+    if (searchText) filtered = filtered.filter((i) => (i.name || "").toLowerCase().includes(searchText));
+    return filtered;
   }
 
   async function reload() {
@@ -133,9 +147,7 @@ export async function renderItemsPage(container, initialFilter = null) {
   function renderList() {
     const listEl = container.querySelector("#items-list");
     if (!listEl) return;
-    let filtered = items;
-    if (filterType !== "all") filtered = filtered.filter((i) => i.type === filterType);
-    if (searchText) filtered = filtered.filter((i) => (i.name || "").toLowerCase().includes(searchText));
+    const filtered = getFilteredItems();
 
     if (filtered.length === 0) {
       listEl.innerHTML = `<div class="card" style="color:var(--text-muted);text-align:center;">沒有項目</div>`;
