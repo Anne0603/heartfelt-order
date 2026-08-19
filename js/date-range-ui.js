@@ -40,9 +40,9 @@ export function renderDateRangePicker(container, onChange) {
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px;">
       <button class="btn btn-secondary" data-preset="week" style="padding:8px 14px;font-size:13px;">本週</button>
       <button class="btn btn-secondary" data-preset="month" style="padding:8px 14px;font-size:13px;">本月</button>
-      <input type="text" id="range-start" value="${current.start}" style="padding:8px 10px;border:1px solid var(--paper-line);border-radius:8px;width:130px;" />
+      <input type="date" id="range-start" value="${current.start}" style="padding:8px 10px;border:1px solid var(--paper-line);border-radius:8px;width:150px;" />
       <span class="hint">～</span>
-      <input type="text" id="range-end" value="${current.end}" style="padding:8px 10px;border:1px solid var(--paper-line);border-radius:8px;width:130px;" />
+      <input type="date" id="range-end" value="${current.end}" style="padding:8px 10px;border:1px solid var(--paper-line);border-radius:8px;width:150px;" />
       <button class="btn btn-primary" id="range-apply" style="padding:8px 14px;font-size:13px;">套用</button>
     </div>
   `;
