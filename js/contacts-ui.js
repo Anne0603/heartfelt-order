@@ -5,6 +5,7 @@ import { showToast } from "./utils.js";
 import { currentSession } from "./auth.js";
 import { listContacts, createContact, updateContact, setContactArchived } from "./contacts.js";
 import { listCategories } from "./categories.js";
+import { openModal } from "./modal-ui.js";
 
 const ROLE_LABELS = { customer: "客戶", supplier: "廠商" };
 
@@ -128,15 +129,6 @@ export async function renderContactsPage(container) {
     });
   }
 
-  function openModal(innerHtml) {
-    const overlay = document.createElement("div");
-    overlay.style.cssText = "position:fixed;inset:0;background:rgba(20,22,28,0.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;";
-    overlay.innerHTML = `<div class="card" style="max-width:520px;width:100%;max-height:88vh;overflow-y:auto;" id="modal-box">${innerHtml}</div>`;
-    overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
-    document.body.appendChild(overlay);
-    return overlay;
-  }
-
   function openContactModal(contact = null) {
     const isEdit = !!contact;
     const roles = contact?.roles || [];
@@ -163,8 +155,7 @@ export async function renderContactsPage(container) {
         </select>
       </div>
       <div class="field"><label>備註（選填）</label><input type="text" id="c-note" value="${contact?.note || ""}" /></div>
-      <div style="display:flex;gap:8px;justify-content:flex-end;">
-        <button class="btn btn-secondary" id="c-cancel">取消</button>
+      <div style="display:flex;justify-content:flex-end;">
         <button class="btn btn-primary" id="c-save">儲存</button>
       </div>
     `);
@@ -178,7 +169,6 @@ export async function renderContactsPage(container) {
     overlay.querySelector("#c-role-customer").addEventListener("change", syncRoleFields);
     overlay.querySelector("#c-role-supplier").addEventListener("change", syncRoleFields);
 
-    overlay.querySelector("#c-cancel").addEventListener("click", () => overlay.remove());
     overlay.querySelector("#c-save").addEventListener("click", async (e) => {
       const btn = e.currentTarget;
       const name = overlay.querySelector("#c-name").value.trim();

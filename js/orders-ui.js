@@ -13,6 +13,7 @@ import { listItems, buildItemsIndex } from "./inventory.js";
 import { listContacts, createContact } from "./contacts.js";
 import { printOrderSlip } from "./print-slip.js";
 import { openSearchPicker } from "./picker-ui.js";
+import { openModal } from "./modal-ui.js";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
@@ -154,15 +155,6 @@ export async function renderOrdersPage(container, initialFilter = null) {
     });
   }
 
-  function openModal(innerHtml, width = 560) {
-    const overlay = document.createElement("div");
-    overlay.style.cssText = "position:fixed;inset:0;background:rgba(20,22,28,0.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;";
-    overlay.innerHTML = `<div class="card" style="max-width:${width}px;width:100%;max-height:90vh;overflow-y:auto;" id="modal-box">${innerHtml}</div>`;
-    overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
-    document.body.appendChild(overlay);
-    return overlay;
-  }
-
   // ---------- 新增 / 編輯訂單（出貨前） ----------
   const PICKUP_METHODS = ["自取", "宅配", "郵寄", "超商取貨", "其他"];
   const ORDER_CHANNELS = ["LINE", "IG", "FB", "現場", "其他"];
@@ -215,8 +207,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
 
       <div id="o-total-preview" style="text-align:right;font-size:15px;font-weight:700;margin:10px 0;"></div>
 
-      <div style="display:flex;gap:8px;justify-content:flex-end;">
-        <button class="btn btn-secondary" id="o-cancel">取消</button>
+      <div style="display:flex;justify-content:flex-end;">
         <button class="btn btn-primary" id="o-save">儲存</button>
       </div>
     `, 640);
@@ -255,6 +246,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
             items: activeProducts,
             renderLabel: (p) => p.name,
             renderSub: (p) => `$${p.price}`,
+            renderThumb: (p) => p.photoUrl || null,
             emptyText: "還沒有任何商品，請先到「商品定價」新增",
             onSelect: (p) => {
               lineItems[idx].productId = p.id;
@@ -302,7 +294,6 @@ export async function renderOrdersPage(container, initialFilter = null) {
       });
     });
 
-    overlay.querySelector("#o-cancel").addEventListener("click", () => overlay.remove());
     overlay.querySelector("#o-save").addEventListener("click", async (e) => {
       const btn = e.currentTarget;
       const validLines = lineItems.filter((li) => li.productId && Number(li.qty) > 0);
@@ -350,12 +341,10 @@ export async function renderOrdersPage(container, initialFilter = null) {
       <div class="field"><label>名稱</label><input type="text" id="qc-name" /></div>
       <div class="field"><label>聯絡電話（選填）</label><input type="text" id="qc-phone" /></div>
       <div class="field"><label>地址（選填）</label><input type="text" id="qc-address" /></div>
-      <div style="display:flex;gap:8px;justify-content:flex-end;">
-        <button class="btn btn-secondary" id="qc-cancel">取消</button>
+      <div style="display:flex;justify-content:flex-end;">
         <button class="btn btn-primary" id="qc-save">新增</button>
       </div>
     `, 420);
-    overlay.querySelector("#qc-cancel").addEventListener("click", () => overlay.remove());
     overlay.querySelector("#qc-save").addEventListener("click", async (e) => {
       const name = overlay.querySelector("#qc-name").value.trim();
       if (!name) { showToast("請輸入名稱", "error"); return; }
@@ -423,15 +412,13 @@ export async function renderOrdersPage(container, initialFilter = null) {
 
       <div id="detail-actions" style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;"></div>
       <div id="detail-msg" class="hint" style="margin-top:8px;"></div>
-      <div style="display:flex;justify-content:space-between;margin-top:14px;">
+      <div style="margin-top:14px;">
         <button class="btn btn-secondary" id="d-print">列印出貨單</button>
-        <button class="btn btn-secondary" id="d-close">關閉</button>
       </div>
     `;
   }
 
   function wireDetailEvents(overlay, order) {
-    overlay.querySelector("#d-close").addEventListener("click", () => overlay.remove());
     overlay.querySelector("#d-print").addEventListener("click", () => printOrderSlip(order));
     const actionsEl = overlay.querySelector("#detail-actions");
     const msgEl = overlay.querySelector("#detail-msg");

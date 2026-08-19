@@ -11,6 +11,7 @@ import {
   computeStock, computeAvgCost, buildItemsIndex,
 } from "./inventory.js";
 import { listCategories } from "./categories.js";
+import { openModal } from "./modal-ui.js";
 
 const TYPE_LABELS = { packaging: "包材", bundle: "組合包", resale: "現貨商品" };
 
@@ -159,16 +160,6 @@ export async function renderInventoryPage(container) {
     });
   }
 
-  // ---------- Modal 共用 ----------
-  function openModal(innerHtml) {
-    const overlay = document.createElement("div");
-    overlay.style.cssText = "position:fixed;inset:0;background:rgba(20,22,28,0.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;";
-    overlay.innerHTML = `<div class="card" style="max-width:560px;width:100%;max-height:85vh;overflow-y:auto;" id="modal-box">${innerHtml}</div>`;
-    overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
-    document.body.appendChild(overlay);
-    return overlay;
-  }
-
   // ---------- 新增/編輯項目 ----------
   function openItemModal(item = null) {
     const isEdit = !!item;
@@ -202,7 +193,6 @@ export async function renderInventoryPage(container) {
       </div>
       <div class="field" id="m-threshold-field"><label>低庫存提醒門檻（選填）</label><input type="number" id="m-threshold" value="${item?.lowStockThreshold || ""}" /></div>
       <div style="display:flex;gap:8px;justify-content:flex-end;">
-        <button class="btn btn-secondary" id="m-cancel">取消</button>
         <button class="btn btn-primary" id="m-save">儲存</button>
       </div>
     `);
@@ -246,7 +236,6 @@ export async function renderInventoryPage(container) {
       componentRows.push({ itemId: "", qty: 1 });
       renderComponentRows();
     });
-    overlay.querySelector("#m-cancel").addEventListener("click", () => overlay.remove());
     overlay.querySelector("#m-save").addEventListener("click", async () => {
       const name = overlay.querySelector("#m-name").value.trim();
       const category = overlay.querySelector("#m-category").value;
@@ -284,7 +273,6 @@ export async function renderInventoryPage(container) {
       <button class="btn btn-secondary" id="p-add-row" style="margin:8px 0;">+ 新增一列</button>
       <div class="field"><label>運費（選填，會依數量分攤到各項目）</label><input type="number" id="p-freight" value="0" /></div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px;">
-        <button class="btn btn-secondary" id="p-cancel">取消</button>
         <button class="btn btn-primary" id="p-submit">送出，一次登記完成</button>
       </div>
     `);
@@ -321,7 +309,6 @@ export async function renderInventoryPage(container) {
       rows.push({ itemId: "", qty: "", amount: "", note: "" });
       renderRows();
     });
-    overlay.querySelector("#p-cancel").addEventListener("click", () => overlay.remove());
     overlay.querySelector("#p-submit").addEventListener("click", async (e) => {
       const btn = e.currentTarget;
       const validRows = rows.filter((r) => r.itemId && Number(r.qty) > 0);
@@ -357,11 +344,9 @@ export async function renderInventoryPage(container) {
       <div class="field"><label>實際盤點數量</label><input type="number" id="s-counted" /></div>
       <div class="field"><label>備註（選填）</label><input type="text" id="s-note" /></div>
       <div style="display:flex;gap:8px;justify-content:flex-end;">
-        <button class="btn btn-secondary" id="s-cancel">取消</button>
         <button class="btn btn-primary" id="s-submit">確認校正</button>
       </div>
     `);
-    overlay.querySelector("#s-cancel").addEventListener("click", () => overlay.remove());
     overlay.querySelector("#s-submit").addEventListener("click", async (e) => {
       const btn = e.currentTarget;
       const itemId = overlay.querySelector("#s-item").value;
@@ -418,11 +403,7 @@ export async function renderInventoryPage(container) {
           ${s.note ? `<div class="hint">${s.note}</div>` : ""}
         </div>
       `).join("") : `<div class="hint">尚無記錄</div>`}
-      <div style="display:flex;justify-content:flex-end;margin-top:14px;">
-        <button class="btn btn-secondary" id="d-close">關閉</button>
-      </div>
     `;
-    overlay.querySelector("#d-close").addEventListener("click", () => overlay.remove());
     overlay.querySelectorAll("[data-void]").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const [kind, id] = btn.getAttribute("data-void").split(":");
