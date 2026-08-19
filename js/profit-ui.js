@@ -6,9 +6,9 @@
 import { showToast } from "./utils.js";
 import { currentSession } from "./auth.js";
 import { listOrders } from "./orders.js";
-import { listExpensesInRange, addExpense, deleteExpense, EXPENSE_CATEGORY_LABELS } from "./expenses.js";
+import { listExpensesInRange, addExpense, updateExpense, deleteExpense, EXPENSE_CATEGORY_LABELS } from "./expenses.js";
 import { renderDateRangePicker } from "./date-range-ui.js";
-import { confirmDialog } from "./modal-ui.js";
+import { openModal, confirmDialog } from "./modal-ui.js";
 
 function canManageExpenses() {
   return ["superadmin", "admin"].includes(currentSession.member?.role);
@@ -45,14 +45,22 @@ export async function renderProfitPage(container) {
         totalExpense += e.amount;
       });
       const netProfit = grossProfit - totalExpense;
+      const grossMargin = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
+      const netMargin = revenue > 0 ? (netProfit / revenue) * 100 : 0;
 
       summaryEl.innerHTML = `
         <div class="card" style="margin-bottom:16px;">
           <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;">
             <div><div class="hint">營收</div><div style="font-family:var(--font-mono);font-size:22px;font-weight:700;">$${revenue.toFixed(0)}</div></div>
-            <div><div class="hint">訂單毛利（含包材成本）</div><div style="font-family:var(--font-mono);font-size:22px;font-weight:700;color:${grossProfit>=0?"var(--jade)":"var(--rose)"};">$${grossProfit.toFixed(0)}</div></div>
+            <div><div class="hint">訂單毛利（含包材成本）</div>
+              <div style="font-family:var(--font-mono);font-size:22px;font-weight:700;color:${grossProfit>=0?"var(--jade)":"var(--rose)"};">$${grossProfit.toFixed(0)}</div>
+              <div class="hint">毛利率 ${grossMargin.toFixed(1)}%</div>
+            </div>
             <div><div class="hint">營業支出</div><div style="font-family:var(--font-mono);font-size:22px;font-weight:700;color:var(--rose);">$${totalExpense.toFixed(0)}</div></div>
-            <div><div class="hint">淨利</div><div style="font-family:var(--font-mono);font-size:26px;font-weight:900;color:${netProfit>=0?"var(--jade)":"var(--rose)"};">$${netProfit.toFixed(0)}</div></div>
+            <div><div class="hint">淨利</div>
+              <div style="font-family:var(--font-mono);font-size:26px;font-weight:900;color:${netProfit>=0?"var(--jade)":"var(--rose)"};">$${netProfit.toFixed(0)}</div>
+              <div class="hint">淨利率 ${netMargin.toFixed(1)}%</div>
+            </div>
           </div>
           <div class="hint" style="margin-top:10px;">共 ${ordersInRange.length} 張訂單（不含作廢）· ${range.start} ～ ${range.end}</div>
         </div>
@@ -76,7 +84,7 @@ export async function renderProfitPage(container) {
               </select>
               <input type="text" id="exp-custom-label" placeholder="項目名稱（選其他才需要）" style="display:none;flex:1;min-width:120px;padding:8px;border:1px solid var(--paper-line);border-radius:8px;" />
               <input type="number" id="exp-amount" placeholder="金額" style="width:100px;padding:8px;border:1px solid var(--paper-line);border-radius:8px;" />
-              <input type="text" id="exp-date" value="${new Date().toISOString().slice(0,10)}" style="width:120px;padding:8px;border:1px solid var(--paper-line);border-radius:8px;" />
+              <input type="date" id="exp-date" value="${new Date().toISOString().slice(0,10)}" style="width:150px;padding:8px;border:1px solid var(--paper-line);border-radius:8px;" />
               <button class="btn btn-primary" id="exp-add" style="padding:8px 16px;">登記</button>
             </div>
             <div id="exp-list"></div>
@@ -114,9 +122,12 @@ export async function renderProfitPage(container) {
         listEl.innerHTML = expenses.length === 0 ? "" : expenses.map((exp) => {
           const label = exp.category === "other" && exp.customLabel ? exp.customLabel : EXPENSE_CATEGORY_LABELS[exp.category];
           return `
-            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--paper-line);font-size:14px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--paper-line);font-size:14px;">
               <span>${exp.date} · ${label} · $${exp.amount}</span>
-              <button class="btn btn-danger" data-del-exp="${exp.id}" style="padding:3px 10px;font-size:12px;">刪除</button>
+              <span style="display:flex;gap:6px;">
+                <button class="btn btn-secondary" data-edit-exp="${exp.id}" style="padding:3px 10px;font-size:12px;">編輯</button>
+                <button class="btn btn-danger" data-del-exp="${exp.id}" style="padding:3px 10px;font-size:12px;">刪除</button>
+              </span>
             </div>
           `;
         }).join("");
@@ -131,9 +142,59 @@ export async function renderProfitPage(container) {
             }
           });
         });
+        listEl.querySelectorAll("[data-edit-exp]").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const exp = expenses.find((x) => x.id === btn.getAttribute("data-edit-exp"));
+            openEditExpenseModal(exp, () => load(range));
+          });
+        });
       }
     } catch (err) {
       summaryEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${err.message}</div>`;
     }
+  }
+
+  function openEditExpenseModal(exp, onSaved) {
+    const overlay = openModal(`
+      <h3 style="margin-bottom:16px;">編輯支出</h3>
+      <div class="field"><label>類別</label>
+        <select id="ee-category">
+          ${Object.entries(EXPENSE_CATEGORY_LABELS).map(([k,v]) => `<option value="${k}" ${k === exp.category ? "selected" : ""}>${v}</option>`).join("")}
+        </select>
+      </div>
+      <div class="field" id="ee-custom-field" style="display:${exp.category === "other" ? "block" : "none"};">
+        <label>項目名稱</label><input type="text" id="ee-custom-label" value="${exp.customLabel || ""}" />
+      </div>
+      <div class="field"><label>金額</label><input type="number" id="ee-amount" value="${exp.amount}" /></div>
+      <div class="field"><label>日期</label><input type="date" id="ee-date" value="${exp.date}" /></div>
+      <div class="field"><label>備註（選填）</label><input type="text" id="ee-note" value="${exp.note || ""}" /></div>
+      <div style="display:flex;justify-content:flex-end;">
+        <button class="btn btn-primary" id="ee-save">儲存</button>
+      </div>
+    `, 420);
+    overlay.querySelector("#ee-category").addEventListener("change", (e) => {
+      overlay.querySelector("#ee-custom-field").style.display = e.target.value === "other" ? "block" : "none";
+    });
+    overlay.querySelector("#ee-save").addEventListener("click", async (e) => {
+      const btn = e.currentTarget;
+      const amount = overlay.querySelector("#ee-amount").value;
+      if (!amount) { showToast("請輸入金額", "error"); return; }
+      btn.disabled = true;
+      try {
+        await updateExpense(exp.id, {
+          category: overlay.querySelector("#ee-category").value,
+          customLabel: overlay.querySelector("#ee-custom-label")?.value,
+          amount,
+          date: overlay.querySelector("#ee-date").value,
+          note: overlay.querySelector("#ee-note").value,
+        });
+        showToast("已儲存", "success");
+        overlay.remove();
+        onSaved();
+      } catch (err) {
+        showToast("失敗：" + err.message, "error");
+        btn.disabled = false;
+      }
+    });
   }
 }

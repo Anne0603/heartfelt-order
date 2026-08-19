@@ -4,7 +4,7 @@
 // ============================================================
 import { db } from "./firebase-config.js";
 import {
-  collection, doc, getDocs, addDoc, deleteDoc, serverTimestamp, query, where
+  collection, doc, getDocs, addDoc, updateDoc, deleteDoc, serverTimestamp, query, where
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { currentSession, getDisplayName } from "./auth.js";
 
@@ -50,4 +50,14 @@ export async function addExpense({ category, customLabel, amount, date, note }) 
 
 export async function deleteExpense(id) {
   await deleteDoc(doc(db, "expenses", id));
+}
+
+export async function updateExpense(id, { category, customLabel, amount, date, note }) {
+  await updateDoc(doc(db, "expenses", id), {
+    category,
+    customLabel: category === "other" ? (customLabel?.trim() || "") : "",
+    amount: Number(amount) || 0,
+    date,
+    note: note || "",
+  });
 }
