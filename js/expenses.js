@@ -34,7 +34,7 @@ export async function listExpensesInRange(startDate, endDate) {
   return list;
 }
 
-export async function addExpense({ category, customLabel, amount, date, note }) {
+export async function addExpense({ category, customLabel, amount, date, note, receiptUrl }) {
   const who = whoAmI();
   await addDoc(expensesCol, {
     category,
@@ -42,6 +42,7 @@ export async function addExpense({ category, customLabel, amount, date, note }) 
     amount: Number(amount) || 0,
     date: date || new Date().toISOString().slice(0, 10),
     note: note || "",
+    receiptUrl: receiptUrl || "",
     createdBy: who.email,
     createdByName: who.name,
     createdAt: serverTimestamp(),
@@ -52,12 +53,13 @@ export async function deleteExpense(id) {
   await deleteDoc(doc(db, "expenses", id));
 }
 
-export async function updateExpense(id, { category, customLabel, amount, date, note }) {
+export async function updateExpense(id, { category, customLabel, amount, date, note, receiptUrl }) {
   await updateDoc(doc(db, "expenses", id), {
     category,
     customLabel: category === "other" ? (customLabel?.trim() || "") : "",
     amount: Number(amount) || 0,
     date,
     note: note || "",
+    receiptUrl: receiptUrl || "",
   });
 }

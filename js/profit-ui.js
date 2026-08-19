@@ -9,6 +9,9 @@ import { listOrders } from "./orders.js";
 import { listExpensesInRange, addExpense, updateExpense, deleteExpense, EXPENSE_CATEGORY_LABELS } from "./expenses.js";
 import { renderDateRangePicker } from "./date-range-ui.js";
 import { openModal, confirmDialog } from "./modal-ui.js";
+import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js";
+
+const CATEGORY_ICONS = { material: "🌾", labor: "🧑‍🍳", utility: "💡", rent: "🏠", other: "📌" };
 
 function canManageExpenses() {
   return ["superadmin", "admin"].includes(currentSession.member?.role);
@@ -48,6 +51,8 @@ export async function renderProfitPage(container) {
       const grossMargin = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
       const netMargin = revenue > 0 ? (netProfit / revenue) * 100 : 0;
 
+      const expensesSorted = [...expenses].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+
       summaryEl.innerHTML = `
         <div class="card" style="margin-bottom:16px;">
           <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;">
@@ -66,7 +71,7 @@ export async function renderProfitPage(container) {
         </div>
 
         <div class="card" style="margin-bottom:16px;">
-          <h3 style="font-size:15px;margin-bottom:10px;">支出明細</h3>
+          <h3 style="font-size:15px;margin-bottom:10px;">支出分類小計</h3>
           ${Object.keys(expenseByCategory).length === 0
             ? `<div class="hint">這段期間沒有登記任何支出</div>`
             : `<table class="simple-table">
@@ -75,119 +80,140 @@ export async function renderProfitPage(container) {
           }
         </div>
 
-        ${canManageExpenses() ? `
-          <div class="card">
-            <h3 style="font-size:15px;margin-bottom:10px;">登記支出</h3>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
-              <select id="exp-category" style="padding:8px;border:1px solid var(--paper-line);border-radius:8px;">
-                ${Object.entries(EXPENSE_CATEGORY_LABELS).map(([k,v]) => `<option value="${k}">${v}</option>`).join("")}
-              </select>
-              <input type="text" id="exp-custom-label" placeholder="項目名稱（選其他才需要）" style="display:none;flex:1;min-width:120px;padding:8px;border:1px solid var(--paper-line);border-radius:8px;" />
-              <input type="number" id="exp-amount" placeholder="金額" style="width:100px;padding:8px;border:1px solid var(--paper-line);border-radius:8px;" />
-              <input type="date" id="exp-date" value="${new Date().toISOString().slice(0,10)}" style="width:150px;padding:8px;border:1px solid var(--paper-line);border-radius:8px;" />
-              <button class="btn btn-primary" id="exp-add" style="padding:8px 16px;">登記</button>
-            </div>
-            <div id="exp-list"></div>
-          </div>
-        ` : ""}
+        <div class="page-header" style="margin-bottom:14px;">
+          <h3 style="font-size:16px;">支出明細</h3>
+          ${canManageExpenses() ? `<button class="btn btn-primary" id="btn-new-expense">新增支出</button>` : ""}
+        </div>
+        <div id="expense-list"></div>
       `;
 
       if (canManageExpenses()) {
-        const categorySelect = summaryEl.querySelector("#exp-category");
-        const customLabelInput = summaryEl.querySelector("#exp-custom-label");
-        categorySelect.addEventListener("change", () => {
-          customLabelInput.style.display = categorySelect.value === "other" ? "block" : "none";
-        });
+        summaryEl.querySelector("#btn-new-expense").addEventListener("click", () => openExpenseModal(null, () => load(range)));
+      }
 
-        summaryEl.querySelector("#exp-add").addEventListener("click", async (e) => {
-          const amount = summaryEl.querySelector("#exp-amount").value;
-          if (!amount) { showToast("請輸入金額", "error"); return; }
-          e.currentTarget.disabled = true;
+      const listEl = summaryEl.querySelector("#expense-list");
+      listEl.innerHTML = expensesSorted.length === 0
+        ? `<div class="card" style="color:var(--text-muted);text-align:center;">這段期間沒有登記任何支出</div>`
+        : expensesSorted.map((exp) => {
+            const label = exp.category === "other" && exp.customLabel ? exp.customLabel : EXPENSE_CATEGORY_LABELS[exp.category];
+            return `
+              <div class="card" style="margin-bottom:10px;">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+                  <div style="display:flex;gap:12px;">
+                    ${exp.receiptUrl
+                      ? `<img src="${exp.receiptUrl}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0;">`
+                      : `<div style="width:44px;height:44px;border-radius:8px;background:var(--paper);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px;">${CATEGORY_ICONS[exp.category] || "📌"}</div>`
+                    }
+                    <div>
+                      <div style="font-weight:700;font-size:16px;color:var(--ink);">${label}</div>
+                      <div style="font-size:13px;color:var(--text-muted);margin-top:2px;">${exp.date}${exp.note ? " · " + exp.note : ""}</div>
+                    </div>
+                  </div>
+                  <div style="font-family:var(--font-mono);font-size:18px;font-weight:700;color:var(--rose);">$${exp.amount}</div>
+                </div>
+                ${canManageExpenses() ? `
+                  <div style="margin-top:10px;display:flex;gap:8px;">
+                    <button class="btn btn-secondary" data-edit-exp="${exp.id}" style="padding:7px 14px;font-size:13px;">編輯</button>
+                    <button class="btn btn-danger" data-del-exp="${exp.id}" style="padding:7px 14px;font-size:13px;">刪除</button>
+                  </div>
+                ` : ""}
+              </div>
+            `;
+          }).join("");
+
+      listEl.querySelectorAll("[data-del-exp]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          if (!await confirmDialog("確定要刪除這筆支出嗎？", { confirmLabel: "刪除", danger: true })) return;
           try {
-            await addExpense({
-              category: categorySelect.value,
-              customLabel: customLabelInput.value,
-              amount,
-              date: summaryEl.querySelector("#exp-date").value,
-            });
-            showToast("已登記", "success");
+            await deleteExpense(btn.getAttribute("data-del-exp"));
             await load(range);
           } catch (err) {
             showToast("失敗：" + err.message, "error");
-            e.currentTarget.disabled = false;
           }
         });
-
-        const listEl = summaryEl.querySelector("#exp-list");
-        listEl.innerHTML = expenses.length === 0 ? "" : expenses.map((exp) => {
-          const label = exp.category === "other" && exp.customLabel ? exp.customLabel : EXPENSE_CATEGORY_LABELS[exp.category];
-          return `
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--paper-line);font-size:14px;">
-              <span>${exp.date} · ${label} · $${exp.amount}</span>
-              <span style="display:flex;gap:6px;">
-                <button class="btn btn-secondary" data-edit-exp="${exp.id}" style="padding:3px 10px;font-size:12px;">編輯</button>
-                <button class="btn btn-danger" data-del-exp="${exp.id}" style="padding:3px 10px;font-size:12px;">刪除</button>
-              </span>
-            </div>
-          `;
-        }).join("");
-        listEl.querySelectorAll("[data-del-exp]").forEach((btn) => {
-          btn.addEventListener("click", async () => {
-            if (!await confirmDialog("確定要刪除這筆支出嗎？", { confirmLabel: "刪除", danger: true })) return;
-            try {
-              await deleteExpense(btn.getAttribute("data-del-exp"));
-              await load(range);
-            } catch (err) {
-              showToast("失敗：" + err.message, "error");
-            }
-          });
+      });
+      listEl.querySelectorAll("[data-edit-exp]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const exp = expenses.find((x) => x.id === btn.getAttribute("data-edit-exp"));
+          openExpenseModal(exp, () => load(range));
         });
-        listEl.querySelectorAll("[data-edit-exp]").forEach((btn) => {
-          btn.addEventListener("click", () => {
-            const exp = expenses.find((x) => x.id === btn.getAttribute("data-edit-exp"));
-            openEditExpenseModal(exp, () => load(range));
-          });
-        });
-      }
+      });
     } catch (err) {
       summaryEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${err.message}</div>`;
     }
   }
 
-  function openEditExpenseModal(exp, onSaved) {
+  // ---------- 新增 / 編輯支出 ----------
+  function openExpenseModal(exp, onSaved) {
+    const isEdit = !!exp;
     const overlay = openModal(`
-      <h3 style="margin-bottom:16px;">編輯支出</h3>
+      <h3 style="margin-bottom:16px;">${isEdit ? "編輯支出" : "新增支出"}</h3>
+
+      <div style="text-align:center;margin-bottom:16px;">
+        <div id="ee-photo-box" style="width:88px;height:88px;border-radius:12px;border:1.5px dashed var(--paper-line);background:#fff;margin:0 auto;display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;flex-direction:column;">
+          ${exp?.receiptUrl
+            ? `<img src="${exp.receiptUrl}" style="width:100%;height:100%;object-fit:cover;">`
+            : `<div style="font-size:22px;">🧾</div><div style="font-size:10px;color:var(--text-muted);margin-top:4px;">收據照片</div>`
+          }
+        </div>
+        <input type="file" accept="image/*" id="ee-photo-input" style="display:none;" />
+      </div>
+
       <div class="field"><label>類別</label>
         <select id="ee-category">
-          ${Object.entries(EXPENSE_CATEGORY_LABELS).map(([k,v]) => `<option value="${k}" ${k === exp.category ? "selected" : ""}>${v}</option>`).join("")}
+          ${Object.entries(EXPENSE_CATEGORY_LABELS).map(([k,v]) => `<option value="${k}" ${exp?.category === k ? "selected" : ""}>${v}</option>`).join("")}
         </select>
       </div>
-      <div class="field" id="ee-custom-field" style="display:${exp.category === "other" ? "block" : "none"};">
-        <label>項目名稱</label><input type="text" id="ee-custom-label" value="${exp.customLabel || ""}" />
+      <div class="field" id="ee-custom-field" style="display:${exp?.category === "other" ? "block" : "none"};">
+        <label>項目名稱</label><input type="text" id="ee-custom-label" value="${exp?.customLabel || ""}" />
       </div>
-      <div class="field"><label>金額</label><input type="number" id="ee-amount" value="${exp.amount}" /></div>
-      <div class="field"><label>日期</label><input type="date" id="ee-date" value="${exp.date}" /></div>
-      <div class="field"><label>備註（選填）</label><input type="text" id="ee-note" value="${exp.note || ""}" /></div>
+      <div class="field"><label>金額</label><input type="number" id="ee-amount" value="${exp?.amount ?? ""}" /></div>
+      <div class="field"><label>日期</label><input type="date" id="ee-date" value="${exp?.date || new Date().toISOString().slice(0,10)}" /></div>
+      <div class="field"><label>備註（選填）</label><input type="text" id="ee-note" value="${exp?.note || ""}" /></div>
       <div style="display:flex;justify-content:flex-end;">
         <button class="btn btn-primary" id="ee-save">儲存</button>
       </div>
-    `, 420);
+    `, 440);
+
     overlay.querySelector("#ee-category").addEventListener("change", (e) => {
       overlay.querySelector("#ee-custom-field").style.display = e.target.value === "other" ? "block" : "none";
     });
+
+    let uploadedReceiptUrl = exp?.receiptUrl || "";
+    const photoBox = overlay.querySelector("#ee-photo-box");
+    const photoInput = overlay.querySelector("#ee-photo-input");
+    photoBox.addEventListener("click", () => photoInput.click());
+    photoInput.addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      photoBox.innerHTML = `<div style="font-size:11px;color:var(--text-muted);">上傳中…</div>`;
+      try {
+        const cloud = await getCloudinarySettings();
+        if (!cloud.cloudName || !cloud.uploadPreset) throw new Error("尚未設定 Cloudinary");
+        uploadedReceiptUrl = await uploadImageToCloudinary(file);
+        photoBox.innerHTML = `<img src="${uploadedReceiptUrl}" style="width:100%;height:100%;object-fit:cover;">`;
+      } catch (err) {
+        showToast("照片上傳失敗：" + err.message, "error");
+        photoBox.innerHTML = `<div style="font-size:22px;">🧾</div><div style="font-size:10px;color:var(--text-muted);margin-top:4px;">收據照片</div>`;
+      }
+    });
+
     overlay.querySelector("#ee-save").addEventListener("click", async (e) => {
       const btn = e.currentTarget;
       const amount = overlay.querySelector("#ee-amount").value;
       if (!amount) { showToast("請輸入金額", "error"); return; }
       btn.disabled = true;
       try {
-        await updateExpense(exp.id, {
+        const data = {
           category: overlay.querySelector("#ee-category").value,
           customLabel: overlay.querySelector("#ee-custom-label")?.value,
           amount,
           date: overlay.querySelector("#ee-date").value,
           note: overlay.querySelector("#ee-note").value,
-        });
+          receiptUrl: uploadedReceiptUrl,
+        };
+        if (isEdit) await updateExpense(exp.id, data);
+        else await addExpense(data);
         showToast("已儲存", "success");
         overlay.remove();
         onSaved();
