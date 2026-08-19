@@ -164,11 +164,16 @@ function renderNav() {
 }
 
 function goToModule(id, filter = null) {
-  currentModule = id;
   pendingModuleFilter = filter;
-  location.hash = `#/${currentModule}`;
-  renderNav();
-  renderCurrentModule();
+  const newHash = `#/${id}`;
+  if (location.hash === newHash) {
+    // hash 沒有變化不會觸發 hashchange，這裡手動渲染一次，避免點同一個項目沒反應
+    currentModule = id;
+    renderNav();
+    renderCurrentModule();
+  } else {
+    location.hash = newHash; // 交給 hashchange -> handleHashRoute 統一負責渲染，避免同一頁被畫兩次
+  }
   if (isMobileViewport()) closeMobileDrawer();
 }
 
