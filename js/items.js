@@ -28,7 +28,7 @@ import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, runTransaction,
   serverTimestamp, query, where
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { currentSession } from "./auth.js";
+import { currentSession, getDisplayName } from "./auth.js";
 
 const itemsCol = collection(db, "items");
 const purchasesCol = collection(db, "itemPurchases");
@@ -42,7 +42,7 @@ export const STOCK_TRACKED_TYPES = ["resale", "packaging"];
 function whoAmI() {
   return {
     email: currentSession.user?.email || null,
-    name: currentSession.user?.displayName || currentSession.user?.email || "未知",
+    name: getDisplayName(),
   };
 }
 

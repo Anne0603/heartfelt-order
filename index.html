@@ -41,7 +41,7 @@
       <button class="mobile-menu-btn" id="btn-menu-toggle" aria-label="開啟選單">☰</button>
       <button class="topbar-brand" id="btn-topbar-home" aria-label="回首頁">
         <div class="brand-seal" id="topbar-brand-seal">心</div>
-        <span class="name">心意</span>
+        <span class="name" id="topbar-greeting">心意</span>
       </button>
       <div style="flex:1;"></div>
       <div class="notif-bell-wrap">
@@ -54,25 +54,16 @@
       <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
       <aside class="sidebar" id="sidebar">
-        <div class="brand">
-          <div class="brand-seal app-brand-seal" id="desktop-brand-seal">心</div>
-          <div class="brand-text">
-            <div class="name">心意</div>
-            <div class="sub">訂單管理系統</div>
-          </div>
-        </div>
-
-        <nav id="nav-container"></nav>
+        <nav id="nav-container" style="margin-top:6px;"></nav>
 
         <div class="sidebar-footer">
-          <div class="user-chip">
+          <button class="user-chip" id="btn-open-profile" style="width:100%;border:none;background:transparent;cursor:pointer;text-align:left;">
             <div class="user-avatar" id="user-avatar"></div>
-            <input type="file" accept="image/*" id="avatar-file-input" style="display:none;" />
             <div class="user-meta">
               <div class="name" id="user-chip-name"></div>
               <div class="role" id="user-chip-role"></div>
             </div>
-          </div>
+          </button>
           <button class="btn-logout" id="btn-refresh-desktop" title="重新整理" style="margin-top:8px;">⟳ <span class="btn-logout-label">重新整理</span></button>
           <button class="btn-logout" id="btn-logout" title="登出">⏻ <span class="btn-logout-label">登出</span></button>
         </div>

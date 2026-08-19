@@ -19,6 +19,7 @@ import {
   doc,
   getDoc,
   setDoc,
+  updateDoc,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
@@ -38,8 +39,20 @@ export const ROLE_LABELS = {
 
 export const currentSession = {
   user: null,
-  member: null, // { status, role, ... }
+  member: null, // { status, role, nickname, ... }
 };
+
+/** 顯示名稱：優先用自己設定的暱稱，沒有的話退回 Google 顯示名稱 */
+export function getDisplayName() {
+  return currentSession.member?.nickname || currentSession.user?.displayName || currentSession.user?.email || "未知";
+}
+
+export async function updateMyNickname(nickname) {
+  if (!currentSession.user?.email) throw new Error("尚未登入");
+  const ref = doc(db, "members", currentSession.user.email.toLowerCase());
+  await updateDoc(ref, { nickname: nickname.trim() });
+  currentSession.member = { ...currentSession.member, nickname: nickname.trim() };
+}
 
 async function loadMemberDoc(email) {
   const ref = doc(db, "members", email.toLowerCase());

@@ -65,7 +65,10 @@ service cloud.firestore {
         && request.resource.data.status == 'pending'
         && request.resource.data.role == null;
 
-      allow update, delete: if isSuperadmin();
+      allow update: if isSuperadmin()
+        || (isSignedIn() && request.auth.token.email == email
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nickname']));
+      allow delete: if isSuperadmin();
     }
 
     // ---------- 公開設定（登入前就要能讀） ----------

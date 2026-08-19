@@ -1,8 +1,9 @@
 // ============================================================
 // 主程式：登入流程 + 側邊導覽 + 簡易路由
 // ============================================================
-import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS } from "./auth.js";
-import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, uploadImageToCloudinary, saveBrandLogoUrl, getPendingCount } from "./settings.js";
+import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName } from "./auth.js";
+import { openProfileModal } from "./profile-ui.js";
+import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, getPendingCount } from "./settings.js";
 import { renderHomePage } from "./home.js";
 import { renderItemsPage } from "./items-ui.js";
 import { renderContactsPage } from "./contacts-ui.js";
@@ -59,12 +60,13 @@ const mainContent = document.getElementById("main-content");
 const userChipName = document.getElementById("user-chip-name");
 const userChipRole = document.getElementById("user-chip-role");
 const userAvatar = document.getElementById("user-avatar");
-const avatarFileInput = document.getElementById("avatar-file-input");
 const btnLogout = document.getElementById("btn-logout");
 const sidebar = document.getElementById("sidebar");
 const sidebarBackdrop = document.getElementById("sidebar-backdrop");
 const btnMenuToggle = document.getElementById("btn-menu-toggle");
 const btnTopbarHome = document.getElementById("btn-topbar-home");
+const topbarGreeting = document.getElementById("topbar-greeting");
+const btnOpenProfile = document.getElementById("btn-open-profile");
 const btnRefreshDesktop = document.getElementById("btn-refresh-desktop");
 const btnNotifBell = document.getElementById("btn-notif-bell");
 const notifBadge = document.getElementById("notif-badge");
@@ -246,25 +248,33 @@ function showApp(user, member) {
   appShell.classList.add("show");
 
   myRole = member.role;
-  userChipName.textContent = user.displayName || user.email;
+  const displayName = getDisplayName();
+  userChipName.textContent = displayName;
   userChipRole.textContent = ROLE_LABELS[member.role] || member.role;
+  topbarGreeting.textContent = `Hi, ${displayName}`;
   if (brandLogoUrl) {
     userAvatar.innerHTML = `<img src="${brandLogoUrl}" alt="">`;
   } else {
     userAvatar.textContent = "心";
   }
 
-  const canEditBrand = member.role === "superadmin" || member.role === "admin";
-  document.querySelectorAll(".app-brand-seal").forEach((el) => {
-    el.classList.toggle("clickable-seal", canEditBrand);
-    el.title = canEditBrand ? "點擊更換品牌圖案" : "";
-  });
-
   btnNotifBell.style.display = "flex";
   refreshNotifBell();
 
   handleHashRoute();
 }
+
+btnOpenProfile.addEventListener("click", () => {
+  openProfileModal({
+    brandLogoUrl,
+    onBrandUpdated: (url) => {
+      brandLogoUrl = url;
+      document.querySelectorAll(".login-seal, .brand-seal, .user-avatar").forEach((el) => {
+        el.innerHTML = `<img src="${url}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+      });
+    },
+  });
+});
 
 async function refreshNotifBell() {
   try {
@@ -308,28 +318,6 @@ btnNotifBell.addEventListener("click", (e) => {
   notifDropdown.classList.toggle("show");
 });
 document.addEventListener("click", () => notifDropdown.classList.remove("show"));
-
-document.querySelectorAll(".app-brand-seal").forEach((el) => {
-  el.addEventListener("click", () => {
-    if (!el.classList.contains("clickable-seal")) return;
-    avatarFileInput.click();
-  });
-});
-
-avatarFileInput.addEventListener("change", async () => {
-  const file = avatarFileInput.files?.[0];
-  if (!file) return;
-  try {
-    const url = await uploadImageToCloudinary(file);
-    await saveBrandLogoUrl(url);
-    showToast("品牌圖案已更新", "success");
-    setTimeout(() => location.reload(), 700);
-  } catch (err) {
-    showToast(err.message, "error");
-  } finally {
-    avatarFileInput.value = "";
-  }
-});
 
 watchAuthState({
   onSignedOut: () => showLoginScreen(),

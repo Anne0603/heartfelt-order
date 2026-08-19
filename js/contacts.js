@@ -8,14 +8,14 @@ import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { currentSession } from "./auth.js";
+import { currentSession, getDisplayName } from "./auth.js";
 
 const contactsCol = collection(db, "contacts");
 
 function whoAmI() {
   return {
     email: currentSession.user?.email || null,
-    name: currentSession.user?.displayName || currentSession.user?.email || "未知",
+    name: getDisplayName(),
   };
 }
 
