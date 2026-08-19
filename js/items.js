@@ -151,6 +151,9 @@ export async function createItem(data) {
   if (data.type === "bundle") {
     payload.components = data.components || [];
   }
+  if (STOCK_TRACKED_TYPES.includes(data.type) || data.type === "bundle") {
+    payload.unit = data.unit?.trim() || "個";
+  }
   if (STOCK_TRACKED_TYPES.includes(data.type)) {
     payload.lowStockThreshold = Number(data.lowStockThreshold) || 0;
     payload.totalPurchasedQty = 0;
@@ -175,6 +178,9 @@ export async function updateItem(itemId, data, type) {
   }
   if (type === "bundle") {
     payload.components = data.components || [];
+  }
+  if (STOCK_TRACKED_TYPES.includes(type) || type === "bundle") {
+    payload.unit = data.unit?.trim() || "個";
   }
   if (STOCK_TRACKED_TYPES.includes(type)) {
     payload.lowStockThreshold = Number(data.lowStockThreshold) || 0;

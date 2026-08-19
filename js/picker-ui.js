@@ -14,7 +14,6 @@ export function openSearchPicker({ title, items, renderLabel, renderSub, renderT
     </div>
   `;
   document.body.appendChild(overlay);
-  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
   overlay.querySelector("#picker-close-x").addEventListener("click", () => overlay.remove());
 
   const searchInput = overlay.querySelector("#picker-search");

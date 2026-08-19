@@ -10,7 +10,6 @@ export function openModal(innerHtml, width = 560) {
       ${innerHtml}
     </div>
   `;
-  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
   overlay.querySelector("#modal-close-x").addEventListener("click", () => overlay.remove());
   document.body.appendChild(overlay);
   return overlay;

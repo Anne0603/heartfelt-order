@@ -144,7 +144,7 @@ export async function renderItemsPage(container, initialFilter = null) {
             </div>
             <div style="text-align:right;">
               ${ORDERABLE_TYPES.includes(item.type) ? `<div style="font-family:var(--font-mono);font-size:18px;font-weight:700;color:var(--ink);">$${item.price}</div>` : ""}
-              ${STOCK_TRACKED_TYPES.includes(item.type) || isBundle ? `<div style="font-family:var(--font-mono);font-size:${ORDERABLE_TYPES.includes(item.type) ? "12px" : "18px"};font-weight:700;color:${isLow ? "var(--rose)" : "var(--ink)"};">庫存 ${stock}</div>` : ""}
+              ${STOCK_TRACKED_TYPES.includes(item.type) || isBundle ? `<div style="font-family:var(--font-mono);font-size:${ORDERABLE_TYPES.includes(item.type) ? "12px" : "18px"};font-weight:700;color:${isLow ? "var(--rose)" : "var(--ink)"};">庫存 ${stock} ${item.unit || "個"}</div>` : ""}
               ${canSeeCost() && calc ? `<div style="font-size:12px;color:${calc.profit >= 0 ? "var(--jade)" : "var(--rose)"};">毛利 $${calc.profit.toFixed(1)}${calc.isFullCost ? "" : "*"}</div>` : ""}
             </div>
           </div>
@@ -203,10 +203,10 @@ export async function renderItemsPage(container, initialFilter = null) {
       <h3 style="margin-bottom:16px;">${isEdit ? "編輯項目" : "新增項目"}</h3>
 
       <div style="text-align:center;margin-bottom:16px;">
-        <div id="photo-box" style="width:80px;height:80px;border-radius:12px;border:1.5px dashed var(--paper-line);background:#fff;margin:0 auto;display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;flex-direction:column;">
+        <div id="photo-box" style="width:112px;height:112px;border-radius:14px;border:1.5px dashed var(--paper-line);background:#fff;margin:0 auto;display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;flex-direction:column;">
           ${item?.photoUrl
             ? `<img src="${item.photoUrl}" style="width:100%;height:100%;object-fit:cover;">`
-            : `<div style="font-size:20px;">📷</div><div style="font-size:10px;color:var(--text-muted);margin-top:2px;">點擊上傳</div>`
+            : `<div style="font-size:28px;">📷</div><div style="font-size:11px;color:var(--text-muted);margin-top:4px;">點擊上傳</div>`
           }
         </div>
         <input type="file" accept="image/*" id="m-photo-input" style="display:none;" />
@@ -254,6 +254,13 @@ export async function renderItemsPage(container, initialFilter = null) {
         <button class="btn btn-secondary" id="m-add-component" type="button" style="margin:6px 0 14px;">+ 新增一項</button>
       </div>
 
+      <div class="field" id="m-unit-field" style="display:${(STOCK_TRACKED_TYPES.includes(initialType) || initialType === "bundle") ? "block" : "none"};">
+        <label>數量單位</label>
+        <select id="m-unit">
+          ${["個", "捲", "包", "公斤", "公克", "條", "組", "盒"].map((u) => `<option value="${u}" ${item?.unit === u ? "selected" : ""}>${u}</option>`).join("")}
+        </select>
+      </div>
+
       <div class="field" id="m-threshold-field" style="display:${STOCK_TRACKED_TYPES.includes(initialType) ? "block" : "none"};">
         <label>低庫存提醒門檻（選填）</label><input type="number" id="m-threshold" value="${item?.lowStockThreshold || ""}" />
       </div>
@@ -272,6 +279,7 @@ export async function renderItemsPage(container, initialFilter = null) {
       overlay.querySelector("#m-mainitem-field").style.display = type === "self_made" ? "block" : "none";
       overlay.querySelector("#m-qty-field").style.display = (type === "self_made" && selectedMainItem) ? "block" : "none";
       overlay.querySelector("#m-bundle-section").style.display = type === "bundle" ? "block" : "none";
+      overlay.querySelector("#m-unit-field").style.display = (STOCK_TRACKED_TYPES.includes(type) || type === "bundle") ? "block" : "none";
       overlay.querySelector("#m-threshold-field").style.display = STOCK_TRACKED_TYPES.includes(type) ? "block" : "none";
       overlay.querySelector("#m-type-hint").textContent = TYPE_HINTS[type];
     }
@@ -350,7 +358,7 @@ export async function renderItemsPage(container, initialFilter = null) {
         photoBox.innerHTML = `<img src="${uploadedPhotoUrl}" style="width:100%;height:100%;object-fit:cover;">`;
       } catch (err) {
         showToast("照片上傳失敗：" + err.message, "error");
-        photoBox.innerHTML = `<div style="font-size:20px;">📷</div><div style="font-size:10px;color:var(--text-muted);margin-top:2px;">點擊上傳</div>`;
+        photoBox.innerHTML = `<div style="font-size:28px;">📷</div><div style="font-size:11px;color:var(--text-muted);margin-top:4px;">點擊上傳</div>`;
       }
     });
 
@@ -376,6 +384,7 @@ export async function renderItemsPage(container, initialFilter = null) {
         mainItemId: selectedMainItem?.id || null,
         mainItemQty: overlay.querySelector("#m-main-qty")?.value,
         components: validComponents,
+        unit: overlay.querySelector("#m-unit")?.value,
         lowStockThreshold: overlay.querySelector("#m-threshold")?.value,
       };
 
@@ -499,7 +508,7 @@ export async function renderItemsPage(container, initialFilter = null) {
         title: "選擇項目",
         items: stocktakable,
         renderLabel: (i) => i.name,
-        renderSub: (i) => `系統目前：${computeStock(i, itemsById)}`,
+        renderSub: (i) => `系統目前：${computeStock(i, itemsById)} ${i.unit || "個"}`,
         onSelect: (i) => { selectedItem = i; overlay.querySelector("#s-item-btn").textContent = i.name; },
       });
     });
@@ -564,7 +573,7 @@ export async function renderItemsPage(container, initialFilter = null) {
     overlay.querySelector("#modal-box").innerHTML = `
       <button id="modal-close-x" aria-label="關閉" style="position:absolute;top:12px;right:12px;width:30px;height:30px;border-radius:50%;border:none;background:var(--paper);color:var(--text-muted);font-size:16px;cursor:pointer;line-height:1;z-index:1;">✕</button>
       <h3 style="margin-bottom:4px;">${item.name}</h3>
-      <div class="hint" style="margin-bottom:14px;">目前庫存 ${computeStock(item, itemsById)} · 均價 $${computeAvgCost(item, itemsById).toFixed(2)}</div>
+      <div class="hint" style="margin-bottom:14px;">目前庫存 ${computeStock(item, itemsById)} ${item.unit || "個"} · 均價 $${computeAvgCost(item, itemsById).toFixed(2)}</div>
       <h4 style="font-size:13px;color:var(--text-muted);margin:14px 0 4px;">進貨記錄</h4>
       ${purchases.length ? purchases.map((r) => recordRow(r, "purchase")).join("") : `<div class="hint">尚無記錄</div>`}
       <h4 style="font-size:13px;color:var(--text-muted);margin:14px 0 4px;">領用記錄</h4>
