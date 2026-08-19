@@ -61,6 +61,14 @@ a { color: inherit; }
 .flex-row input, .flex-row select, .flex-row textarea { min-width: 0; }
 
 /* ---------- 捲軸 ---------- */
+/* 表單元素在 flex 排版裡一律不設最小寬度，避免撐爆容器、造成手機版跑版
+   （select 的內建最小寬度常常比想像中寬，是最容易踩到這個坑的元素） */
+input, select, textarea {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
 /* 全站數字輸入框拿掉瀏覽器內建的上下箭頭，看起來更像一般金額/數量輸入框 */
 input[type="number"] {
   -moz-appearance: textfield;

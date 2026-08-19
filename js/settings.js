@@ -271,26 +271,17 @@ export async function renderMembersPage(container) {
 export async function renderCategoriesPage(container) {
   container.innerHTML = `
     <div class="page-header"><h2>分類管理</h2></div>
-    <div class="card" style="margin-bottom:16px;">
-      <h3 style="font-size:15px;margin-bottom:10px;">商品分類</h3>
-      <div id="cat-products-list"></div>
-      <div style="display:flex;gap:8px;margin-top:10px;">
-        <input type="text" id="cat-products-input" placeholder="新增分類名稱" style="flex:1;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;" />
-        <button class="btn btn-primary" id="cat-products-add" style="padding:9px 16px;">新增</button>
-      </div>
-    </div>
     <div class="card">
-      <h3 style="font-size:15px;margin-bottom:10px;">採購與庫存分類</h3>
-      <div id="cat-inventory-list"></div>
+      <h3 style="font-size:15px;margin-bottom:10px;">商品與庫存分類</h3>
+      <div id="cat-items-list"></div>
       <div style="display:flex;gap:8px;margin-top:10px;">
-        <input type="text" id="cat-inventory-input" placeholder="新增分類名稱" style="flex:1;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;" />
-        <button class="btn btn-primary" id="cat-inventory-add" style="padding:9px 16px;">新增</button>
+        <input type="text" id="cat-items-input" placeholder="新增分類名稱" style="flex:1;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;" />
+        <button class="btn btn-primary" id="cat-items-add" style="padding:9px 16px;">新增</button>
       </div>
     </div>
   `;
 
-  await setupCategorySection("products", "cat-products-list", "cat-products-input", "cat-products-add");
-  await setupCategorySection("inventory", "cat-inventory-list", "cat-inventory-input", "cat-inventory-add");
+  await setupCategorySection("items", "cat-items-list", "cat-items-input", "cat-items-add");
 
   async function setupCategorySection(module, listId, inputId, addBtnId) {
     const listEl = container.querySelector(`#${listId}`);

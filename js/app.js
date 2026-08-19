@@ -4,13 +4,12 @@
 import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS } from "./auth.js";
 import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, uploadImageToCloudinary, saveBrandLogoUrl, getPendingCount } from "./settings.js";
 import { renderHomePage } from "./home.js";
-import { renderInventoryPage } from "./inventory-ui.js";
-import { renderProductsPage } from "./products-ui.js";
+import { renderItemsPage } from "./items-ui.js";
 import { renderContactsPage } from "./contacts-ui.js";
 import { renderOrdersPage } from "./orders-ui.js";
 import { renderReportsPage } from "./reports-ui.js";
 import { renderProfitPage } from "./profit-ui.js";
-import { lowStockItems } from "./inventory.js";
+import { lowStockItems } from "./items.js";
 import { showToast } from "./utils.js";
 import { db } from "./firebase-config.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
@@ -36,8 +35,7 @@ loadAndApplyBrandLogo();
 const MODULES = [
   { id: "home",      label: "首頁",           icon: "🏠", group: "", roles: ["superadmin","admin","order_staff","viewer"] },
   { id: "orders",    label: "訂單管理",       icon: "📋", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
-  { id: "products",  label: "商品定價",       icon: "🏷️", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
-  { id: "inventory", label: "採購與庫存",     icon: "📦", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
+  { id: "items",     label: "商品與庫存",     icon: "📦", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
   { id: "contacts",  label: "客戶與廠商",     icon: "🙋", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
   { id: "reports",   label: "統計報表",       icon: "📊", group: "分析", roles: ["superadmin","admin","viewer"] },
   { id: "profit",    label: "利潤總覽",       icon: "💰", group: "分析", roles: ["superadmin","admin","viewer"] },
@@ -185,8 +183,10 @@ async function renderCurrentModule() {
   }
 
   if (currentModule === "home") return renderHomePage(mainContent, goToModule);
-  if (currentModule === "inventory") {
-    await renderInventoryPage(mainContent);
+  if (currentModule === "items") {
+    const filter = pendingModuleFilter;
+    pendingModuleFilter = null;
+    await renderItemsPage(mainContent, filter);
     refreshNotifBell();
     return;
   }
@@ -195,7 +195,6 @@ async function renderCurrentModule() {
     pendingModuleFilter = null;
     return renderOrdersPage(mainContent, filter);
   }
-  if (currentModule === "products") return renderProductsPage(mainContent);
   if (currentModule === "contacts") return renderContactsPage(mainContent);
   if (currentModule === "reports") return renderReportsPage(mainContent);
   if (currentModule === "profit") return renderProfitPage(mainContent);
@@ -286,7 +285,7 @@ async function refreshNotifBell() {
     }
     let html = "";
     if (low.length > 0) {
-      html += `<button class="notif-item" data-goto="inventory">📦 ${low.length} 項庫存偏低</button>`;
+      html += `<button class="notif-item" data-goto="items">📦 ${low.length} 項庫存偏低</button>`;
     }
     if (pendingCount > 0) {
       html += `<button class="notif-item" data-goto="pending">🕓 ${pendingCount} 筆待審核申請</button>`;

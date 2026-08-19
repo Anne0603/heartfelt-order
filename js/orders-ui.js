@@ -8,8 +8,7 @@ import {
   markPreparing, markShipped, markDone, voidOrder,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS,
 } from "./orders.js";
-import { listProducts, calcProductCost } from "./products.js";
-import { listItems, buildItemsIndex } from "./inventory.js";
+import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js";
 import { listContacts, createContact } from "./contacts.js";
 import { printOrderSlip } from "./print-slip.js";
 import { openSearchPicker } from "./picker-ui.js";
@@ -39,9 +38,7 @@ function paymentBadgeClass(status) {
 
 export async function renderOrdersPage(container, initialFilter = null) {
   let orders = [];
-  let products = [];
-  let productsById = new Map();
-  let invItems = [];
+  let allItems = [];
   let itemsById = new Map();
   let contacts = [];
   let searchText = "";
@@ -92,14 +89,12 @@ export async function renderOrdersPage(container, initialFilter = null) {
     const listEl = container.querySelector("#orders-list");
     listEl.innerHTML = `<div class="card" style="color:var(--text-muted);">載入中…</div>`;
     try {
-      [orders, products, invItems, contacts] = await Promise.all([
+      [orders, allItems, contacts] = await Promise.all([
         listOrders(),
-        listProducts(),
         listItems({ includeArchived: true }),
         listContacts(),
       ]);
-      productsById = new Map(products.map((p) => [p.id, p]));
-      itemsById = buildItemsIndex(invItems);
+      itemsById = buildItemsIndex(allItems);
       renderList();
     } catch (err) {
       listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${err.message}</div>`;
@@ -161,7 +156,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
 
   function openOrderModal(order = null) {
     const isEdit = !!order;
-    const activeProducts = products.filter((p) => p.status !== "archived");
+    const activeProducts = allItems.filter((i) => ORDERABLE_TYPES.includes(i.type) && i.status !== "archived");
     const customerContacts = contacts.filter((c) => c.roles?.includes("customer"));
     let lineItems = isEdit
       ? order.lineItems.map((li) => ({ ...li }))
@@ -230,7 +225,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
     function renderLineItems() {
       const wrap = overlay.querySelector("#o-lineitems");
       wrap.innerHTML = lineItems.map((li, idx) => `
-        <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;" data-line="${idx}">
+        <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;flex-wrap:wrap;" data-line="${idx}">
           <button type="button" class="l-product-btn picker-trigger" style="flex:2;text-align:left;padding:8px 10px;border:1px solid var(--paper-line);border-radius:8px;background:#fff;font-size:14px;cursor:pointer;">${li.productName || "點選商品"}</button>
           <input type="number" class="l-qty" placeholder="數量" value="${li.qty}" style="width:70px;padding:8px;border:1px solid var(--paper-line);border-radius:8px;" />
           <input type="number" class="l-price" placeholder="單價" value="${li.unitPrice}" style="width:80px;padding:8px;border:1px solid var(--paper-line);border-radius:8px;" />
@@ -322,8 +317,8 @@ export async function renderOrdersPage(container, initialFilter = null) {
 
       btn.disabled = true;
       try {
-        if (isEdit) await updateOrderBeforeShip(order.id, data, productsById, itemsById);
-        else await createOrder(data, productsById, itemsById);
+        if (isEdit) await updateOrderBeforeShip(order.id, data, itemsById);
+        else await createOrder(data, itemsById);
         showToast("已儲存", "success");
         overlay.remove();
         await reload();
@@ -446,7 +441,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
       addActionButton("標記已出貨", "btn-primary", async (e) => {
         e.currentTarget.disabled = true;
         try {
-          await markShipped(order.id, productsById);
+          await markShipped(order.id, itemsById);
           showToast("已出貨，庫存已自動扣除", "success");
           overlay.remove();
           await reload();
@@ -461,7 +456,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
       addActionButton("直接標記已出貨", "btn-primary", async (e) => {
         e.currentTarget.disabled = true;
         try {
-          await markShipped(order.id, productsById);
+          await markShipped(order.id, itemsById);
           showToast("已出貨，庫存已自動扣除", "success");
           overlay.remove();
           await reload();

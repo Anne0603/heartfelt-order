@@ -4,16 +4,16 @@
 // 第二層：快速操作按鈕（依角色顯示）
 // ============================================================
 import { currentSession } from "./auth.js";
-import { lowStockItems } from "./inventory.js";
+import { lowStockItems } from "./items.js";
 import { listOrders } from "./orders.js";
 
 const QUICK_ACTIONS = [
   { id: "orders",    label: "新增訂單",     icon: "📝", roles: ["superadmin","admin","order_staff"] },
-  { id: "inventory", label: "採購入庫",     icon: "📦", roles: ["superadmin","admin","order_staff"] },
+  { id: "items",     label: "商品與庫存",   icon: "📦", roles: ["superadmin","admin","order_staff","viewer"] },
   { id: "orders",    label: "訂單列表",     icon: "🔍", roles: ["superadmin","admin","order_staff","viewer"] },
   { id: "orders",    label: "今日出貨",     icon: "🚚", roles: ["superadmin","admin","order_staff","viewer"], filter: "today" },
-  { id: "products",  label: "商品管理",     icon: "🏷️", roles: ["superadmin","admin"] },
   { id: "contacts",  label: "客戶與廠商",   icon: "📇", roles: ["superadmin","admin","order_staff","viewer"] },
+  { id: "profit",    label: "利潤總覽",     icon: "💰", roles: ["superadmin","admin","viewer"] },
 ];
 
 export async function renderHomePage(container, navigateTo) {
@@ -55,7 +55,7 @@ export async function renderHomePage(container, navigateTo) {
 
   container.querySelector("#pending-card").addEventListener("click", () => navigateTo("orders", { shipStatus: "pending" }));
   container.querySelector("#today-ship-card").addEventListener("click", () => navigateTo("orders", { today: true }));
-  container.querySelector("#low-stock-card").addEventListener("click", () => navigateTo("inventory"));
+  container.querySelector("#low-stock-card").addEventListener("click", () => navigateTo("items"));
 
   try {
     const orders = await listOrders();

@@ -13,7 +13,7 @@ import {
 const categoriesCol = collection(db, "categories");
 
 function targetCollectionName(module) {
-  return module === "products" ? "products" : "inventoryItems";
+  return "items";
 }
 
 export async function listCategories(module) {

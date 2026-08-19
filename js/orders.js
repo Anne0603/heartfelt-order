@@ -2,13 +2,11 @@
 // 訂單管理模組
 //
 // 訂單編號格式：YYYYMMDD + 當天流水號3碼，例如 20260818001
-// （用 counters/{YYYYMMDD} 文件的 next 欄位，交易遞增，每天重新從 1 算起）
 //
 // 出貨狀態：pending（待處理）→ preparing（備貨中）→ shipped（已出貨）→ done（已完成）
 // 收款狀態：unpaid（未收款）→ deposit（已收訂金）→ paid（已付清）
 // voided：作廢（任何出貨狀態都能作廢；如果已經出貨過，作廢時會自動把
-//         當初出貨扣掉的庫存還原 —— 逐筆作廢當初出貨自動產生的
-//         inventoryUsages 記錄，沿用 inventory.js 現成的邏輯）
+//         當初出貨扣掉的庫存還原）
 //
 // 成本鎖定：訂單成立那一刻，把每個品項當下的商品成本「拍照」存進
 // lineItems[].unitCost，之後商品成本再怎麼調整，都不會動到這張訂單
@@ -20,8 +18,7 @@ import {
   serverTimestamp, runTransaction, query, orderBy as fbOrderBy
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { currentSession } from "./auth.js";
-import { consumeItem, listUsagesByOrder, voidRecord } from "./inventory.js";
-import { calcProductCost } from "./products.js";
+import { consumeItem, listUsagesByOrder, voidRecord, calcItemCost } from "./items.js";
 
 const ordersCol = collection(db, "orders");
 
@@ -47,18 +44,18 @@ async function generateOrderNumber(orderDate) {
   return `${dateKey}${String(seq).padStart(3, "0")}`;
 }
 
-function buildLineItems(rawLineItems, productsById, itemsById) {
+function buildLineItems(rawLineItems, itemsById) {
   return rawLineItems.map((li) => {
-    const product = productsById.get(li.productId);
-    const calc = product ? calcProductCost(product, itemsById) : { cost: 0 };
+    const item = itemsById.get(li.productId);
+    const calc = item ? calcItemCost(item, itemsById) : { cost: 0 };
     return {
       productId: li.productId,
       productName: li.productName,
-      productType: product?.productType || "self_made",
+      productType: item?.type || "self_made",
       qty: Number(li.qty),
       unitPrice: Number(li.unitPrice),
       subtotal: Number(li.qty) * Number(li.unitPrice),
-      unitCost: calc.cost, // 鎖住當下的成本，之後商品成本調整不影響這張訂單
+      unitCost: calc?.cost || 0, // 鎖住當下的成本，之後商品成本調整不影響這張訂單
     };
   });
 }
@@ -78,10 +75,10 @@ export async function getOrder(orderId) {
 }
 
 // ---------- 新增訂單 ----------
-export async function createOrder(data, productsById, itemsById) {
+export async function createOrder(data, itemsById) {
   const who = whoAmI();
   const orderNumber = await generateOrderNumber(data.orderDate);
-  const lineItems = buildLineItems(data.lineItems, productsById, itemsById);
+  const lineItems = buildLineItems(data.lineItems, itemsById);
   const itemsTotal = lineItems.reduce((s, li) => s + li.subtotal, 0);
   const totalAmount = itemsTotal + (Number(data.shippingFee) || 0);
 
@@ -115,8 +112,8 @@ export async function createOrder(data, productsById, itemsById) {
 }
 
 // ---------- 編輯訂單（只有還沒出貨能改品項；出貨後只能改備註/收款狀態） ----------
-export async function updateOrderBeforeShip(orderId, data, productsById, itemsById) {
-  const lineItems = buildLineItems(data.lineItems, productsById, itemsById);
+export async function updateOrderBeforeShip(orderId, data, itemsById) {
+  const lineItems = buildLineItems(data.lineItems, itemsById);
   const itemsTotal = lineItems.reduce((s, li) => s + li.subtotal, 0);
   const totalAmount = itemsTotal + (Number(data.shippingFee) || 0);
 
@@ -159,9 +156,10 @@ export async function markDone(orderId) {
 
 /**
  * 標記已出貨：自動依每個品項連結的庫存項目扣庫存，並記錄「誰、何時」。
- * productsById: Map(productId -> product)，需含 mainItemId/mainItemQty 或 linkedInventoryItemId
+ * itemsById：Map(itemId -> item)，需含 mainItemId/mainItemQty（自製商品）
+ *            或本身就是 resale 類型（現貨商品直接扣自己）
  */
-export async function markShipped(orderId, productsById) {
+export async function markShipped(orderId, itemsById) {
   const who = whoAmI();
   const order = await getOrder(orderId);
   if (!order) throw new Error("找不到訂單");
@@ -169,19 +167,19 @@ export async function markShipped(orderId, productsById) {
   if (["shipped", "done"].includes(order.shipStatus)) throw new Error("這張訂單已經出貨過了");
 
   for (const li of order.lineItems) {
-    const product = productsById.get(li.productId);
-    if (!product) continue;
-    if (product.productType === "self_made" && product.mainItemId) {
+    const item = itemsById.get(li.productId);
+    if (!item) continue;
+    if (item.type === "self_made" && item.mainItemId) {
       await consumeItem({
-        itemId: product.mainItemId,
-        qty: (product.mainItemQty || 1) * li.qty,
+        itemId: item.mainItemId,
+        qty: (item.mainItemQty || 1) * li.qty,
         note: `訂單 ${order.orderNumber} 出貨自動扣`,
         source: "order",
         orderId,
       });
-    } else if (product.productType === "resale" && product.linkedInventoryItemId) {
+    } else if (item.type === "resale") {
       await consumeItem({
-        itemId: product.linkedInventoryItemId,
+        itemId: item.id,
         qty: li.qty,
         note: `訂單 ${order.orderNumber} 出貨自動扣`,
         source: "order",

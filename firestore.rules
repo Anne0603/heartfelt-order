@@ -103,40 +103,36 @@ service cloud.firestore {
       allow write: if isSuperadmin();
     }
 
-    // ---------- 商品定價 ----------
-    match /products/{productId} {
+    // ---------- 商品與庫存（合併版：自製商品/現貨商品/包材/組合包） ----------
+    match /items/{itemId} {
       allow read: if hasRole(['superadmin', 'admin', 'order_staff', 'viewer']);
-      allow write: if hasRole(['superadmin', 'admin']);
+      // 自製商品的定價由管理員以上決定；其餘類型（現貨/包材/組合包）訂單進出貨人員也能建立/編輯
+      allow create, update: if hasRole(['superadmin', 'admin'])
+        || (hasRole(['order_staff']) && request.resource.data.type in ['resale', 'packaging', 'bundle']);
+      allow delete: if isSuperadmin();
+    }
+    match /itemPurchases/{recId} {
+      allow read: if hasRole(['superadmin', 'admin', 'order_staff', 'viewer']);
+      allow create: if hasRole(['superadmin', 'admin', 'order_staff']);
+      allow update: if hasRole(['superadmin', 'admin']);
+      allow delete: if isSuperadmin();
+    }
+    match /itemUsages/{recId} {
+      allow read: if hasRole(['superadmin', 'admin', 'order_staff', 'viewer']);
+      allow create: if hasRole(['superadmin', 'admin', 'order_staff']);
+      allow update: if hasRole(['superadmin', 'admin']);
+      allow delete: if isSuperadmin();
+    }
+    match /itemStocktakes/{recId} {
+      allow read: if hasRole(['superadmin', 'admin', 'order_staff', 'viewer']);
+      allow create: if hasRole(['superadmin', 'admin', 'order_staff']);
+      allow delete: if isSuperadmin();
     }
 
     // ---------- 客戶與廠商 ----------
     match /contacts/{contactId} {
       allow read: if hasRole(['superadmin', 'admin', 'order_staff', 'viewer']);
       allow write: if hasRole(['superadmin', 'admin', 'order_staff']);
-    }
-
-    // ---------- 採購與庫存 ----------
-    match /inventoryItems/{itemId} {
-      allow read: if hasRole(['superadmin', 'admin', 'order_staff', 'viewer']);
-      allow create, update: if hasRole(['superadmin', 'admin', 'order_staff']);
-      allow delete: if isSuperadmin();
-    }
-    match /inventoryPurchases/{recId} {
-      allow read: if hasRole(['superadmin', 'admin', 'order_staff', 'viewer']);
-      allow create: if hasRole(['superadmin', 'admin', 'order_staff']);
-      allow update: if hasRole(['superadmin', 'admin']);
-      allow delete: if isSuperadmin();
-    }
-    match /inventoryUsages/{recId} {
-      allow read: if hasRole(['superadmin', 'admin', 'order_staff', 'viewer']);
-      allow create: if hasRole(['superadmin', 'admin', 'order_staff']);
-      allow update: if hasRole(['superadmin', 'admin']);
-      allow delete: if isSuperadmin();
-    }
-    match /inventoryStocktakes/{recId} {
-      allow read: if hasRole(['superadmin', 'admin', 'order_staff', 'viewer']);
-      allow create: if hasRole(['superadmin', 'admin', 'order_staff']);
-      allow delete: if isSuperadmin();
     }
 
     // ---------- 營業支出（利潤總覽用） ----------
