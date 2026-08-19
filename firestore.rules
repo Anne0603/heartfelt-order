@@ -104,11 +104,16 @@ service cloud.firestore {
     }
 
     // ---------- 商品與庫存（合併版：自製商品/現貨商品/包材/組合包） ----------
+    match /units/{unitId} {
+      allow read: if hasRole(['superadmin', 'admin', 'order_staff', 'viewer']);
+      allow write: if isSuperadmin();
+    }
+
     match /items/{itemId} {
       allow read: if hasRole(['superadmin', 'admin', 'order_staff', 'viewer']);
-      // 自製商品的定價由管理員以上決定；其餘類型（現貨/包材/組合包）訂單進出貨人員也能建立/編輯
+      // 自製商品的定價由管理員以上決定；其餘類型（現貨/包材）訂單進出貨人員也能建立/編輯
       allow create, update: if hasRole(['superadmin', 'admin'])
-        || (hasRole(['order_staff']) && request.resource.data.type in ['resale', 'packaging', 'bundle']);
+        || (hasRole(['order_staff']) && request.resource.data.type in ['resale', 'packaging']);
       allow delete: if isSuperadmin();
     }
     match /itemPurchases/{recId} {

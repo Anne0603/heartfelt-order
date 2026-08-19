@@ -18,7 +18,7 @@ import {
   serverTimestamp, runTransaction, query, orderBy as fbOrderBy
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { currentSession } from "./auth.js";
-import { consumeItem, listUsagesByOrder, voidRecord, calcItemCost } from "./items.js";
+import { addUsage, listUsagesByOrder, voidRecord, calcItemCost } from "./items.js";
 
 const ordersCol = collection(db, "orders");
 
@@ -156,8 +156,7 @@ export async function markDone(orderId) {
 
 /**
  * 標記已出貨：自動依每個品項連結的庫存項目扣庫存，並記錄「誰、何時」。
- * itemsById：Map(itemId -> item)，需含 mainItemId/mainItemQty（自製商品）
- *            或本身就是 resale 類型（現貨商品直接扣自己）
+ * itemsById：Map(itemId -> item)，需含 recipe（自製商品的包材配方）
  */
 export async function markShipped(orderId, itemsById) {
   const who = whoAmI();
@@ -169,16 +168,18 @@ export async function markShipped(orderId, itemsById) {
   for (const li of order.lineItems) {
     const item = itemsById.get(li.productId);
     if (!item) continue;
-    if (item.type === "self_made" && item.mainItemId) {
-      await consumeItem({
-        itemId: item.mainItemId,
-        qty: (item.mainItemQty || 1) * li.qty,
-        note: `訂單 ${order.orderNumber} 出貨自動扣`,
-        source: "order",
-        orderId,
-      });
+    if (item.type === "self_made") {
+      for (const r of item.recipe || []) {
+        await addUsage({
+          itemId: r.itemId,
+          qty: (r.qty || 1) * li.qty,
+          note: `訂單 ${order.orderNumber} 出貨自動扣`,
+          source: "order",
+          orderId,
+        });
+      }
     } else if (item.type === "resale") {
-      await consumeItem({
+      await addUsage({
         itemId: item.id,
         qty: li.qty,
         note: `訂單 ${order.orderNumber} 出貨自動扣`,

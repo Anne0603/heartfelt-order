@@ -3,9 +3,9 @@
 // ============================================================
 import { showToast } from "./utils.js";
 import { currentSession } from "./auth.js";
+import { openModal, confirmDialog } from "./modal-ui.js";
 import { listContacts, createContact, updateContact, setContactArchived } from "./contacts.js";
 import { listCategories } from "./categories.js";
-import { openModal } from "./modal-ui.js";
 
 const ROLE_LABELS = { customer: "客戶", supplier: "廠商" };
 
@@ -117,7 +117,7 @@ export async function renderContactsPage(container) {
       btn.addEventListener("click", async () => {
         const c = contacts.find((x) => x.id === btn.getAttribute("data-archive"));
         const willArchive = c.status !== "archived";
-        if (willArchive && !confirm(`確定要停用「${c.name}」嗎？`)) return;
+        if (willArchive && !await confirmDialog(`確定要停用「${c.name}」嗎？`)) return;
         try {
           await setContactArchived(c.id, willArchive);
           showToast(willArchive ? "已停用" : "已恢復使用", "success");

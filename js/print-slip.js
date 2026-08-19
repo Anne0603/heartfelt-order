@@ -2,12 +2,13 @@
 // 出貨單列印
 // 開一個新視窗，排版乾淨的出貨單，不含成本/毛利，叫出瀏覽器列印功能。
 // ============================================================
+import { alertDialog } from "./modal-ui.js";
 import { SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS } from "./orders.js";
 
 export function printOrderSlip(order) {
   const win = window.open("", "_blank", "width=480,height=700");
   if (!win) {
-    alert("瀏覽器擋住了列印視窗，請允許彈出視窗後再試一次。");
+    alertDialog("瀏覽器擋住了列印視窗，請允許彈出視窗後再試一次。");
     return;
   }
 

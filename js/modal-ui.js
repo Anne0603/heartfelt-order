@@ -1,5 +1,5 @@
 // ============================================================
-// 共用彈跳視窗：右上角 X 關閉，點外面也能關
+// 共用彈跳視窗：右上角 X 關閉（不會因為誤觸外部而清空表單內容）
 // ============================================================
 export function openModal(innerHtml, width = 560) {
   const overlay = document.createElement("div");
@@ -13,4 +13,46 @@ export function openModal(innerHtml, width = 560) {
   overlay.querySelector("#modal-close-x").addEventListener("click", () => overlay.remove());
   document.body.appendChild(overlay);
   return overlay;
+}
+
+/**
+ * 共用確認對話框，取代原生 confirm()。回傳 Promise<boolean>。
+ */
+export function confirmDialog(message, { confirmLabel = "確定", danger = false } = {}) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.style.cssText = "position:fixed;inset:0;background:rgba(20,22,28,0.5);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;";
+    overlay.innerHTML = `
+      <div class="card" style="max-width:340px;width:100%;">
+        <div style="font-size:15px;color:var(--ink);margin-bottom:18px;line-height:1.6;">${message}</div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button class="btn btn-secondary" id="cf-cancel">取消</button>
+          <button class="btn ${danger ? "btn-danger" : "btn-primary"}" id="cf-ok">${confirmLabel}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    overlay.querySelector("#cf-cancel").addEventListener("click", () => { overlay.remove(); resolve(false); });
+    overlay.querySelector("#cf-ok").addEventListener("click", () => { overlay.remove(); resolve(true); });
+  });
+}
+
+/**
+ * 簡單的訊息提示彈窗，取代原生 alert()。
+ */
+export function alertDialog(message) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.style.cssText = "position:fixed;inset:0;background:rgba(20,22,28,0.5);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;";
+    overlay.innerHTML = `
+      <div class="card" style="max-width:340px;width:100%;">
+        <div style="font-size:15px;color:var(--ink);margin-bottom:18px;line-height:1.6;">${message}</div>
+        <div style="display:flex;justify-content:flex-end;">
+          <button class="btn btn-primary" id="al-ok">知道了</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    overlay.querySelector("#al-ok").addEventListener("click", () => { overlay.remove(); resolve(); });
+  });
 }

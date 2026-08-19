@@ -12,15 +12,15 @@ import {
   TYPE_LABELS, ORDERABLE_TYPES, STOCK_TRACKED_TYPES,
 } from "./items.js";
 import { listCategories } from "./categories.js";
+import { listUnits } from "./units.js";
 import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js";
-import { openModal } from "./modal-ui.js";
+import { openModal, confirmDialog } from "./modal-ui.js";
 import { openSearchPicker } from "./picker-ui.js";
 
 const TYPE_HINTS = {
-  self_made: "自己現做的東西，客戶可訂購。不追蹤庫存量，成本只算主料（原料/人工每月算在「利潤總覽」）。",
+  self_made: "自己現做的東西，客戶可訂購。不追蹤庫存量，成本 = 配方裡每一項包材的成本加總（原料/人工每月算在「利潤總覽」）。",
   resale: "直接進貨轉賣的東西，客戶可訂購。會追蹤庫存量與進貨均價。",
   packaging: "幕後消耗品（緞帶、盒子），客戶不會直接訂購，會追蹤庫存與均價。",
-  bundle: "由好幾種包材組成的一組（例如禮盒），庫存/成本即時從組成的包材算出來，不用另外採購。",
 };
 
 function canSeeCost() {
@@ -32,7 +32,7 @@ function canWrite() {
 function canWriteType(type) {
   const r = currentSession.member?.role;
   if (["superadmin", "admin"].includes(r)) return true;
-  if (r === "order_staff") return type !== "self_made"; // 自製商品的定價由管理員以上決定
+  if (r === "order_staff") return type !== "self_made";
   return false;
 }
 function canVoid() {
@@ -46,75 +46,93 @@ export async function renderItemsPage(container, initialFilter = null) {
   let items = [];
   let itemsById = new Map();
   let categories = [];
+  let units = [];
   let filterType = initialFilter?.type || "all";
   let searchText = "";
   let showArchived = false;
 
-  container.innerHTML = `
-    <div class="page-header">
-      <h2>商品與庫存</h2>
-      ${canWrite() ? `
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn btn-secondary" id="btn-open-stocktake">盤點</button>
-          <button class="btn btn-primary" id="btn-open-purchase">採購登記</button>
-          <button class="btn btn-primary" id="btn-open-new-item">新增項目</button>
-        </div>
-      ` : ""}
-    </div>
-    <div class="card" style="margin-bottom:16px;">
-      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-        <input type="text" id="search-input" placeholder="搜尋名稱" style="flex:1;min-width:160px;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;" />
-        <select id="filter-type" style="padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;">
-          <option value="all">全部類型</option>
-          <option value="self_made">自製商品</option>
-          <option value="resale">現貨商品</option>
-          <option value="packaging">包材</option>
-          <option value="bundle">組合包</option>
-        </select>
-        <label style="display:flex;align-items:center;gap:6px;font-size:14px;color:var(--text-muted);">
-          <input type="checkbox" id="show-archived" /> 顯示已停用/下架
-        </label>
-      </div>
-    </div>
-    <div id="items-list"></div>
-  `;
+  async function loadData() {
+    [items, categories, units] = await Promise.all([
+      listItems({ includeArchived: showArchived }),
+      listCategories("items"),
+      listUnits(),
+    ]);
+    itemsById = buildItemsIndex(items);
+  }
 
-  container.querySelector("#filter-type").value = filterType;
-  container.querySelector("#search-input").addEventListener("input", (e) => {
-    searchText = e.target.value.trim().toLowerCase();
+  function unitOptions(selected) {
+    const list = units.length ? units.map((u) => u.name) : ["個"];
+    return list.map((u) => `<option value="${u}" ${u === selected ? "selected" : ""}>${u}</option>`).join("");
+  }
+
+  // ============================================================
+  // 列表畫面
+  // ============================================================
+  async function renderListView() {
+    container.innerHTML = `
+      <div class="page-header">
+        <h2>商品與庫存</h2>
+        ${canWrite() ? `
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-secondary" id="btn-open-stocktake">盤點</button>
+            <button class="btn btn-primary" id="btn-open-purchase">採購登記</button>
+            <button class="btn btn-primary" id="btn-open-new-item">新增項目</button>
+          </div>
+        ` : ""}
+      </div>
+      <div class="card" style="margin-bottom:16px;">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <input type="text" id="search-input" placeholder="搜尋名稱" style="flex:1;min-width:160px;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;" />
+          <select id="filter-type" style="padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;">
+            <option value="all">全部類型</option>
+            <option value="self_made">自製商品</option>
+            <option value="resale">現貨商品</option>
+            <option value="packaging">包材</option>
+          </select>
+          <label style="display:flex;align-items:center;gap:6px;font-size:14px;color:var(--text-muted);">
+            <input type="checkbox" id="show-archived" /> 顯示已停用/下架
+          </label>
+        </div>
+      </div>
+      <div id="items-list"></div>
+    `;
+
+    container.querySelector("#filter-type").value = filterType;
+    container.querySelector("#search-input").addEventListener("input", (e) => {
+      searchText = e.target.value.trim().toLowerCase();
+      renderList();
+    });
+    container.querySelector("#filter-type").addEventListener("change", (e) => {
+      filterType = e.target.value;
+      renderList();
+    });
+    container.querySelector("#show-archived").addEventListener("change", async (e) => {
+      showArchived = e.target.checked;
+      await reload();
+    });
+    if (canWrite()) {
+      container.querySelector("#btn-open-new-item").addEventListener("click", () => openItemModal());
+      container.querySelector("#btn-open-purchase").addEventListener("click", () => openPurchaseModal());
+      container.querySelector("#btn-open-stocktake").addEventListener("click", () => openStocktakeModal());
+    }
+
     renderList();
-  });
-  container.querySelector("#filter-type").addEventListener("change", (e) => {
-    filterType = e.target.value;
-    renderList();
-  });
-  container.querySelector("#show-archived").addEventListener("change", async (e) => {
-    showArchived = e.target.checked;
-    await reload();
-  });
-  if (canWrite()) {
-    container.querySelector("#btn-open-new-item").addEventListener("click", () => openItemModal());
-    container.querySelector("#btn-open-purchase").addEventListener("click", () => openPurchaseModal());
-    container.querySelector("#btn-open-stocktake").addEventListener("click", () => openStocktakeModal());
   }
 
   async function reload() {
     const listEl = container.querySelector("#items-list");
-    listEl.innerHTML = `<div class="card" style="color:var(--text-muted);">載入中…</div>`;
+    if (listEl) listEl.innerHTML = `<div class="card" style="color:var(--text-muted);">載入中…</div>`;
     try {
-      [items, categories] = await Promise.all([
-        listItems({ includeArchived: showArchived }),
-        listCategories("items"),
-      ]);
-      itemsById = buildItemsIndex(items);
+      await loadData();
       renderList();
     } catch (err) {
-      listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${err.message}</div>`;
+      if (listEl) listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${err.message}</div>`;
     }
   }
 
   function renderList() {
     const listEl = container.querySelector("#items-list");
+    if (!listEl) return;
     let filtered = items;
     if (filterType !== "all") filtered = filtered.filter((i) => i.type === filterType);
     if (searchText) filtered = filtered.filter((i) => (i.name || "").toLowerCase().includes(searchText));
@@ -126,35 +144,27 @@ export async function renderItemsPage(container, initialFilter = null) {
 
     listEl.innerHTML = filtered.map((item) => {
       const isArchived = item.status === "archived";
-      const isBundle = item.type === "bundle";
-      const stock = computeStock(item, itemsById);
+      const stock = computeStock(item);
       const isLow = STOCK_TRACKED_TYPES.includes(item.type) && item.lowStockThreshold > 0 && stock <= item.lowStockThreshold;
       const calc = calcItemCost(item, itemsById);
 
       return `
-        <div class="card" style="margin-bottom:10px;${isArchived ? "opacity:0.55;" : ""}">
+        <div class="card" style="margin-bottom:10px;cursor:pointer;${isArchived ? "opacity:0.55;" : ""}" data-open="${item.id}">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
             <div style="display:flex;gap:12px;">
               ${item.photoUrl ? `<img src="${item.photoUrl}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0;">` : `<div style="width:44px;height:44px;border-radius:8px;background:var(--paper);flex-shrink:0;"></div>`}
               <div>
                 <div style="font-weight:700;font-size:16px;color:var(--ink);">${item.name} ${isArchived ? `<span class="hint">(已停用)</span>` : ""}</div>
                 <div style="font-size:13px;color:var(--text-muted);margin-top:2px;">${TYPE_LABELS[item.type]}${item.category ? " · " + item.category : ""}</div>
-                ${isBundle ? `<div class="hint" style="margin-top:4px;">內含：${(item.components || []).map(c => `${itemsById.get(c.itemId)?.name || "?"} x${c.qty}`).join("、")}</div>` : ""}
               </div>
             </div>
             <div style="text-align:right;">
               ${ORDERABLE_TYPES.includes(item.type) ? `<div style="font-family:var(--font-mono);font-size:18px;font-weight:700;color:var(--ink);">$${item.price}</div>` : ""}
-              ${STOCK_TRACKED_TYPES.includes(item.type) || isBundle ? `<div style="font-family:var(--font-mono);font-size:${ORDERABLE_TYPES.includes(item.type) ? "12px" : "18px"};font-weight:700;color:${isLow ? "var(--rose)" : "var(--ink)"};">庫存 ${stock} ${item.unit || "個"}</div>` : ""}
+              ${STOCK_TRACKED_TYPES.includes(item.type) ? `<div style="font-family:var(--font-mono);font-size:${ORDERABLE_TYPES.includes(item.type) ? "12px" : "18px"};font-weight:700;color:${isLow ? "var(--rose)" : "var(--ink)"};">庫存 ${stock} ${item.unit || "個"}</div>` : ""}
               ${canSeeCost() && calc ? `<div style="font-size:12px;color:${calc.profit >= 0 ? "var(--jade)" : "var(--rose)"};">毛利 $${calc.profit.toFixed(1)}${calc.isFullCost ? "" : "*"}</div>` : ""}
             </div>
           </div>
           ${isLow ? `<div class="seal-badge bad" style="margin-top:8px;"><span class="dot"></span>低於庫存門檻(${item.lowStockThreshold})</div>` : ""}
-          <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
-            ${canSeeCost() && calc ? `<button class="btn btn-secondary" data-costdetail="${item.id}" style="padding:7px 14px;font-size:13px;">成本明細</button>` : ""}
-            ${STOCK_TRACKED_TYPES.includes(item.type) ? `<button class="btn btn-secondary" data-detail="${item.id}" style="padding:7px 14px;font-size:13px;">記錄</button>` : ""}
-            ${canWriteType(item.type) ? `<button class="btn btn-secondary" data-edit="${item.id}" style="padding:7px 14px;font-size:13px;">編輯</button>` : ""}
-            ${canWriteType(item.type) ? `<button class="btn btn-secondary" data-archive="${item.id}" style="padding:7px 14px;font-size:13px;">${isArchived ? "恢復使用" : "停用"}</button>` : ""}
-          </div>
         </div>
       `;
     }).join("");
@@ -162,42 +172,219 @@ export async function renderItemsPage(container, initialFilter = null) {
       listEl.insertAdjacentHTML("beforeend", `<div class="hint" style="text-align:center;margin-top:6px;">* 自製商品的毛利未扣原料/人工，那些算在「利潤總覽」</div>`);
     }
 
-    listEl.querySelectorAll("[data-costdetail]").forEach((btn) => {
-      btn.addEventListener("click", () => openCostDetailModal(btn.getAttribute("data-costdetail")));
+    listEl.querySelectorAll("[data-open]").forEach((card) => {
+      card.addEventListener("click", () => renderDetailView(card.getAttribute("data-open")));
     });
-    listEl.querySelectorAll("[data-detail]").forEach((btn) => {
-      btn.addEventListener("click", () => openDetailModal(btn.getAttribute("data-detail")));
-    });
-    listEl.querySelectorAll("[data-edit]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const item = items.find((i) => i.id === btn.getAttribute("data-edit"));
-        openItemModal(item);
-      });
-    });
-    listEl.querySelectorAll("[data-archive]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const item = items.find((i) => i.id === btn.getAttribute("data-archive"));
+  }
+
+  // ============================================================
+  // 詳細畫面（取代原本的小彈跳視窗，可編輯、可查記錄、可搜尋）
+  // ============================================================
+  async function renderDetailView(itemId) {
+    const item = items.find((i) => i.id === itemId);
+    if (!item) return;
+    const calc = calcItemCost(item, itemsById);
+    const isTracked = STOCK_TRACKED_TYPES.includes(item.type);
+
+    container.innerHTML = `
+      <div class="page-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <button class="btn btn-secondary" id="btn-back" style="padding:8px 12px;">← 返回列表</button>
+        </div>
+        ${canWriteType(item.type) ? `
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-secondary" id="btn-edit-item">編輯</button>
+            <button class="btn btn-secondary" id="btn-archive-item">${item.status === "archived" ? "恢復使用" : "停用"}</button>
+          </div>
+        ` : ""}
+      </div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <div style="display:flex;gap:14px;align-items:flex-start;">
+          ${item.photoUrl ? `<img src="${item.photoUrl}" style="width:64px;height:64px;border-radius:10px;object-fit:cover;flex-shrink:0;">` : `<div style="width:64px;height:64px;border-radius:10px;background:var(--paper);flex-shrink:0;"></div>`}
+          <div>
+            <div style="font-weight:700;font-size:19px;color:var(--ink);">${item.name}</div>
+            <div style="font-size:13px;color:var(--text-muted);margin-top:2px;">${TYPE_LABELS[item.type]}${item.category ? " · " + item.category : ""}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:22px;flex-wrap:wrap;margin-top:14px;">
+          ${ORDERABLE_TYPES.includes(item.type) ? `<div><div class="hint">售價</div><div style="font-family:var(--font-mono);font-size:17px;font-weight:700;">$${item.price}</div></div>` : ""}
+          ${isTracked ? `<div><div class="hint">庫存</div><div style="font-family:var(--font-mono);font-size:17px;font-weight:700;">${computeStock(item)} ${item.unit || "個"}</div></div>` : ""}
+          ${isTracked ? `<div><div class="hint">均價</div><div style="font-family:var(--font-mono);font-size:17px;font-weight:700;">$${computeAvgCost(item).toFixed(2)}</div></div>` : ""}
+          ${canSeeCost() && calc ? `<div><div class="hint">毛利</div><div style="font-family:var(--font-mono);font-size:17px;font-weight:700;color:${calc.profit>=0?"var(--jade)":"var(--rose)"};">$${calc.profit.toFixed(1)}</div></div>` : ""}
+        </div>
+      </div>
+
+      ${canSeeCost() && calc ? `
+        <div class="card" style="margin-bottom:16px;">
+          <h3 style="font-size:15px;margin-bottom:10px;">成本明細</h3>
+          <table class="simple-table">
+            ${calc.breakdown.map((b) => `<tr><td>${b.label}</td><td style="text-align:right;font-family:var(--font-mono);">$${b.amount.toFixed(2)}</td></tr>`).join("")}
+            <tr style="font-weight:700;"><td>成本合計</td><td style="text-align:right;font-family:var(--font-mono);">$${calc.cost.toFixed(2)}</td></tr>
+          </table>
+          ${!calc.isFullCost ? `<div class="hint" style="margin-top:8px;">未扣原料/人工，那些每月算在「利潤總覽」。</div>` : ""}
+        </div>
+      ` : ""}
+
+      ${isTracked ? `
+        <div class="settings-tabs" id="record-tabs"></div>
+        <div id="record-content"></div>
+      ` : ""}
+    `;
+
+    container.querySelector("#btn-back").addEventListener("click", renderListView);
+    if (canWriteType(item.type)) {
+      container.querySelector("#btn-edit-item").addEventListener("click", () => openItemModal(item));
+      container.querySelector("#btn-archive-item").addEventListener("click", async () => {
         const willArchive = item.status !== "archived";
-        if (willArchive && !confirm(`確定要停用「${item.name}」嗎？`)) return;
+        if (willArchive && !await confirmDialog(`確定要停用「${item.name}」嗎？`)) return;
         try {
           await setItemArchived(item.id, willArchive);
           showToast(willArchive ? "已停用" : "已恢復使用", "success");
-          await reload();
+          await loadData();
+          renderDetailView(itemId);
         } catch (err) {
           showToast("操作失敗：" + err.message, "error");
         }
       });
-    });
+    }
+
+    if (isTracked) {
+      await renderRecordTabs(itemId);
+    }
   }
 
-  // ---------- 新增 / 編輯項目 ----------
+  async function renderRecordTabs(itemId) {
+    const tabsEl = container.querySelector("#record-tabs");
+    const contentEl = container.querySelector("#record-content");
+    if (!tabsEl) return;
+
+    const RECORD_TABS = [
+      { id: "purchases", label: "進貨記錄" },
+      { id: "usages", label: "領用記錄" },
+      { id: "stocktakes", label: "盤點記錄" },
+    ];
+    let activeTab = "purchases";
+    let allRecords = { purchases: [], usages: [], stocktakes: [] };
+    let recSearch = "";
+
+    [allRecords.purchases, allRecords.usages, allRecords.stocktakes] = await Promise.all([
+      listPurchases(itemId), listUsages(itemId), listStocktakes(itemId),
+    ]);
+
+    function renderTabButtons() {
+      tabsEl.innerHTML = RECORD_TABS.map((t) => `
+        <button class="settings-tab-btn ${t.id === activeTab ? "active" : ""}" data-tab="${t.id}">${t.label}（${allRecords[t.id].length}）</button>
+      `).join("");
+      tabsEl.querySelectorAll("[data-tab]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          activeTab = btn.getAttribute("data-tab");
+          recSearch = "";
+          renderTabButtons();
+          renderTabContent();
+        });
+      });
+    }
+
+    function renderTabContent() {
+      const records = allRecords[activeTab];
+      const filtered = recSearch
+        ? records.filter((r) => (r.date || "").includes(recSearch) || (r.note || "").toLowerCase().includes(recSearch.toLowerCase()) || (r.createdByName || "").toLowerCase().includes(recSearch.toLowerCase()))
+        : records;
+
+      contentEl.innerHTML = `
+        <div class="card">
+          <input type="text" id="rec-search" placeholder="搜尋日期/備註/人員" value="${recSearch}" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:14px;margin-bottom:12px;" />
+          <div id="rec-list"></div>
+        </div>
+      `;
+      contentEl.querySelector("#rec-search").addEventListener("input", (e) => {
+        recSearch = e.target.value.trim();
+        renderRecList();
+      });
+      renderRecList();
+
+      function renderRecList() {
+        const filtered2 = recSearch
+          ? records.filter((r) => (r.date || "").includes(recSearch) || (r.note || "").toLowerCase().includes(recSearch.toLowerCase()) || (r.createdByName || "").toLowerCase().includes(recSearch.toLowerCase()))
+          : records;
+        const listEl = contentEl.querySelector("#rec-list");
+        if (filtered2.length === 0) {
+          listEl.innerHTML = `<div class="hint" style="text-align:center;padding:16px 0;">沒有符合的記錄</div>`;
+          return;
+        }
+        if (activeTab === "stocktakes") {
+          listEl.innerHTML = filtered2.map((s) => `
+            <div style="padding:10px 0;border-bottom:1px solid var(--paper-line);">
+              <div style="font-size:14px;">${s.date} · 盤點為 ${s.countedQty}（原 ${s.systemQtyBefore}，差 ${s.diff > 0 ? "+" : ""}${s.diff}）</div>
+              ${s.note ? `<div class="hint">${s.note}</div>` : ""}
+              <div class="hint">${s.createdByName || ""}</div>
+            </div>
+          `).join("");
+          return;
+        }
+        const kind = activeTab === "purchases" ? "purchase" : "usage";
+        listEl.innerHTML = filtered2.map((rec) => {
+          const isVoid = rec.status === "void";
+          const label = kind === "purchase" ? `進貨 +${rec.qty}（$${rec.amount}）` : `領用 -${rec.qty}${rec.source === "order" ? "（出貨自動）" : ""}`;
+          return `
+            <div style="padding:10px 0;border-bottom:1px solid var(--paper-line);${isVoid ? "opacity:0.5;" : ""}">
+              <div style="display:flex;justify-content:space-between;">
+                <span style="font-size:14px;">${rec.date} · ${label}${isVoid ? "（已作廢）" : ""}</span>
+                ${!isVoid && canVoid() ? `<button class="btn btn-secondary" data-void="${kind}:${rec.id}" style="padding:3px 10px;font-size:12px;">作廢</button>` : ""}
+                ${isVoid && canDelete() ? `<button class="btn btn-danger" data-delete="${kind}:${rec.id}" style="padding:3px 10px;font-size:12px;">刪除</button>` : ""}
+              </div>
+              ${rec.note ? `<div class="hint">${rec.note}</div>` : ""}
+              <div class="hint">${rec.createdByName || rec.createdBy || ""}</div>
+            </div>
+          `;
+        }).join("");
+
+        listEl.querySelectorAll("[data-void]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const [k, id] = btn.getAttribute("data-void").split(":");
+            if (!await confirmDialog("確定要作廢這筆記錄嗎？")) return;
+            try {
+              await voidRecord(k, id);
+              showToast("已作廢", "success");
+              await loadData();
+              renderDetailView(itemId);
+            } catch (err) {
+              showToast("失敗：" + err.message, "error");
+            }
+          });
+        });
+        listEl.querySelectorAll("[data-delete]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const [k, id] = btn.getAttribute("data-delete").split(":");
+            if (!await confirmDialog("確定要永久刪除這筆記錄嗎？這個動作無法復原。", { confirmLabel: "刪除", danger: true })) return;
+            try {
+              await permanentlyDelete(k, id);
+              showToast("已刪除", "success");
+              await loadData();
+              renderDetailView(itemId);
+            } catch (err) {
+              showToast("失敗：" + err.message, "error");
+            }
+          });
+        });
+      }
+    }
+
+    renderTabButtons();
+    renderTabContent();
+  }
+
+  // ============================================================
+  // 新增 / 編輯項目
+  // ============================================================
   function openItemModal(item = null) {
     const isEdit = !!item;
     const initialType = item?.type || "self_made";
-    let componentRows = isEdit && item.type === "bundle"
-      ? (item.components || []).map((c) => ({ itemId: c.itemId, qty: c.qty }))
+    const packagingItems = items.filter((i) => i.type === "packaging" && i.status !== "archived");
+    let recipeRows = isEdit && item.type === "self_made"
+      ? (item.recipe || []).map((r) => ({ itemId: r.itemId, qty: r.qty }))
       : [{ itemId: "", qty: 1 }];
-    let selectedMainItem = item?.mainItemId ? items.find((i) => i.id === item.mainItemId) : null;
 
     const overlay = openModal(`
       <h3 style="margin-bottom:16px;">${isEdit ? "編輯項目" : "新增項目"}</h3>
@@ -221,7 +408,6 @@ export async function renderItemsPage(container, initialFilter = null) {
               <option value="self_made">自製商品</option>
               <option value="resale">現貨商品</option>
               <option value="packaging">包材</option>
-              <option value="bundle">組合包</option>
             </select>`
         }
         <div class="hint" id="m-type-hint">${TYPE_HINTS[initialType]}</div>
@@ -238,27 +424,20 @@ export async function renderItemsPage(container, initialFilter = null) {
         <label>售價</label><input type="number" id="m-price" value="${item?.price ?? ""}" />
       </div>
 
-      <div class="field" id="m-mainitem-field" style="display:${initialType === "self_made" ? "block" : "none"};">
-        <label>這個商品要扣哪個包材（選填）</label>
-        <button type="button" id="m-main-item-btn" class="picker-trigger">${selectedMainItem ? selectedMainItem.name : "點選包材（不使用可略過）"}</button>
-      </div>
-      <div class="field" id="m-qty-field" style="display:${selectedMainItem ? "block" : "none"};">
-        <label>用幾個</label>
-        <input type="number" id="m-main-qty" value="${item?.mainItemQty || 1}" />
-        <div class="hint">例如這個商品出貨一次要用掉 1 個緞帶，這裡就填 1。</div>
-      </div>
-
-      <div id="m-bundle-section" style="display:${initialType === "bundle" ? "block" : "none"};">
-        <label style="display:block;font-size:14.5px;font-weight:600;color:var(--ink);margin-bottom:6px;">組成內容</label>
-        <div id="m-component-rows"></div>
-        <button class="btn btn-secondary" id="m-add-component" type="button" style="margin:6px 0 14px;">+ 新增一項</button>
+      <div id="m-recipe-section" style="display:${initialType === "self_made" ? "block" : "none"};">
+        <label style="display:block;font-size:14.5px;font-weight:600;color:var(--ink);margin-bottom:6px;">配方（選填，可以列好幾種包材）</label>
+        <div style="display:flex;gap:6px;padding:0 2px;margin-bottom:4px;">
+          <div style="flex:2;font-size:12px;color:var(--text-muted);">包材</div>
+          <div style="width:80px;font-size:12px;color:var(--text-muted);">用幾個</div>
+        </div>
+        <div id="m-recipe-rows"></div>
+        <button class="btn btn-secondary" id="m-add-recipe" type="button" style="margin:8px 0 14px;">+ 新增一項包材</button>
       </div>
 
-      <div class="field" id="m-unit-field" style="display:${(STOCK_TRACKED_TYPES.includes(initialType) || initialType === "bundle") ? "block" : "none"};">
+      <div class="field" id="m-unit-field" style="display:${STOCK_TRACKED_TYPES.includes(initialType) ? "block" : "none"};">
         <label>數量單位</label>
-        <select id="m-unit">
-          ${["個", "捲", "包", "公斤", "公克", "條", "組", "盒"].map((u) => `<option value="${u}" ${item?.unit === u ? "selected" : ""}>${u}</option>`).join("")}
-        </select>
+        <select id="m-unit">${unitOptions(item?.unit)}</select>
+        ${units.length === 0 ? `<div class="hint">尚未建立任何單位，可以到「系統設定 → 單位管理」新增。</div>` : ""}
       </div>
 
       <div class="field" id="m-threshold-field" style="display:${STOCK_TRACKED_TYPES.includes(initialType) ? "block" : "none"};">
@@ -270,16 +449,10 @@ export async function renderItemsPage(container, initialFilter = null) {
       </div>
     `);
 
-    overlay.querySelectorAll(".picker-trigger").forEach((el) => {
-      el.style.cssText = "width:100%;text-align:left;padding:10px 12px;border:1px solid var(--paper-line);border-radius:8px;background:#fff;font-size:15px;cursor:pointer;color:var(--text-primary);";
-    });
-
     function syncTypeFields(type) {
       overlay.querySelector("#m-price-field").style.display = ORDERABLE_TYPES.includes(type) ? "block" : "none";
-      overlay.querySelector("#m-mainitem-field").style.display = type === "self_made" ? "block" : "none";
-      overlay.querySelector("#m-qty-field").style.display = (type === "self_made" && selectedMainItem) ? "block" : "none";
-      overlay.querySelector("#m-bundle-section").style.display = type === "bundle" ? "block" : "none";
-      overlay.querySelector("#m-unit-field").style.display = (STOCK_TRACKED_TYPES.includes(type) || type === "bundle") ? "block" : "none";
+      overlay.querySelector("#m-recipe-section").style.display = type === "self_made" ? "block" : "none";
+      overlay.querySelector("#m-unit-field").style.display = STOCK_TRACKED_TYPES.includes(type) ? "block" : "none";
       overlay.querySelector("#m-threshold-field").style.display = STOCK_TRACKED_TYPES.includes(type) ? "block" : "none";
       overlay.querySelector("#m-type-hint").textContent = TYPE_HINTS[type];
     }
@@ -287,60 +460,41 @@ export async function renderItemsPage(container, initialFilter = null) {
       overlay.querySelector("#m-type").addEventListener("change", (e) => syncTypeFields(e.target.value));
     }
 
-    const mainItemBtn = overlay.querySelector("#m-main-item-btn");
-    if (mainItemBtn) {
-      mainItemBtn.addEventListener("click", () => {
-        const candidates = items.filter((i) => ["packaging", "bundle"].includes(i.type) && i.status !== "archived");
-        openSearchPicker({
-          title: "選擇包材",
-          items: candidates,
-          renderLabel: (i) => i.name,
-          renderSub: (i) => TYPE_LABELS[i.type],
-          emptyText: "還沒有任何包材，請先新增",
-          onSelect: (i) => {
-            selectedMainItem = i;
-            mainItemBtn.textContent = i.name;
-            overlay.querySelector("#m-qty-field").style.display = "block";
-          },
-        });
-      });
-    }
-
-    // 組合包組件列
-    const nonBundleItems = items.filter((i) => i.type === "packaging" && i.status !== "archived");
-    function renderComponentRows() {
-      const rowsEl = overlay.querySelector("#m-component-rows");
+    function renderRecipeRows() {
+      const rowsEl = overlay.querySelector("#m-recipe-rows");
       if (!rowsEl) return;
-      rowsEl.innerHTML = componentRows.map((r, idx) => {
-        const comp = nonBundleItems.find((i) => i.id === r.itemId);
+      rowsEl.innerHTML = recipeRows.map((r, idx) => {
+        const comp = packagingItems.find((i) => i.id === r.itemId);
         return `
-          <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;" data-crow="${idx}">
-            <button type="button" class="c-item-btn picker-trigger" style="flex:2;padding:8px 10px;text-align:left;border:1px solid var(--paper-line);border-radius:8px;background:#fff;font-size:14px;cursor:pointer;">${comp ? comp.name : "點選包材"}</button>
-            <input type="number" class="c-qty" placeholder="用量" value="${r.qty}" style="width:80px;padding:8px;border:1px solid var(--paper-line);border-radius:8px;" />
-            ${componentRows.length > 1 ? `<button class="btn btn-danger c-remove" type="button" style="padding:6px 10px;font-size:12px;">刪</button>` : ""}
+          <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;" data-rrow="${idx}">
+            <button type="button" class="r-item-btn picker-trigger" style="flex:2;padding:8px 10px;text-align:left;border:1px solid var(--paper-line);border-radius:8px;background:#fff;font-size:14px;cursor:pointer;">${comp ? comp.name : "點選包材"}</button>
+            <input type="number" class="r-qty" placeholder="用量" value="${r.qty}" style="width:80px;padding:8px;border:1px solid var(--paper-line);border-radius:8px;" />
+            ${recipeRows.length > 1 ? `<button class="btn btn-danger r-remove" type="button" style="padding:6px 10px;font-size:12px;">刪</button>` : ""}
           </div>
         `;
       }).join("");
-      rowsEl.querySelectorAll("[data-crow]").forEach((rowEl) => {
-        const idx = Number(rowEl.getAttribute("data-crow"));
-        rowEl.querySelector(".c-item-btn").addEventListener("click", () => {
+      rowsEl.querySelectorAll("[data-rrow]").forEach((rowEl) => {
+        const idx = Number(rowEl.getAttribute("data-rrow"));
+        rowEl.querySelector(".r-item-btn").addEventListener("click", () => {
           openSearchPicker({
             title: "選擇包材",
-            items: nonBundleItems,
+            items: packagingItems,
             renderLabel: (i) => i.name,
+            renderSub: (i) => `庫存 ${computeStock(i)} ${i.unit || "個"}`,
+            renderThumb: (i) => i.photoUrl || null,
             emptyText: "還沒有任何包材，請先新增",
-            onSelect: (i) => { componentRows[idx].itemId = i.id; renderComponentRows(); },
+            onSelect: (i) => { recipeRows[idx].itemId = i.id; renderRecipeRows(); },
           });
         });
-        rowEl.querySelector(".c-qty").addEventListener("input", (e) => componentRows[idx].qty = Number(e.target.value));
-        const rmBtn = rowEl.querySelector(".c-remove");
-        if (rmBtn) rmBtn.addEventListener("click", () => { componentRows.splice(idx, 1); renderComponentRows(); });
+        rowEl.querySelector(".r-qty").addEventListener("input", (e) => recipeRows[idx].qty = Number(e.target.value));
+        const rmBtn = rowEl.querySelector(".r-remove");
+        if (rmBtn) rmBtn.addEventListener("click", () => { recipeRows.splice(idx, 1); renderRecipeRows(); });
       });
     }
-    renderComponentRows();
-    overlay.querySelector("#m-add-component")?.addEventListener("click", () => {
-      componentRows.push({ itemId: "", qty: 1 });
-      renderComponentRows();
+    renderRecipeRows();
+    overlay.querySelector("#m-add-recipe")?.addEventListener("click", () => {
+      recipeRows.push({ itemId: "", qty: 1 });
+      renderRecipeRows();
     });
 
     let uploadedPhotoUrl = item?.photoUrl || "";
@@ -371,19 +525,13 @@ export async function renderItemsPage(container, initialFilter = null) {
       if (ORDERABLE_TYPES.includes(type) && !overlay.querySelector("#m-price").value) {
         showToast("請輸入售價", "error"); return;
       }
-      const validComponents = componentRows.filter((r) => r.itemId && r.qty > 0);
-      if (type === "bundle" && validComponents.length === 0) {
-        showToast("組合包至少要選一項組成內容", "error"); return;
-      }
 
       const data = {
         name,
         category: overlay.querySelector("#m-category").value,
         photoUrl: uploadedPhotoUrl,
         price: overlay.querySelector("#m-price")?.value,
-        mainItemId: selectedMainItem?.id || null,
-        mainItemQty: overlay.querySelector("#m-main-qty")?.value,
-        components: validComponents,
+        recipe: recipeRows.filter((r) => r.itemId && r.qty > 0),
         unit: overlay.querySelector("#m-unit")?.value,
         lowStockThreshold: overlay.querySelector("#m-threshold")?.value,
       };
@@ -394,15 +542,23 @@ export async function renderItemsPage(container, initialFilter = null) {
         else await createItem({ ...data, type });
         showToast("已儲存", "success");
         overlay.remove();
-        await reload();
+        await loadData();
+        if (isEdit) renderDetailView(item.id);
+        else renderList();
       } catch (err) {
         showToast("失敗：" + err.message, "error");
         btn.disabled = false;
       }
     });
+
+    overlay.querySelectorAll(".picker-trigger").forEach((el) => {
+      el.style.cssText = "width:100%;text-align:left;padding:10px 12px;border:1px solid var(--paper-line);border-radius:8px;background:#fff;font-size:15px;cursor:pointer;color:var(--text-primary);";
+    });
   }
 
-  // ---------- 採購登記（批次，只能選 resale / packaging） ----------
+  // ============================================================
+  // 採購登記（批次）
+  // ============================================================
   function openPurchaseModal() {
     let rows = [{ itemId: "", qty: "", amount: "", note: "" }];
     const purchasable = items.filter((i) => STOCK_TRACKED_TYPES.includes(i.type) && i.status !== "archived");
@@ -433,6 +589,7 @@ export async function renderItemsPage(container, initialFilter = null) {
             <input type="number" class="row-amount" placeholder="金額" value="${r.amount}" style="width:90px;padding:8px;border:1px solid var(--paper-line);border-radius:8px;" />
             ${rows.length > 1 ? `<button class="btn btn-danger row-remove" style="padding:6px 10px;font-size:12px;">刪</button>` : ""}
           </div>
+          ${item ? `<div class="hint" style="margin:-4px 0 8px;">目前庫存 ${computeStock(item)} ${item.unit || "個"} · 均價 $${computeAvgCost(item).toFixed(2)}</div>` : ""}
         `;
       }).join("");
 
@@ -443,7 +600,7 @@ export async function renderItemsPage(container, initialFilter = null) {
             title: "選擇項目",
             items: purchasable,
             renderLabel: (i) => i.name,
-            renderSub: (i) => TYPE_LABELS[i.type],
+            renderSub: (i) => `${TYPE_LABELS[i.type]} · 目前庫存 ${computeStock(i)} ${i.unit || "個"}`,
             renderThumb: (i) => i.photoUrl || null,
             emptyText: "沒有可採購的項目",
             onSelect: (i) => { rows[idx].itemId = i.id; renderRows(); },
@@ -481,7 +638,9 @@ export async function renderItemsPage(container, initialFilter = null) {
     });
   }
 
-  // ---------- 盤點 ----------
+  // ============================================================
+  // 盤點
+  // ============================================================
   function openStocktakeModal() {
     const stocktakable = items.filter((i) => STOCK_TRACKED_TYPES.includes(i.type) && i.status !== "archived");
     if (stocktakable.length === 0) {
@@ -508,7 +667,8 @@ export async function renderItemsPage(container, initialFilter = null) {
         title: "選擇項目",
         items: stocktakable,
         renderLabel: (i) => i.name,
-        renderSub: (i) => `系統目前：${computeStock(i, itemsById)} ${i.unit || "個"}`,
+        renderSub: (i) => `${TYPE_LABELS[i.type]} · 系統目前：${computeStock(i)} ${i.unit || "個"}`,
+        renderThumb: (i) => i.photoUrl || null,
         onSelect: (i) => { selectedItem = i; overlay.querySelector("#s-item-btn").textContent = i.name; },
       });
     });
@@ -530,93 +690,6 @@ export async function renderItemsPage(container, initialFilter = null) {
     });
   }
 
-  // ---------- 成本明細 ----------
-  function openCostDetailModal(itemId) {
-    const item = items.find((i) => i.id === itemId);
-    const calc = calcItemCost(item, itemsById);
-    openModal(`
-      <h3 style="margin-bottom:4px;">${item.name}</h3>
-      ${!calc.isFullCost ? `<div class="hint" style="margin-bottom:14px;">這是包材成本，還沒扣原料/人工，那些每月算在「利潤總覽」。</div>` : ""}
-      <table class="simple-table">
-        ${calc.breakdown.map((b) => `<tr><td>${b.label}</td><td style="text-align:right;font-family:var(--font-mono);">$${b.amount.toFixed(2)}</td></tr>`).join("")}
-        <tr style="font-weight:700;"><td>成本合計</td><td style="text-align:right;font-family:var(--font-mono);">$${calc.cost.toFixed(2)}</td></tr>
-        <tr><td>售價</td><td style="text-align:right;font-family:var(--font-mono);">$${item.price}</td></tr>
-        <tr style="font-weight:700;color:${calc.profit>=0?"var(--jade)":"var(--rose)"};"><td>毛利（${(calc.margin*100).toFixed(1)}%）</td><td style="text-align:right;font-family:var(--font-mono);">$${calc.profit.toFixed(2)}</td></tr>
-      </table>
-    `);
-  }
-
-  // ---------- 進貨/領用/盤點記錄 ----------
-  async function openDetailModal(itemId) {
-    const item = items.find((i) => i.id === itemId);
-    const overlay = openModal(`<div style="color:var(--text-muted);">載入中…</div>`);
-    const [purchases, usages, stocktakes] = await Promise.all([
-      listPurchases(itemId), listUsages(itemId), listStocktakes(itemId),
-    ]);
-
-    function recordRow(rec, kind) {
-      const isVoid = rec.status === "void";
-      const label = kind === "purchase" ? `進貨 +${rec.qty}（$${rec.amount}）` : `領用 -${rec.qty}${rec.source === "order" ? "（出貨自動）" : ""}`;
-      return `
-        <div style="padding:8px 0;border-bottom:1px solid var(--paper-line);${isVoid ? "opacity:0.5;" : ""}">
-          <div style="display:flex;justify-content:space-between;">
-            <span style="font-size:14px;">${rec.date} · ${label}${isVoid ? "（已作廢）" : ""}</span>
-            ${!isVoid && canVoid() ? `<button class="btn btn-secondary" data-void="${kind}:${rec.id}" style="padding:3px 10px;font-size:12px;">作廢</button>` : ""}
-            ${isVoid && canDelete() ? `<button class="btn btn-danger" data-delete="${kind}:${rec.id}" style="padding:3px 10px;font-size:12px;">刪除</button>` : ""}
-          </div>
-          ${rec.note ? `<div class="hint">${rec.note}</div>` : ""}
-          <div class="hint">${rec.createdByName || rec.createdBy || ""}</div>
-        </div>
-      `;
-    }
-
-    overlay.querySelector("#modal-box").innerHTML = `
-      <button id="modal-close-x" aria-label="關閉" style="position:absolute;top:12px;right:12px;width:30px;height:30px;border-radius:50%;border:none;background:var(--paper);color:var(--text-muted);font-size:16px;cursor:pointer;line-height:1;z-index:1;">✕</button>
-      <h3 style="margin-bottom:4px;">${item.name}</h3>
-      <div class="hint" style="margin-bottom:14px;">目前庫存 ${computeStock(item, itemsById)} ${item.unit || "個"} · 均價 $${computeAvgCost(item, itemsById).toFixed(2)}</div>
-      <h4 style="font-size:13px;color:var(--text-muted);margin:14px 0 4px;">進貨記錄</h4>
-      ${purchases.length ? purchases.map((r) => recordRow(r, "purchase")).join("") : `<div class="hint">尚無記錄</div>`}
-      <h4 style="font-size:13px;color:var(--text-muted);margin:14px 0 4px;">領用記錄</h4>
-      ${usages.length ? usages.map((r) => recordRow(r, "usage")).join("") : `<div class="hint">尚無記錄</div>`}
-      <h4 style="font-size:13px;color:var(--text-muted);margin:14px 0 4px;">盤點記錄</h4>
-      ${stocktakes.length ? stocktakes.map((s) => `
-        <div style="padding:8px 0;border-bottom:1px solid var(--paper-line);">
-          <div style="font-size:14px;">${s.date} · 盤點為 ${s.countedQty}（原 ${s.systemQtyBefore}，差 ${s.diff > 0 ? "+" : ""}${s.diff}）</div>
-          ${s.note ? `<div class="hint">${s.note}</div>` : ""}
-        </div>
-      `).join("") : `<div class="hint">尚無記錄</div>`}
-    `;
-    overlay.querySelector("#modal-close-x").addEventListener("click", () => overlay.remove());
-    overlay.querySelectorAll("[data-void]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const [kind, id] = btn.getAttribute("data-void").split(":");
-        if (!confirm("確定要作廢這筆記錄嗎？")) return;
-        try {
-          await voidRecord(kind, id);
-          showToast("已作廢", "success");
-          overlay.remove();
-          await reload();
-          openDetailModal(itemId);
-        } catch (err) {
-          showToast("失敗：" + err.message, "error");
-        }
-      });
-    });
-    overlay.querySelectorAll("[data-delete]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const [kind, id] = btn.getAttribute("data-delete").split(":");
-        if (!confirm("確定要永久刪除這筆記錄嗎？這個動作無法復原。")) return;
-        try {
-          await permanentlyDelete(kind, id);
-          showToast("已刪除", "success");
-          overlay.remove();
-          await reload();
-        } catch (err) {
-          showToast("失敗：" + err.message, "error");
-        }
-      });
-    });
-  }
-
-  await reload();
+  await loadData();
+  await renderListView();
 }

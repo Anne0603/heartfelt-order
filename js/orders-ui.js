@@ -12,7 +12,7 @@ import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js";
 import { listContacts, createContact } from "./contacts.js";
 import { printOrderSlip } from "./print-slip.js";
 import { openSearchPicker } from "./picker-ui.js";
-import { openModal } from "./modal-ui.js";
+import { openModal, confirmDialog } from "./modal-ui.js";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
@@ -488,7 +488,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
     if (canVoid()) {
       addActionButton("作廢訂單", "btn-danger", async (e) => {
         const willRestoreStock = ["shipped", "done"].includes(order.shipStatus);
-        if (!confirm(willRestoreStock ? "這張訂單已出貨，作廢後會自動還原庫存，確定嗎？" : "確定要作廢這張訂單嗎？")) return;
+        if (!await confirmDialog(willRestoreStock ? "這張訂單已出貨，作廢後會自動還原庫存，確定嗎？" : "確定要作廢這張訂單嗎？", { confirmLabel: "作廢", danger: true })) return;
         e.currentTarget.disabled = true;
         try {
           await voidOrder(order.id);

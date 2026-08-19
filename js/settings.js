@@ -11,6 +11,8 @@ import {
 import { showToast } from "./utils.js";
 import { currentSession, ROLE_LABELS } from "./auth.js";
 import { listCategories, createCategory, renameCategory, deleteCategory } from "./categories.js";
+import { listUnits, createUnit, renameUnit, deleteUnit } from "./units.js";
+import { confirmDialog } from "./modal-ui.js";
 
 const CLOUDINARY_DOC = doc(db, "publicSettings", "cloudinary");
 const BRAND_DOC = doc(db, "publicSettings", "brand");
@@ -181,7 +183,7 @@ export async function renderPendingPage(container) {
       body.querySelectorAll("[data-reject]").forEach((btn) => {
         btn.addEventListener("click", async () => {
           const email = btn.getAttribute("data-reject");
-          if (!confirm(`拒絕 ${email} 的申請？`)) return;
+          if (!await confirmDialog(`拒絕 ${email} 的申請？`, { confirmLabel: "拒絕", danger: true })) return;
           try {
             await rejectOrRemoveMember(email);
             showToast("已拒絕", "success");
@@ -251,7 +253,7 @@ export async function renderMembersPage(container) {
       body.querySelectorAll("[data-remove]").forEach((btn) => {
         btn.addEventListener("click", async () => {
           const email = btn.getAttribute("data-remove");
-          if (!confirm(`移除 ${email} 的存取權限？`)) return;
+          if (!await confirmDialog(`移除 ${email} 的存取權限？`, { confirmLabel: "移除", danger: true })) return;
           try {
             await rejectOrRemoveMember(email);
             showToast("已移除", "success");
@@ -320,7 +322,7 @@ export async function renderCategoriesPage(container) {
         listEl.querySelectorAll(".cat-delete").forEach((btn) => {
           btn.addEventListener("click", async () => {
             const id = btn.getAttribute("data-id");
-            if (!confirm("確定要刪除這個分類嗎？")) return;
+            if (!await confirmDialog("確定要刪除這個分類嗎？", { confirmLabel: "刪除", danger: true })) return;
             try {
               await deleteCategory(id);
               showToast("已刪除", "success");
@@ -350,4 +352,84 @@ export async function renderCategoriesPage(container) {
 
     await refresh();
   }
+}
+
+// ---------- 單位管理 ----------
+export async function renderUnitsPage(container) {
+  container.innerHTML = `
+    <div class="page-header"><h2>單位管理</h2></div>
+    <div class="card">
+      <h3 style="font-size:15px;margin-bottom:10px;">數量單位</h3>
+      <div id="unit-list"></div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <input type="text" id="unit-input" placeholder="新增單位，例如：捲、公斤" style="flex:1;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;" />
+        <button class="btn btn-primary" id="unit-add" style="padding:9px 16px;">新增</button>
+      </div>
+    </div>
+  `;
+
+  const listEl = container.querySelector("#unit-list");
+  const inputEl = container.querySelector("#unit-input");
+
+  async function refresh() {
+    listEl.innerHTML = `<div class="hint">載入中…</div>`;
+    try {
+      const units = await listUnits();
+      listEl.innerHTML = units.length === 0
+        ? `<div class="hint">尚未新增任何單位</div>`
+        : units.map((u) => `
+            <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--paper-line);">
+              <input type="text" class="unit-name-input" data-id="${u.id}" value="${u.name}" style="flex:1;padding:6px 10px;border:1px solid transparent;border-radius:6px;font-size:14px;" />
+              <button class="btn btn-secondary unit-rename" data-id="${u.id}" style="padding:5px 10px;font-size:12px;">改名</button>
+              <button class="btn btn-danger unit-delete" data-id="${u.id}" style="padding:5px 10px;font-size:12px;">刪除</button>
+            </div>
+          `).join("");
+
+      listEl.querySelectorAll(".unit-rename").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const id = btn.getAttribute("data-id");
+          const input = listEl.querySelector(`.unit-name-input[data-id="${id}"]`);
+          const newName = input.value.trim();
+          if (!newName) { showToast("名稱不能空白", "error"); return; }
+          try {
+            await renameUnit(id, newName);
+            showToast("已更新單位名稱", "success");
+            refresh();
+          } catch (err) {
+            showToast("失敗：" + err.message, "error");
+          }
+        });
+      });
+      listEl.querySelectorAll(".unit-delete").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const id = btn.getAttribute("data-id");
+          if (!await confirmDialog("確定要刪除這個單位嗎？", { confirmLabel: "刪除", danger: true })) return;
+          try {
+            await deleteUnit(id);
+            showToast("已刪除", "success");
+            refresh();
+          } catch (err) {
+            showToast(err.message, "error");
+          }
+        });
+      });
+    } catch (err) {
+      listEl.innerHTML = `<div style="color:var(--rose);">載入失敗：${err.message}</div>`;
+    }
+  }
+
+  container.querySelector("#unit-add").addEventListener("click", async () => {
+    const name = inputEl.value.trim();
+    if (!name) { showToast("請輸入單位名稱", "error"); return; }
+    try {
+      await createUnit(name);
+      inputEl.value = "";
+      showToast("已新增", "success");
+      refresh();
+    } catch (err) {
+      showToast("失敗：" + err.message, "error");
+    }
+  });
+
+  await refresh();
 }

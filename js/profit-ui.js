@@ -8,6 +8,7 @@ import { currentSession } from "./auth.js";
 import { listOrders } from "./orders.js";
 import { listExpensesInRange, addExpense, deleteExpense, EXPENSE_CATEGORY_LABELS } from "./expenses.js";
 import { renderDateRangePicker } from "./date-range-ui.js";
+import { confirmDialog } from "./modal-ui.js";
 
 function canManageExpenses() {
   return ["superadmin", "admin"].includes(currentSession.member?.role);
@@ -121,7 +122,7 @@ export async function renderProfitPage(container) {
         }).join("");
         listEl.querySelectorAll("[data-del-exp]").forEach((btn) => {
           btn.addEventListener("click", async () => {
-            if (!confirm("確定要刪除這筆支出嗎？")) return;
+            if (!await confirmDialog("確定要刪除這筆支出嗎？", { confirmLabel: "刪除", danger: true })) return;
             try {
               await deleteExpense(btn.getAttribute("data-del-exp"));
               await load(range);
