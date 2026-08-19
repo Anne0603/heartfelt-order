@@ -1,6 +1,6 @@
 // ============================================================
-// 營業支出（原料總帳、人事、電費、房租、其他），供「利潤總覽」使用
-// 分項登記，每筆有日期，報表用日期區間去篩選加總
+// 營業支出（原料總帳、人事、電費、房租...等，類別由系統設定管理）
+// 供「利潤總覽」計算淨利使用，登記/查詢/編輯在獨立的「支出管理」頁面
 // ============================================================
 import { db } from "./firebase-config.js";
 import {
@@ -10,19 +10,21 @@ import { currentSession, getDisplayName } from "./auth.js";
 
 const expensesCol = collection(db, "expenses");
 
-export const EXPENSE_CATEGORY_LABELS = {
-  material: "原料",
-  labor: "人事",
-  utility: "電費",
-  rent: "房租",
-  other: "其他",
-};
+export const PAYMENT_METHODS = ["現金", "轉帳", "其他"];
 
 function whoAmI() {
   return {
     email: currentSession.user?.email || null,
     name: getDisplayName(),
   };
+}
+
+export async function listExpenses() {
+  const snap = await getDocs(expensesCol);
+  const list = [];
+  snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
+  list.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  return list;
 }
 
 export async function listExpensesInRange(startDate, endDate) {
@@ -34,13 +36,13 @@ export async function listExpensesInRange(startDate, endDate) {
   return list;
 }
 
-export async function addExpense({ category, customLabel, amount, date, note, receiptUrl }) {
+export async function addExpense({ category, amount, date, paymentMethod, note, receiptUrl }) {
   const who = whoAmI();
   await addDoc(expensesCol, {
-    category,
-    customLabel: category === "other" ? (customLabel?.trim() || "") : "",
+    category: category || "",
     amount: Number(amount) || 0,
     date: date || new Date().toISOString().slice(0, 10),
+    paymentMethod: paymentMethod || "",
     note: note || "",
     receiptUrl: receiptUrl || "",
     createdBy: who.email,
@@ -49,17 +51,17 @@ export async function addExpense({ category, customLabel, amount, date, note, re
   });
 }
 
-export async function deleteExpense(id) {
-  await deleteDoc(doc(db, "expenses", id));
-}
-
-export async function updateExpense(id, { category, customLabel, amount, date, note, receiptUrl }) {
+export async function updateExpense(id, { category, amount, date, paymentMethod, note, receiptUrl }) {
   await updateDoc(doc(db, "expenses", id), {
-    category,
-    customLabel: category === "other" ? (customLabel?.trim() || "") : "",
+    category: category || "",
     amount: Number(amount) || 0,
     date,
+    paymentMethod: paymentMethod || "",
     note: note || "",
     receiptUrl: receiptUrl || "",
   });
+}
+
+export async function deleteExpense(id) {
+  await deleteDoc(doc(db, "expenses", id));
 }

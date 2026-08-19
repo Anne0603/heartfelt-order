@@ -10,6 +10,7 @@ import { renderContactsPage } from "./contacts-ui.js";
 import { renderOrdersPage } from "./orders-ui.js";
 import { renderReportsPage } from "./reports-ui.js";
 import { renderProfitPage } from "./profit-ui.js";
+import { renderExpensesPage } from "./expenses-ui.js";
 import { lowStockItems } from "./items.js";
 import { showToast } from "./utils.js";
 import { db } from "./firebase-config.js";
@@ -40,6 +41,7 @@ const MODULES = [
   { id: "contacts",  label: "客戶與廠商",     icon: "🙋", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
   { id: "reports",   label: "統計報表",       icon: "📊", group: "分析", roles: ["superadmin","admin","viewer"] },
   { id: "profit",    label: "利潤總覽",       icon: "💰", group: "分析", roles: ["superadmin","admin","viewer"] },
+  { id: "expenses",  label: "支出管理",       icon: "💸", group: "分析", roles: ["superadmin","admin","viewer"] },
   { id: "cloudinary", label: "Cloudinary",   icon: "☁️", group: "超級管理員", roles: ["superadmin"] },
   { id: "categories", label: "分類管理",       icon: "🏷️", group: "超級管理員", roles: ["superadmin"] },
   { id: "units",      label: "單位管理",       icon: "📏", group: "超級管理員", roles: ["superadmin"] },
@@ -200,7 +202,8 @@ async function renderCurrentModule() {
   }
   if (currentModule === "contacts") return renderContactsPage(mainContent);
   if (currentModule === "reports") return renderReportsPage(mainContent);
-  if (currentModule === "profit") return renderProfitPage(mainContent);
+  if (currentModule === "profit") return renderProfitPage(mainContent, goToModule);
+  if (currentModule === "expenses") return renderExpensesPage(mainContent);
   if (currentModule === "cloudinary") return renderCloudinaryPage(mainContent);
   if (currentModule === "categories") return renderCategoriesPage(mainContent);
   if (currentModule === "units") return renderUnitsPage(mainContent);

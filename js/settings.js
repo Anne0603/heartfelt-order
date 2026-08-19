@@ -273,7 +273,7 @@ export async function renderMembersPage(container) {
 export async function renderCategoriesPage(container) {
   container.innerHTML = `
     <div class="page-header"><h2>分類管理</h2></div>
-    <div class="card">
+    <div class="card" style="margin-bottom:16px;">
       <h3 style="font-size:15px;margin-bottom:10px;">商品與庫存分類</h3>
       <div id="cat-items-list"></div>
       <div style="display:flex;gap:8px;margin-top:10px;">
@@ -281,9 +281,18 @@ export async function renderCategoriesPage(container) {
         <button class="btn btn-primary" id="cat-items-add" style="padding:9px 16px;">新增</button>
       </div>
     </div>
+    <div class="card">
+      <h3 style="font-size:15px;margin-bottom:10px;">支出類別</h3>
+      <div id="cat-expenses-list"></div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <input type="text" id="cat-expenses-input" placeholder="新增類別名稱，例如：原料、人事、電費" style="flex:1;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;" />
+        <button class="btn btn-primary" id="cat-expenses-add" style="padding:9px 16px;">新增</button>
+      </div>
+    </div>
   `;
 
   await setupCategorySection("items", "cat-items-list", "cat-items-input", "cat-items-add");
+  await setupCategorySection("expenses", "cat-expenses-list", "cat-expenses-input", "cat-expenses-add");
 
   async function setupCategorySection(module, listId, inputId, addBtnId) {
     const listEl = container.querySelector(`#${listId}`);
