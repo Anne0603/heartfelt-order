@@ -176,7 +176,7 @@ export async function renderReportsPage(container) {
             <tr><td>已收訂金</td><td>${s.paymentStats.deposit.count} 張</td><td style="text-align:right;font-family:var(--font-mono);color:var(--gold-deep);">$${s.paymentStats.deposit.amount.toFixed(0)}</td></tr>
             <tr><td>已付清</td><td>${s.paymentStats.paid.count} 張</td><td style="text-align:right;font-family:var(--font-mono);color:var(--jade);">$${s.paymentStats.paid.amount.toFixed(0)}</td></tr>
           </table>
-          <div class="hint" style="margin-top:10px;font-weight:600;color:var(--rose);">應收帳款總額（還沒收齊的錢）：$${s.outstandingTotal.toFixed(0)}</div>
+          <div class="hint" style="margin-top:10px;font-weight:600;color:var(--rose);">應收帳款總額：$${s.outstandingTotal.toFixed(0)}</div>
         </div>
       `;
     } else if (activeTab === "sales") {

@@ -27,7 +27,7 @@ export async function renderExpensesPage(container) {
     </div>
     <div class="card" style="margin-bottom:16px;">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-        <input type="text" id="search-input" placeholder="搜尋備註" style="flex:1;min-width:160px;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;" />
+        <input type="text" id="search-input" placeholder="搜尋備註/金額" style="flex:1;min-width:160px;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;" />
         <select id="filter-category" style="padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;">
           <option value="all">全部類別</option>
         </select>
@@ -78,7 +78,7 @@ export async function renderExpensesPage(container) {
     if (filterCategory !== "all") filtered = filtered.filter((e) => e.category === filterCategory);
     if (rangeStart) filtered = filtered.filter((e) => e.date >= rangeStart);
     if (rangeEnd) filtered = filtered.filter((e) => e.date <= rangeEnd);
-    if (searchText) filtered = filtered.filter((e) => (e.note || "").toLowerCase().includes(searchText));
+    if (searchText) filtered = filtered.filter((e) => (e.note || "").toLowerCase().includes(searchText) || String(e.amount ?? "").includes(searchText));
     return filtered;
   }
 
