@@ -14,7 +14,7 @@ import {
 import { listCategories } from "./categories.js";
 import { listUnits } from "./units.js";
 import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js";
-import { openModal, confirmDialog } from "./modal-ui.js";
+import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js";
 import { openSearchPicker } from "./picker-ui.js";
 import { exportItems } from "./export-xlsx.js";
 
@@ -174,7 +174,7 @@ export async function renderItemsPage(container, initialFilter = null) {
         <div class="card" style="margin-bottom:10px;cursor:pointer;${isArchived ? "opacity:0.55;" : ""}" data-open="${item.id}">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
             <div style="display:flex;gap:12px;">
-              ${item.photoUrl ? `<img src="${item.photoUrl}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0;">` : `<div style="width:44px;height:44px;border-radius:8px;background:var(--paper);flex-shrink:0;"></div>`}
+              ${item.photoUrl ? `<img src="${item.photoUrl}" data-preview="${item.photoUrl}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0;cursor:pointer;">` : `<div style="width:44px;height:44px;border-radius:8px;background:var(--paper);flex-shrink:0;"></div>`}
               <div>
                 <div style="font-weight:700;font-size:16px;color:var(--ink);">${item.name} ${isArchived ? `<span class="hint">(已停用)</span>` : ""}</div>
                 <div style="font-size:13px;color:var(--text-muted);margin-top:2px;">${TYPE_LABELS[item.type]}${item.category ? " · " + item.category : ""}</div>
@@ -194,6 +194,12 @@ export async function renderItemsPage(container, initialFilter = null) {
       listEl.insertAdjacentHTML("beforeend", `<div class="hint" style="text-align:center;margin-top:6px;">* 自製商品的毛利未扣原料/人工，那些算在「利潤總覽」</div>`);
     }
 
+    listEl.querySelectorAll("[data-preview]").forEach((img) => {
+      img.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openImageLightbox(img.getAttribute("data-preview"));
+      });
+    });
     listEl.querySelectorAll("[data-open]").forEach((card) => {
       card.addEventListener("click", () => renderDetailView(card.getAttribute("data-open")));
     });
@@ -223,7 +229,7 @@ export async function renderItemsPage(container, initialFilter = null) {
 
       <div class="card" style="margin-bottom:16px;">
         <div style="display:flex;gap:14px;align-items:flex-start;">
-          ${item.photoUrl ? `<img src="${item.photoUrl}" style="width:64px;height:64px;border-radius:10px;object-fit:cover;flex-shrink:0;">` : `<div style="width:64px;height:64px;border-radius:10px;background:var(--paper);flex-shrink:0;"></div>`}
+          ${item.photoUrl ? `<img src="${item.photoUrl}" data-preview="${item.photoUrl}" style="width:64px;height:64px;border-radius:10px;object-fit:cover;flex-shrink:0;cursor:pointer;">` : `<div style="width:64px;height:64px;border-radius:10px;background:var(--paper);flex-shrink:0;"></div>`}
           <div>
             <div style="font-weight:700;font-size:19px;color:var(--ink);">${item.name}</div>
             <div style="font-size:13px;color:var(--text-muted);margin-top:2px;">${TYPE_LABELS[item.type]}${item.category ? " · " + item.category : ""}</div>
@@ -255,6 +261,7 @@ export async function renderItemsPage(container, initialFilter = null) {
     `;
 
     container.querySelector("#btn-back").addEventListener("click", renderListView);
+    container.querySelector("[data-preview]")?.addEventListener("click", () => openImageLightbox(item.photoUrl));
     if (canWriteType(item.type)) {
       container.querySelector("#btn-edit-item").addEventListener("click", () => openItemModal(item));
       container.querySelector("#btn-archive-item").addEventListener("click", async () => {
@@ -423,6 +430,7 @@ export async function renderItemsPage(container, initialFilter = null) {
             : `<div style="font-size:28px;">📷</div><div style="font-size:11px;color:var(--text-muted);margin-top:4px;">點擊上傳</div>`
           }
         </div>
+        ${item?.photoUrl ? `<button type="button" id="photo-view" class="hint" style="background:none;border:none;text-decoration:underline;cursor:pointer;margin-top:6px;color:var(--gold-deep);">放大看照片</button>` : ""}
         <input type="file" accept="image/*" id="m-photo-input" style="display:none;" />
       </div>
 
@@ -528,6 +536,7 @@ export async function renderItemsPage(container, initialFilter = null) {
     const photoBox = overlay.querySelector("#photo-box");
     const photoInput = overlay.querySelector("#m-photo-input");
     photoBox.addEventListener("click", () => photoInput.click());
+    overlay.querySelector("#photo-view")?.addEventListener("click", () => openImageLightbox(item.photoUrl));
     photoInput.addEventListener("change", async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
