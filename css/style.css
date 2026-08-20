@@ -376,7 +376,7 @@ input[type="number"]::-webkit-inner-spin-button {
   min-width: 0;
   overflow-y: auto;
   height: 100%;
-  padding: 30px 40px 60px;
+  padding: 30px 40px 100px;
 }
 .page-header {
   display: flex;
@@ -466,6 +466,8 @@ input[type="number"]::-webkit-inner-spin-button {
 .btn-secondary:hover { background: var(--paper-line); }
 .btn-danger { background: var(--rose-pale); color: var(--rose); }
 .btn-danger:hover { background: var(--rose); color: #fff; }
+.btn-success { background: var(--jade-pale); color: var(--jade); }
+.btn-success:hover { background: var(--jade); color: #fff; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ---------- 狀態印章徽章 ---------- */
@@ -486,6 +488,8 @@ input[type="number"]::-webkit-inner-spin-button {
 .seal-badge.warn .dot { background: var(--gold-deep); }
 .seal-badge.bad { background: var(--rose-pale); color: var(--rose); }
 .seal-badge.bad .dot { background: var(--rose); }
+.seal-badge.muted { background: var(--paper); color: var(--text-muted); }
+.seal-badge.muted .dot { background: var(--text-muted); }
 
 /* ---------- 成員管理表格 ---------- */
 table.simple-table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
@@ -521,6 +525,111 @@ table.simple-table tr:last-child td { border-bottom: none; }
 .settings-tab-btn:hover { color: var(--ink); }
 
 .user-avatar.clickable { cursor: pointer; }
+
+/* ---------- 浮動「+」新增按鈕（可展開多個動作） ---------- */
+.fab-container {
+  position: fixed;
+  right: 20px;
+  bottom: 24px;
+  z-index: 150;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: flex-end;
+  gap: 12px;
+}
+.fab-main {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: var(--gold-deep);
+  color: #fff;
+  font-size: 26px;
+  border: none;
+  box-shadow: 0 6px 16px rgba(30,35,48,0.3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform .18s ease, background .15s ease;
+  flex-shrink: 0;
+}
+.fab-main:hover { background: var(--gold); }
+.fab-main.open { transform: rotate(45deg); }
+.fab-sub-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+  transition: opacity .15s ease, transform .15s ease;
+}
+.fab-sub-row.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+.fab-sub-label {
+  background: var(--ink);
+  color: #fff;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  white-space: nowrap;
+  box-shadow: 0 4px 10px rgba(30,35,48,0.25);
+}
+.fab-sub-btn {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid var(--paper-line);
+  box-shadow: 0 4px 10px rgba(30,35,48,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* ---------- 標頭小圖示按鈕（次要工具功能，例如匯出） ---------- */
+.icon-btn {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--paper-line);
+  background: var(--paper-raised);
+  color: var(--ink);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.icon-btn:hover { background: var(--paper); }
+
+/* ---------- 並排膠囊切換（取代打勾勾式篩選） ---------- */
+.pill-toggle {
+  display: flex;
+  gap: 6px;
+  background: var(--paper);
+  border-radius: 10px;
+  padding: 4px;
+  margin-bottom: 14px;
+}
+.pill-toggle-btn {
+  flex: 1;
+  padding: 9px 10px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-body);
+  white-space: nowrap;
+}
+.pill-toggle-btn.active {
+  background: var(--paper-raised);
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgba(30,35,48,0.15);
+}
 
 .toast {
   position: fixed;

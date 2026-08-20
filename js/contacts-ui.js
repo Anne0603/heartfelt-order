@@ -7,6 +7,7 @@ import { openModal, confirmDialog } from "./modal-ui.js";
 import { listContacts, createContact, updateContact, setContactArchived } from "./contacts.js";
 import { listCategories } from "./categories.js";
 import { exportContacts } from "./export-xlsx.js";
+import { setFab } from "./fab-ui.js";
 
 const ROLE_LABELS = { customer: "客戶", supplier: "廠商" };
 
@@ -20,15 +21,16 @@ export async function renderContactsPage(container) {
   let inventoryCategories = [];
   let filterRole = "all";
   let searchText = "";
-  let showArchived = false;
+  let statusTab = "active"; // 'active' | 'archived'
 
   container.innerHTML = `
     <div class="page-header">
       <h2>客戶與廠商</h2>
-      <div style="display:flex;gap:8px;">
-        <button class="btn btn-secondary" id="btn-export-contacts">匯出 Excel</button>
-        ${canWrite() ? `<button class="btn btn-primary" id="btn-new-contact">新增聯絡人</button>` : ""}
-      </div>
+      <button class="icon-btn" id="btn-export-contacts" title="匯出 Excel" aria-label="匯出 Excel">⬇️</button>
+    </div>
+    <div class="pill-toggle" id="status-toggle">
+      <button class="pill-toggle-btn ${statusTab === "active" ? "active" : ""}" data-status="active">使用中</button>
+      <button class="pill-toggle-btn ${statusTab === "archived" ? "active" : ""}" data-status="archived">已停用</button>
     </div>
     <div class="card" style="margin-bottom:16px;">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
@@ -38,9 +40,6 @@ export async function renderContactsPage(container) {
           <option value="customer">客戶</option>
           <option value="supplier">廠商</option>
         </select>
-        <label style="display:flex;align-items:center;gap:6px;font-size:14px;color:var(--text-muted);">
-          <input type="checkbox" id="show-archived" /> 顯示已停用
-        </label>
       </div>
     </div>
     <div id="contacts-list"></div>
@@ -54,12 +53,15 @@ export async function renderContactsPage(container) {
     filterRole = e.target.value;
     renderList();
   });
-  container.querySelector("#show-archived").addEventListener("change", async (e) => {
-    showArchived = e.target.checked;
-    await reload();
+  container.querySelector("#status-toggle").addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-status]");
+    if (!btn) return;
+    statusTab = btn.getAttribute("data-status");
+    container.querySelectorAll("#status-toggle [data-status]").forEach((b) => b.classList.toggle("active", b === btn));
+    renderList();
   });
   if (canWrite()) {
-    container.querySelector("#btn-new-contact").addEventListener("click", () => openContactModal());
+    setFab([{ icon: "➕", label: "新增聯絡人", onClick: () => openContactModal() }]);
   }
   container.querySelector("#btn-export-contacts").addEventListener("click", () => {
     const filtered = getFilteredContacts();
@@ -68,7 +70,7 @@ export async function renderContactsPage(container) {
   });
 
   function getFilteredContacts() {
-    let filtered = contacts;
+    let filtered = contacts.filter((c) => (statusTab === "archived") === (c.status === "archived"));
     if (filterRole !== "all") filtered = filtered.filter((c) => (c.roles || []).includes(filterRole));
     if (searchText) filtered = filtered.filter((c) => (c.name || "").toLowerCase().includes(searchText));
     return filtered;
@@ -79,7 +81,7 @@ export async function renderContactsPage(container) {
     listEl.innerHTML = `<div class="card" style="color:var(--text-muted);">載入中…</div>`;
     try {
       [contacts, inventoryCategories] = await Promise.all([
-        listContacts({ includeArchived: showArchived }),
+        listContacts({ includeArchived: true }),
         listCategories("items"),
       ]);
       renderList();
@@ -93,19 +95,20 @@ export async function renderContactsPage(container) {
     const filtered = getFilteredContacts();
 
     if (filtered.length === 0) {
-      listEl.innerHTML = `<div class="card" style="color:var(--text-muted);text-align:center;">沒有聯絡人</div>`;
+      listEl.innerHTML = `<div class="card" style="color:var(--text-muted);text-align:center;">${statusTab === "archived" ? "沒有已停用的聯絡人" : "沒有聯絡人"}</div>`;
       return;
     }
 
     listEl.innerHTML = filtered.map((c) => {
       const isArchived = c.status === "archived";
       return `
-        <div class="card" style="margin-bottom:10px;${isArchived ? "opacity:0.55;" : ""}">
+        <div class="card" style="margin-bottom:10px;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
             <div>
-              <div style="font-weight:700;font-size:16px;color:var(--ink);">${c.name} ${isArchived ? `<span class="hint">(已停用)</span>` : ""}</div>
+              <div style="font-weight:700;font-size:16px;color:var(--ink);">${c.name}</div>
               <div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap;">
                 ${(c.roles || []).map((r) => `<span class="seal-badge ok"><span class="dot"></span>${ROLE_LABELS[r]}</span>`).join("")}
+                ${isArchived ? `<span class="seal-badge muted"><span class="dot"></span>已停用</span>` : ""}
               </div>
               ${c.phone ? `<div class="hint" style="margin-top:6px;">📞 ${c.phone}</div>` : ""}
               ${c.address ? `<div class="hint">📍 ${c.address}</div>` : ""}
@@ -115,7 +118,7 @@ export async function renderContactsPage(container) {
           </div>
           <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
             ${canWrite() ? `<button class="btn btn-secondary" data-edit="${c.id}" style="padding:7px 14px;font-size:13px;">編輯</button>` : ""}
-            ${canWrite() ? `<button class="btn btn-secondary" data-archive="${c.id}" style="padding:7px 14px;font-size:13px;">${isArchived ? "恢復使用" : "停用"}</button>` : ""}
+            ${canWrite() ? `<button class="btn ${isArchived ? "btn-success" : "btn-secondary"}" data-archive="${c.id}" style="padding:7px 14px;font-size:13px;">${isArchived ? "恢復使用" : "停用"}</button>` : ""}
           </div>
         </div>
       `;

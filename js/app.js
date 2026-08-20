@@ -6,6 +6,7 @@ import { openProfileModal } from "./profile-ui.js";
 import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, getPendingCount } from "./settings.js";
 import { renderHomePage } from "./home.js";
 import { renderItemsPage } from "./items-ui.js";
+import { clearFab } from "./fab-ui.js";
 import { renderContactsPage } from "./contacts-ui.js";
 import { renderOrdersPage } from "./orders-ui.js";
 import { renderReportsPage } from "./reports-ui.js";
@@ -179,6 +180,7 @@ function goToModule(id, filter = null) {
 
 // ---------- 頁面內容 ----------
 async function renderCurrentModule() {
+  clearFab();
   const meta = MODULES.find((m) => m.id === currentModule) || MODULES[0];
 
   if (!meta.roles.includes(myRole)) {
@@ -243,12 +245,14 @@ function showLoginScreen() {
   loginScreen.style.display = "flex";
   pendingScreen.style.display = "none";
   appShell.classList.remove("show");
+  clearFab();
 }
 function showPendingScreen(user) {
   loginScreen.style.display = "none";
   pendingScreen.style.display = "flex";
   appShell.classList.remove("show");
   pendingEmailText.textContent = `${user.email} 的存取申請已送出，審核中，請聯絡管理員核准後再回來登入`;
+  clearFab();
 }
 function showApp(user, member) {
   loginScreen.style.display = "none";

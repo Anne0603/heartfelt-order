@@ -12,6 +12,7 @@ import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js";
 import { listContacts, createContact } from "./contacts.js";
 import { printOrderSlip } from "./print-slip.js";
 import { exportOrders } from "./export-xlsx.js";
+import { setFab } from "./fab-ui.js";
 import { openSearchPicker } from "./picker-ui.js";
 import { openModal, confirmDialog } from "./modal-ui.js";
 
@@ -49,10 +50,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
   container.innerHTML = `
     <div class="page-header">
       <h2>訂單管理</h2>
-      <div style="display:flex;gap:8px;">
-        <button class="btn btn-secondary" id="btn-export-orders">匯出 Excel</button>
-        ${canWrite() ? `<button class="btn btn-primary" id="btn-new-order">新增訂單</button>` : ""}
-      </div>
+      <button class="icon-btn" id="btn-export-orders" title="匯出 Excel" aria-label="匯出 Excel">⬇️</button>
     </div>
     <div class="card" style="margin-bottom:16px;">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
@@ -86,7 +84,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
     renderList();
   });
   if (canWrite()) {
-    container.querySelector("#btn-new-order").addEventListener("click", () => openOrderModal());
+    setFab([{ icon: "➕", label: "新增訂單", onClick: () => openOrderModal() }]);
   }
   container.querySelector("#btn-export-orders").addEventListener("click", () => {
     const filtered = getFilteredOrders();

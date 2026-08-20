@@ -17,6 +17,7 @@ import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js";
 import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js";
 import { openSearchPicker } from "./picker-ui.js";
 import { exportItems } from "./export-xlsx.js";
+import { setFab } from "./fab-ui.js";
 
 const TYPE_HINTS = {
   self_made: "自己現做的東西，客戶可訂購。不追蹤庫存量，成本 = 配方裡每一項包材的成本加總（原料/人工每月算在「利潤總覽」）。",
@@ -51,11 +52,11 @@ export async function renderItemsPage(container, initialFilter = null) {
   let filterType = initialFilter?.type || "all";
   let filterCategory = "all";
   let searchText = "";
-  let showArchived = false;
+  let statusTab = "active"; // 'active' | 'archived'
 
   async function loadData() {
     [items, categories, units] = await Promise.all([
-      listItems({ includeArchived: showArchived }),
+      listItems({ includeArchived: true }),
       listCategories("items"),
       listUnits(),
     ]);
@@ -74,14 +75,11 @@ export async function renderItemsPage(container, initialFilter = null) {
     container.innerHTML = `
       <div class="page-header">
         <h2>商品與庫存</h2>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn btn-secondary" id="btn-export-items">匯出 Excel</button>
-          ${canWrite() ? `
-            <button class="btn btn-secondary" id="btn-open-stocktake">盤點</button>
-            <button class="btn btn-primary" id="btn-open-purchase">採購登記</button>
-            <button class="btn btn-primary" id="btn-open-new-item">新增項目</button>
-          ` : ""}
-        </div>
+        <button class="icon-btn" id="btn-export-items" title="匯出 Excel" aria-label="匯出 Excel">⬇️</button>
+      </div>
+      <div class="pill-toggle" id="status-toggle">
+        <button class="pill-toggle-btn ${statusTab === "active" ? "active" : ""}" data-status="active">使用中</button>
+        <button class="pill-toggle-btn ${statusTab === "archived" ? "active" : ""}" data-status="archived">已停用</button>
       </div>
       <div class="card" style="margin-bottom:16px;">
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
@@ -96,9 +94,6 @@ export async function renderItemsPage(container, initialFilter = null) {
             <option value="all">全部分類</option>
             ${categories.map((c) => `<option value="${c.name}">${c.name}</option>`).join("")}
           </select>
-          <label style="display:flex;align-items:center;gap:6px;font-size:14px;color:var(--text-muted);">
-            <input type="checkbox" id="show-archived" /> 顯示已停用/下架
-          </label>
         </div>
       </div>
       <div id="items-list"></div>
@@ -117,26 +112,32 @@ export async function renderItemsPage(container, initialFilter = null) {
       filterCategory = e.target.value;
       renderList();
     });
-    container.querySelector("#show-archived").addEventListener("change", async (e) => {
-      showArchived = e.target.checked;
-      await reload();
+    container.querySelector("#status-toggle").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-status]");
+      if (!btn) return;
+      statusTab = btn.getAttribute("data-status");
+      container.querySelectorAll("#status-toggle [data-status]").forEach((b) => b.classList.toggle("active", b === btn));
+      renderList();
     });
-    if (canWrite()) {
-      container.querySelector("#btn-open-new-item").addEventListener("click", () => openItemModal());
-      container.querySelector("#btn-open-purchase").addEventListener("click", () => openPurchaseModal());
-      container.querySelector("#btn-open-stocktake").addEventListener("click", () => openStocktakeModal());
-    }
     container.querySelector("#btn-export-items").addEventListener("click", () => {
       const filtered = getFilteredItems();
       if (filtered.length === 0) { showToast("沒有可以匯出的項目", "error"); return; }
       exportItems(filtered, { includeCost: canSeeCost() });
     });
 
+    if (canWrite()) {
+      setFab([
+        { icon: "➕", label: "新增項目", onClick: () => openItemModal() },
+        { icon: "🛒", label: "採購登記", onClick: () => openPurchaseModal() },
+        { icon: "📋", label: "盤點", onClick: () => openStocktakeModal() },
+      ]);
+    }
+
     renderList();
   }
 
   function getFilteredItems() {
-    let filtered = items;
+    let filtered = items.filter((i) => (statusTab === "archived") === (i.status === "archived"));
     if (filterType !== "all") filtered = filtered.filter((i) => i.type === filterType);
     if (filterCategory !== "all") filtered = filtered.filter((i) => i.category === filterCategory);
     if (searchText) filtered = filtered.filter((i) => (i.name || "").toLowerCase().includes(searchText));
@@ -160,23 +161,22 @@ export async function renderItemsPage(container, initialFilter = null) {
     const filtered = getFilteredItems();
 
     if (filtered.length === 0) {
-      listEl.innerHTML = `<div class="card" style="color:var(--text-muted);text-align:center;">沒有項目</div>`;
+      listEl.innerHTML = `<div class="card" style="color:var(--text-muted);text-align:center;">${statusTab === "archived" ? "沒有已停用的項目" : "沒有項目"}</div>`;
       return;
     }
 
     listEl.innerHTML = filtered.map((item) => {
-      const isArchived = item.status === "archived";
       const stock = computeStock(item);
       const isLow = STOCK_TRACKED_TYPES.includes(item.type) && item.lowStockThreshold > 0 && stock <= item.lowStockThreshold;
       const calc = calcItemCost(item, itemsById);
 
       return `
-        <div class="card" style="margin-bottom:10px;cursor:pointer;${isArchived ? "opacity:0.55;" : ""}" data-open="${item.id}">
+        <div class="card" style="margin-bottom:10px;cursor:pointer;" data-open="${item.id}">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
             <div style="display:flex;gap:12px;">
               ${item.photoUrl ? `<img src="${item.photoUrl}" data-preview="${item.photoUrl}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0;cursor:pointer;">` : `<div style="width:44px;height:44px;border-radius:8px;background:var(--paper);flex-shrink:0;"></div>`}
               <div>
-                <div style="font-weight:700;font-size:16px;color:var(--ink);">${item.name} ${isArchived ? `<span class="hint">(已停用)</span>` : ""}</div>
+                <div style="font-weight:700;font-size:16px;color:var(--ink);">${item.name}</div>
                 <div style="font-size:13px;color:var(--text-muted);margin-top:2px;">${TYPE_LABELS[item.type]}${item.category ? " · " + item.category : ""}</div>
               </div>
             </div>
@@ -190,7 +190,7 @@ export async function renderItemsPage(container, initialFilter = null) {
         </div>
       `;
     }).join("");
-    if (items.some((i) => i.type === "self_made") && canSeeCost()) {
+    if (statusTab === "active" && items.some((i) => i.type === "self_made") && canSeeCost()) {
       listEl.insertAdjacentHTML("beforeend", `<div class="hint" style="text-align:center;margin-top:6px;">* 自製商品的毛利未扣原料/人工，那些算在「利潤總覽」</div>`);
     }
 
@@ -222,10 +222,11 @@ export async function renderItemsPage(container, initialFilter = null) {
         ${canWriteType(item.type) ? `
           <div style="display:flex;gap:8px;">
             <button class="btn btn-secondary" id="btn-edit-item">編輯</button>
-            <button class="btn btn-secondary" id="btn-archive-item">${item.status === "archived" ? "恢復使用" : "停用"}</button>
+            <button class="btn ${item.status === "archived" ? "btn-success" : "btn-secondary"}" id="btn-archive-item">${item.status === "archived" ? "恢復使用" : "停用"}</button>
           </div>
         ` : ""}
       </div>
+      ${item.status === "archived" ? `<div class="seal-badge muted" style="margin-bottom:12px;"><span class="dot"></span>已停用</div>` : ""}
 
       <div class="card" style="margin-bottom:16px;">
         <div style="display:flex;gap:14px;align-items:flex-start;">
