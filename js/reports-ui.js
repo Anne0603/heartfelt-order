@@ -80,13 +80,14 @@ export async function renderReportsPage(container) {
     const productStats = new Map();
     inRange.forEach((o) => {
       o.lineItems.forEach((li) => {
-        const cur = productStats.get(li.productName) || { qty: 0, revenue: 0 };
+        const cur = productStats.get(li.productName) || { qty: 0, revenue: 0, cost: 0 };
         cur.qty += li.qty;
         cur.revenue += li.subtotal;
+        cur.cost += li.unitCost * li.qty;
         productStats.set(li.productName, cur);
       });
     });
-    const topProducts = [...productStats.entries()].sort((a, b) => b[1].revenue - a[1].revenue).slice(0, 8);
+    const topProducts = [...productStats.entries()].sort((a, b) => b[1].qty - a[1].qty);
 
     // 商品分類銷售占比
     const categoryStats = new Map();
@@ -182,9 +183,23 @@ export async function renderReportsPage(container) {
     } else if (activeTab === "sales") {
       contentEl.innerHTML = `
         <div class="card" style="margin-bottom:16px;">
-          <h3 style="font-size:15px;margin-bottom:12px;">商品銷售排行（依營收）</h3>
-          ${s.topProducts.length === 0 ? `<div class="hint">這段期間沒有訂單資料</div>` :
-            s.topProducts.map(([name, st]) => barRow(`${name}（${st.qty} 份）`, st.revenue, s.topProducts[0][1].revenue, (v) => `$${v.toFixed(0)}`)).join("")}
+          <h3 style="font-size:15px;margin-bottom:4px;">商品銷售排行</h3>
+          <div class="hint" style="margin-bottom:10px;">依數量排序（賣得動的東西，不只是賺得多的東西）</div>
+          ${s.topProducts.length === 0 ? `<div class="hint">這段期間沒有訂單資料</div>` : `
+            <table class="simple-table">
+              <thead><tr><th>商品</th><th style="text-align:right;">數量</th><th style="text-align:right;">營收</th><th style="text-align:right;">毛利</th></tr></thead>
+              <tbody>
+                ${s.topProducts.map(([name, st]) => `
+                  <tr>
+                    <td>${name}</td>
+                    <td style="text-align:right;font-family:var(--font-mono);">${st.qty}</td>
+                    <td style="text-align:right;font-family:var(--font-mono);">$${st.revenue.toFixed(0)}</td>
+                    <td style="text-align:right;font-family:var(--font-mono);color:${st.revenue-st.cost>=0?"var(--jade)":"var(--rose)"};">$${(st.revenue-st.cost).toFixed(0)}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          `}
         </div>
         <div class="card" style="margin-bottom:16px;">
           <h3 style="font-size:15px;margin-bottom:12px;">商品分類銷售占比</h3>
