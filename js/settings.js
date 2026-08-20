@@ -139,38 +139,36 @@ export async function renderCloudinaryPage(container) {
 export async function renderPendingPage(container) {
   container.innerHTML = `
     <div class="page-header"><h2>待審核申請</h2></div>
-    <div class="card">
-      <table class="simple-table">
-        <thead><tr><th>Email</th><th>姓名</th><th style="width:200px;">角色</th><th></th></tr></thead>
-        <tbody id="pending-table-body"><tr><td colspan="4">載入中…</td></tr></tbody>
-      </table>
-    </div>
+    <div id="pending-list"></div>
   `;
-  const body = container.querySelector("#pending-table-body");
+  const listEl = container.querySelector("#pending-list");
   await refresh();
 
   async function refresh() {
+    listEl.innerHTML = `<div class="card" style="color:var(--text-muted);">載入中…</div>`;
     try {
       const all = await listAllMembers();
       const pending = all.filter((m) => m.status === "pending");
-      body.innerHTML = pending.length === 0
-        ? `<tr><td colspan="4" style="color:var(--text-muted);">目前沒有待審核申請</td></tr>`
+      listEl.innerHTML = pending.length === 0
+        ? `<div class="card" style="color:var(--text-muted);text-align:center;">目前沒有待審核申請</div>`
         : pending.map((m) => `
-            <tr>
-              <td>${m.email}</td>
-              <td>${m.displayName || "-"}</td>
-              <td><select class="pending-role-select" data-email="${m.email}">${roleOptionsHtml("order_staff")}</select></td>
-              <td style="text-align:right;white-space:nowrap;">
-                <button class="btn btn-primary" data-approve="${m.email}" style="padding:6px 12px;font-size:12px;">核准</button>
-                <button class="btn btn-danger" data-reject="${m.email}" style="padding:6px 12px;font-size:12px;">拒絕</button>
-              </td>
-            </tr>
+            <div class="card" style="margin-bottom:10px;">
+              <div style="font-size:15px;color:var(--ink);word-break:break-all;">${m.email}</div>
+              <div class="hint" style="margin-top:2px;">${m.displayName || "（未提供姓名）"}</div>
+              <div style="margin-top:10px;">
+                <select class="pending-role-select" data-email="${m.email}" style="width:100%;padding:9px 10px;border:1px solid var(--paper-line);border-radius:8px;font-size:14px;margin-bottom:8px;">${roleOptionsHtml("order_staff")}</select>
+                <div style="display:flex;gap:8px;">
+                  <button class="btn btn-primary" data-approve="${m.email}" style="padding:8px 14px;font-size:13px;flex:1;">核准</button>
+                  <button class="btn btn-danger" data-reject="${m.email}" style="padding:8px 14px;font-size:13px;flex:1;">拒絕</button>
+                </div>
+              </div>
+            </div>
           `).join("");
 
-      body.querySelectorAll("[data-approve]").forEach((btn) => {
+      listEl.querySelectorAll("[data-approve]").forEach((btn) => {
         btn.addEventListener("click", async () => {
           const email = btn.getAttribute("data-approve");
-          const select = body.querySelector(`.pending-role-select[data-email="${email}"]`);
+          const select = listEl.querySelector(`.pending-role-select[data-email="${email}"]`);
           try {
             await approveMember(email, select.value);
             showToast("已核准", "success");
@@ -180,7 +178,7 @@ export async function renderPendingPage(container) {
           }
         });
       });
-      body.querySelectorAll("[data-reject]").forEach((btn) => {
+      listEl.querySelectorAll("[data-reject]").forEach((btn) => {
         btn.addEventListener("click", async () => {
           const email = btn.getAttribute("data-reject");
           if (!await confirmDialog(`拒絕 ${email} 的申請？`, { confirmLabel: "拒絕", danger: true })) return;
@@ -194,7 +192,7 @@ export async function renderPendingPage(container) {
         });
       });
     } catch (err) {
-      body.innerHTML = `<tr><td colspan="4" style="color:var(--rose);">載入失敗</td></tr>`;
+      listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗</div>`;
     }
   }
 }
@@ -203,42 +201,36 @@ export async function renderPendingPage(container) {
 export async function renderMembersPage(container) {
   container.innerHTML = `
     <div class="page-header"><h2>成員</h2></div>
-    <div class="card">
-      <table class="simple-table">
-        <thead><tr><th>Email</th><th style="width:200px;">角色</th><th></th></tr></thead>
-        <tbody id="members-table-body"><tr><td colspan="3">載入中…</td></tr></tbody>
-      </table>
-    </div>
+    <div id="members-list"></div>
   `;
-  const body = container.querySelector("#members-table-body");
+  const listEl = container.querySelector("#members-list");
   await refresh();
 
   async function refresh() {
+    listEl.innerHTML = `<div class="card" style="color:var(--text-muted);">載入中…</div>`;
     try {
       const all = await listAllMembers();
       const active = all.filter((m) => m.status === "active");
-      body.innerHTML = active.length === 0
-        ? `<tr><td colspan="3" style="color:var(--text-muted);">目前沒有成員</td></tr>`
+      listEl.innerHTML = active.length === 0
+        ? `<div class="card" style="color:var(--text-muted);text-align:center;">目前沒有成員</div>`
         : active.map((m) => {
             const isSelf = m.email === currentSession.user?.email;
             const isTargetSuperadmin = m.role === "superadmin";
             return `
-              <tr>
-                <td>${m.email}${isSelf ? " <span class=\"hint\">(你)</span>" : ""}</td>
-                <td>
+              <div class="card" style="margin-bottom:10px;">
+                <div style="font-size:15px;color:var(--ink);word-break:break-all;">${m.email}${isSelf ? ` <span class="hint">(你)</span>` : ""}</div>
+                <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
                   ${isTargetSuperadmin
-                    ? `<span class="seal-badge warn"><span class="dot"></span>超級管理員</span>`
-                    : `<select class="member-role-select" data-email="${m.email}">${roleOptionsHtml(m.role)}</select>`
+                    ? `<span class="seal-badge warn" style="white-space:nowrap;"><span class="dot"></span>超級管理員</span>`
+                    : `<select class="member-role-select" data-email="${m.email}" style="padding:8px 10px;border:1px solid var(--paper-line);border-radius:8px;font-size:14px;">${roleOptionsHtml(m.role)}</select>`
                   }
-                </td>
-                <td style="text-align:right;">
                   ${isTargetSuperadmin || isSelf ? "" : `<button class="btn btn-danger" data-remove="${m.email}" style="padding:6px 12px;font-size:12px;">移除</button>`}
-                </td>
-              </tr>
+                </div>
+              </div>
             `;
           }).join("");
 
-      body.querySelectorAll(".member-role-select").forEach((sel) => {
+      listEl.querySelectorAll(".member-role-select").forEach((sel) => {
         sel.addEventListener("change", async () => {
           const email = sel.getAttribute("data-email");
           try {
@@ -250,7 +242,7 @@ export async function renderMembersPage(container) {
           }
         });
       });
-      body.querySelectorAll("[data-remove]").forEach((btn) => {
+      listEl.querySelectorAll("[data-remove]").forEach((btn) => {
         btn.addEventListener("click", async () => {
           const email = btn.getAttribute("data-remove");
           if (!await confirmDialog(`移除 ${email} 的存取權限？`, { confirmLabel: "移除", danger: true })) return;
@@ -264,7 +256,7 @@ export async function renderMembersPage(container) {
         });
       });
     } catch (err) {
-      body.innerHTML = `<tr><td colspan="3" style="color:var(--rose);">載入失敗</td></tr>`;
+      listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗</div>`;
     }
   }
 }

@@ -120,9 +120,7 @@ export async function renderItemsPage(container, initialFilter = null) {
       renderList();
     });
     container.querySelector("#btn-export-items").addEventListener("click", () => {
-      const filtered = getFilteredItems();
-      if (filtered.length === 0) { showToast("沒有可以匯出的項目", "error"); return; }
-      exportItems(filtered, { includeCost: canSeeCost() });
+      openExportModal();
     });
 
     if (canWrite()) {
@@ -202,6 +200,61 @@ export async function renderItemsPage(container, initialFilter = null) {
     });
     listEl.querySelectorAll("[data-open]").forEach((card) => {
       card.addEventListener("click", () => renderDetailView(card.getAttribute("data-open")));
+    });
+  }
+
+  // ============================================================
+  // 匯出前先選要匯出哪些資料
+  // ============================================================
+  function openExportModal() {
+    let expStatus = "all";
+    let expType = filterType;
+    let expCategory = filterCategory;
+
+    const overlay = openModal(`
+      <h3 style="margin-bottom:16px;">匯出 Excel</h3>
+      <div class="field"><label>狀態</label>
+        <select id="exp-status">
+          <option value="all">全部（使用中＋已停用）</option>
+          <option value="active">只匯出使用中</option>
+          <option value="archived">只匯出已停用</option>
+        </select>
+      </div>
+      <div class="field"><label>類型</label>
+        <select id="exp-type">
+          <option value="all">全部類型</option>
+          <option value="self_made">自製商品</option>
+          <option value="resale">現貨商品</option>
+          <option value="packaging">包材</option>
+        </select>
+      </div>
+      <div class="field"><label>分類</label>
+        <select id="exp-category">
+          <option value="all">全部分類</option>
+          ${categories.map((c) => `<option value="${c.name}">${c.name}</option>`).join("")}
+        </select>
+      </div>
+      <div style="display:flex;justify-content:flex-end;">
+        <button class="btn btn-primary" id="exp-confirm">確認匯出</button>
+      </div>
+    `, 400);
+
+    overlay.querySelector("#exp-type").value = expType;
+    overlay.querySelector("#exp-category").value = expCategory;
+
+    overlay.querySelector("#exp-confirm").addEventListener("click", () => {
+      expStatus = overlay.querySelector("#exp-status").value;
+      expType = overlay.querySelector("#exp-type").value;
+      expCategory = overlay.querySelector("#exp-category").value;
+
+      let filtered = items;
+      if (expStatus !== "all") filtered = filtered.filter((i) => (expStatus === "archived") === (i.status === "archived"));
+      if (expType !== "all") filtered = filtered.filter((i) => i.type === expType);
+      if (expCategory !== "all") filtered = filtered.filter((i) => i.category === expCategory);
+
+      if (filtered.length === 0) { showToast("沒有符合條件的項目可以匯出", "error"); return; }
+      exportItems(filtered, { includeCost: canSeeCost() });
+      overlay.remove();
     });
   }
 

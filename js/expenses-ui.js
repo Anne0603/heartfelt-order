@@ -8,6 +8,7 @@ import { listExpenses, addExpense, updateExpense, deleteExpense, PAYMENT_METHODS
 import { listCategories } from "./categories.js";
 import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js";
 import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js";
+import { setFab } from "./fab-ui.js";
 
 function canWrite() {
   return ["superadmin", "admin"].includes(currentSession.member?.role);
@@ -34,22 +35,21 @@ export async function renderExpensesPage(container) {
   container.innerHTML = `
     <div class="page-header">
       <h2>支出管理</h2>
-      ${canWrite() ? `<button class="btn btn-primary" id="btn-new-expense">新增支出</button>` : ""}
     </div>
     <div class="card" style="margin-bottom:16px;">
-      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-        <input type="text" id="search-input" placeholder="搜尋備註/金額" style="flex:1;min-width:160px;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;" />
-        <select id="filter-costtype" style="padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;">
-          <option value="all">全部（銷貨成本＋營業費用）</option>
-          <option value="cogs">銷貨成本</option>
-          <option value="opex">營業費用</option>
-        </select>
-        <select id="filter-category" style="padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;">
-          <option value="all">全部類別</option>
-        </select>
-        <input type="date" id="filter-start" value="${rangeStart}" style="padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;" />
+      <input type="text" id="search-input" placeholder="搜尋備註/金額" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;" />
+      <select id="filter-costtype" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;">
+        <option value="all">全部</option>
+        <option value="cogs">銷貨成本</option>
+        <option value="opex">營業費用</option>
+      </select>
+      <select id="filter-category" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;">
+        <option value="all">全部類別</option>
+      </select>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="date" id="filter-start" value="${rangeStart}" style="flex:1;min-width:0;padding:9px 8px;border:1px solid var(--paper-line);border-radius:8px;font-size:14px;" />
         <span class="hint">～</span>
-        <input type="date" id="filter-end" value="${rangeEnd}" style="padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;" />
+        <input type="date" id="filter-end" value="${rangeEnd}" style="flex:1;min-width:0;padding:9px 8px;border:1px solid var(--paper-line);border-radius:8px;font-size:14px;" />
       </div>
     </div>
     <div id="expenses-total" class="hint" style="margin-bottom:10px;"></div>
@@ -79,7 +79,7 @@ export async function renderExpensesPage(container) {
     renderList();
   });
   if (canWrite()) {
-    container.querySelector("#btn-new-expense").addEventListener("click", () => openExpenseModal(null, reload));
+    setFab([{ icon: "➕", label: "新增支出", onClick: () => openExpenseModal(null, reload) }]);
   }
 
   function updateCategoryFilterOptions() {
@@ -195,8 +195,8 @@ export async function renderExpensesPage(container) {
 
       <div class="field"><label>類型</label>
         <select id="ee-costtype">
-          <option value="cogs" ${initialCostType === "cogs" ? "selected" : ""}>銷貨成本（跟著訂單/產量變動）</option>
-          <option value="opex" ${initialCostType === "opex" ? "selected" : ""}>營業費用（固定支出）</option>
+          <option value="cogs" ${initialCostType === "cogs" ? "selected" : ""}>銷貨成本</option>
+          <option value="opex" ${initialCostType === "opex" ? "selected" : ""}>營業費用</option>
         </select>
       </div>
       <div class="field"><label>類別</label>

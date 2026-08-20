@@ -88,10 +88,50 @@ export async function renderOrdersPage(container, initialFilter = null) {
     setFab([{ icon: "➕", label: "新增訂單", onClick: () => openOrderModal() }]);
   }
   container.querySelector("#btn-export-orders").addEventListener("click", () => {
-    const filtered = getFilteredOrders();
-    if (filtered.length === 0) { showToast("沒有可以匯出的訂單", "error"); return; }
-    exportOrders(filtered, { includeCost: canSeeCost() });
+    openExportModal();
   });
+
+  function openExportModal() {
+    const overlay = openModal(`
+      <h3 style="margin-bottom:16px;">匯出 Excel</h3>
+      <div class="field"><label>出貨狀態</label>
+        <select id="exp-status">
+          <option value="all">全部狀態</option>
+          <option value="pending">待處理</option>
+          <option value="preparing">備貨中</option>
+          <option value="shipped">已出貨</option>
+          <option value="done">已完成</option>
+        </select>
+      </div>
+      <div class="field"><label>訂購日期區間（選填）</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="date" id="exp-start" style="flex:1;min-width:0;padding:9px 8px;border:1px solid var(--paper-line);border-radius:8px;" />
+          <span class="hint">～</span>
+          <input type="date" id="exp-end" style="flex:1;min-width:0;padding:9px 8px;border:1px solid var(--paper-line);border-radius:8px;" />
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;">
+        <button class="btn btn-primary" id="exp-confirm">確認匯出</button>
+      </div>
+    `, 400);
+
+    overlay.querySelector("#exp-status").value = filterShipStatus;
+
+    overlay.querySelector("#exp-confirm").addEventListener("click", () => {
+      const status = overlay.querySelector("#exp-status").value;
+      const start = overlay.querySelector("#exp-start").value;
+      const end = overlay.querySelector("#exp-end").value;
+
+      let filtered = orders;
+      if (status !== "all") filtered = filtered.filter((o) => o.shipStatus === status);
+      if (start) filtered = filtered.filter((o) => o.orderDate >= start);
+      if (end) filtered = filtered.filter((o) => o.orderDate <= end);
+
+      if (filtered.length === 0) { showToast("沒有符合條件的訂單可以匯出", "error"); return; }
+      exportOrders(filtered, { includeCost: canSeeCost() });
+      overlay.remove();
+    });
+  }
 
   function getFilteredOrders() {
     const today = new Date().toISOString().slice(0, 10);

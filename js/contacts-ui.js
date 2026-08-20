@@ -64,10 +64,46 @@ export async function renderContactsPage(container) {
     setFab([{ icon: "➕", label: "新增聯絡人", onClick: () => openContactModal() }]);
   }
   container.querySelector("#btn-export-contacts").addEventListener("click", () => {
-    const filtered = getFilteredContacts();
-    if (filtered.length === 0) { showToast("沒有可以匯出的聯絡人", "error"); return; }
-    exportContacts(filtered);
+    openExportModal();
   });
+
+  function openExportModal() {
+    const overlay = openModal(`
+      <h3 style="margin-bottom:16px;">匯出 Excel</h3>
+      <div class="field"><label>狀態</label>
+        <select id="exp-status">
+          <option value="all">全部（使用中＋已停用）</option>
+          <option value="active">只匯出使用中</option>
+          <option value="archived">只匯出已停用</option>
+        </select>
+      </div>
+      <div class="field"><label>類型</label>
+        <select id="exp-role">
+          <option value="all">全部</option>
+          <option value="customer">客戶</option>
+          <option value="supplier">廠商</option>
+        </select>
+      </div>
+      <div style="display:flex;justify-content:flex-end;">
+        <button class="btn btn-primary" id="exp-confirm">確認匯出</button>
+      </div>
+    `, 400);
+
+    overlay.querySelector("#exp-role").value = filterRole;
+
+    overlay.querySelector("#exp-confirm").addEventListener("click", () => {
+      const status = overlay.querySelector("#exp-status").value;
+      const role = overlay.querySelector("#exp-role").value;
+
+      let filtered = contacts;
+      if (status !== "all") filtered = filtered.filter((c) => (status === "archived") === (c.status === "archived"));
+      if (role !== "all") filtered = filtered.filter((c) => (c.roles || []).includes(role));
+
+      if (filtered.length === 0) { showToast("沒有符合條件的聯絡人可以匯出", "error"); return; }
+      exportContacts(filtered);
+      overlay.remove();
+    });
+  }
 
   function getFilteredContacts() {
     let filtered = contacts.filter((c) => (statusTab === "archived") === (c.status === "archived"));
