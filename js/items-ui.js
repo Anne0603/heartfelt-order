@@ -49,6 +49,7 @@ export async function renderItemsPage(container, initialFilter = null) {
   let categories = [];
   let units = [];
   let filterType = initialFilter?.type || "all";
+  let filterCategory = "all";
   let searchText = "";
   let showArchived = false;
 
@@ -91,6 +92,10 @@ export async function renderItemsPage(container, initialFilter = null) {
             <option value="resale">現貨商品</option>
             <option value="packaging">包材</option>
           </select>
+          <select id="filter-category" style="padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;">
+            <option value="all">全部分類</option>
+            ${categories.map((c) => `<option value="${c.name}">${c.name}</option>`).join("")}
+          </select>
           <label style="display:flex;align-items:center;gap:6px;font-size:14px;color:var(--text-muted);">
             <input type="checkbox" id="show-archived" /> 顯示已停用/下架
           </label>
@@ -106,6 +111,10 @@ export async function renderItemsPage(container, initialFilter = null) {
     });
     container.querySelector("#filter-type").addEventListener("change", (e) => {
       filterType = e.target.value;
+      renderList();
+    });
+    container.querySelector("#filter-category").addEventListener("change", (e) => {
+      filterCategory = e.target.value;
       renderList();
     });
     container.querySelector("#show-archived").addEventListener("change", async (e) => {
@@ -129,6 +138,7 @@ export async function renderItemsPage(container, initialFilter = null) {
   function getFilteredItems() {
     let filtered = items;
     if (filterType !== "all") filtered = filtered.filter((i) => i.type === filterType);
+    if (filterCategory !== "all") filtered = filtered.filter((i) => i.category === filterCategory);
     if (searchText) filtered = filtered.filter((i) => (i.name || "").toLowerCase().includes(searchText));
     return filtered;
   }
