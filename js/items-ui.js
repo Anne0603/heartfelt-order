@@ -308,15 +308,22 @@ export async function renderItemsPage(container, initialFilter = null) {
       });
     }
 
+    function matchesSearch(r, kw) {
+      const lower = kw.toLowerCase();
+      return (r.date || "").includes(kw)
+        || (r.note || "").toLowerCase().includes(lower)
+        || (r.createdByName || "").toLowerCase().includes(lower)
+        || String(r.amount ?? "").includes(kw)
+        || String(r.qty ?? "").includes(kw)
+        || String(r.countedQty ?? "").includes(kw);
+    }
+
     function renderTabContent() {
       const records = allRecords[activeTab];
-      const filtered = recSearch
-        ? records.filter((r) => (r.date || "").includes(recSearch) || (r.note || "").toLowerCase().includes(recSearch.toLowerCase()) || (r.createdByName || "").toLowerCase().includes(recSearch.toLowerCase()))
-        : records;
 
       contentEl.innerHTML = `
         <div class="card">
-          <input type="text" id="rec-search" placeholder="搜尋日期/備註/人員" value="${recSearch}" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:14px;margin-bottom:12px;" />
+          <input type="text" id="rec-search" placeholder="搜尋日期/金額/備註/人員" value="${recSearch}" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:14px;margin-bottom:12px;" />
           <div id="rec-list"></div>
         </div>
       `;
@@ -327,9 +334,7 @@ export async function renderItemsPage(container, initialFilter = null) {
       renderRecList();
 
       function renderRecList() {
-        const filtered2 = recSearch
-          ? records.filter((r) => (r.date || "").includes(recSearch) || (r.note || "").toLowerCase().includes(recSearch.toLowerCase()) || (r.createdByName || "").toLowerCase().includes(recSearch.toLowerCase()))
-          : records;
+        const filtered2 = recSearch ? records.filter((r) => matchesSearch(r, recSearch)) : records;
         const listEl = contentEl.querySelector("#rec-list");
         if (filtered2.length === 0) {
           listEl.innerHTML = `<div class="hint" style="text-align:center;padding:16px 0;">沒有符合的記錄</div>`;
