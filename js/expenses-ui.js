@@ -5,7 +5,7 @@ import { showToast } from "./utils.js";
 import { currentSession } from "./auth.js";
 import { listExpenses, addExpense, updateExpense, deleteExpense, PAYMENT_METHODS } from "./expenses.js";
 import { listCategories } from "./categories.js";
-import { openModal, confirmDialog } from "./modal-ui.js";
+import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js";
 import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js";
 
 function canWrite() {
@@ -98,7 +98,7 @@ export async function renderExpensesPage(container) {
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
           <div style="display:flex;gap:12px;">
             ${exp.receiptUrl
-              ? `<img src="${exp.receiptUrl}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0;">`
+              ? `<img src="${exp.receiptUrl}" data-preview="${exp.receiptUrl}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0;cursor:pointer;">`
               : `<div style="width:44px;height:44px;border-radius:8px;background:var(--paper);flex-shrink:0;"></div>`
             }
             <div>
@@ -117,6 +117,9 @@ export async function renderExpensesPage(container) {
       </div>
     `).join("");
 
+    listEl.querySelectorAll("[data-preview]").forEach((img) => {
+      img.addEventListener("click", () => openImageLightbox(img.getAttribute("data-preview")));
+    });
     listEl.querySelectorAll("[data-edit]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const exp = expenses.find((x) => x.id === btn.getAttribute("data-edit"));
@@ -149,6 +152,7 @@ export async function renderExpensesPage(container) {
             : `<div style="font-size:22px;">🧾</div><div style="font-size:10px;color:var(--text-muted);margin-top:4px;">收據照片</div>`
           }
         </div>
+        ${exp?.receiptUrl ? `<button type="button" id="ee-photo-view" class="hint" style="background:none;border:none;text-decoration:underline;cursor:pointer;margin-top:6px;color:var(--gold-deep);">放大看收據</button>` : ""}
         <input type="file" accept="image/*" id="ee-photo-input" style="display:none;" />
       </div>
 
@@ -177,6 +181,7 @@ export async function renderExpensesPage(container) {
     const photoBox = overlay.querySelector("#ee-photo-box");
     const photoInput = overlay.querySelector("#ee-photo-input");
     photoBox.addEventListener("click", () => photoInput.click());
+    overlay.querySelector("#ee-photo-view")?.addEventListener("click", () => openImageLightbox(exp.receiptUrl));
     photoInput.addEventListener("change", async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;

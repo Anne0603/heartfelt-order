@@ -1,6 +1,21 @@
 // ============================================================
 // 共用彈跳視窗：右上角 X 關閉（不會因為誤觸外部而清空表單內容）
 // ============================================================
+/**
+ * 圖片放大預覽（點縮圖看清楚用），點外面或 X 都能關閉。
+ */
+export function openImageLightbox(url) {
+  const overlay = document.createElement("div");
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(20,22,28,0.85);z-index:400;display:flex;align-items:center;justify-content:center;padding:24px;";
+  overlay.innerHTML = `
+    <button id="lb-close" aria-label="關閉" style="position:absolute;top:16px;right:16px;width:38px;height:38px;border-radius:50%;border:none;background:rgba(255,255,255,0.15);color:#fff;font-size:18px;cursor:pointer;line-height:1;">✕</button>
+    <img src="${url}" style="max-width:100%;max-height:100%;border-radius:8px;object-fit:contain;" />
+  `;
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+  overlay.querySelector("#lb-close").addEventListener("click", () => overlay.remove());
+  document.body.appendChild(overlay);
+}
+
 export function openModal(innerHtml, width = 560) {
   const overlay = document.createElement("div");
   overlay.style.cssText = "position:fixed;inset:0;background:rgba(20,22,28,0.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;";
