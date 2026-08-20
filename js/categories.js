@@ -1,6 +1,6 @@
 // ============================================================
 // 分類管理（只有超級管理員能新增/改名/刪除）
-// module: 'products' | 'inventory'
+// module: 'items' | 'expense_cogs'（銷貨成本類別） | 'expense_opex'（營業費用類別）
 // 改名會連動更新所有正在使用這個分類的資料，不留孤兒分類。
 // 刪除前會檢查有沒有東西在用，有的話擋下來、告訴你有幾筆在用。
 // ============================================================
@@ -13,7 +13,16 @@ import {
 const categoriesCol = collection(db, "categories");
 
 function targetCollectionName(module) {
-  return module === "expenses" ? "expenses" : "items";
+  return module.startsWith("expense_") ? "expenses" : "items";
+}
+
+// 支出的兩份分類清單都存在同一個 expenses collection 裡，
+// 用 costType 欄位區分，比對用量/改名時要一併篩選，避免銷貨成本跟
+// 營業費用剛好取了同名分類時互相誤判。
+function costTypeOf(module) {
+  if (module === "expense_cogs") return "cogs";
+  if (module === "expense_opex") return "opex";
+  return null;
 }
 
 export async function listCategories(module) {
@@ -33,9 +42,17 @@ export async function createCategory(module, name) {
   });
 }
 
+function buildUsageQuery(module, name) {
+  const colName = targetCollectionName(module);
+  const costType = costTypeOf(module);
+  const base = collection(db, colName);
+  return costType
+    ? query(base, where("category", "==", name), where("costType", "==", costType))
+    : query(base, where("category", "==", name));
+}
+
 async function countUsage(module, name) {
-  const q = query(collection(db, targetCollectionName(module)), where("category", "==", name));
-  const snap = await getDocs(q);
+  const snap = await getDocs(buildUsageQuery(module, name));
   return snap.size;
 }
 
@@ -48,8 +65,7 @@ export async function renameCategory(categoryId, newName) {
   if (trimmed === oldName) return;
 
   // 找出所有用舊名字的資料，一起改成新名字
-  const q = query(collection(db, targetCollectionName(module)), where("category", "==", oldName));
-  const usersSnap = await getDocs(q);
+  const usersSnap = await getDocs(buildUsageQuery(module, oldName));
   const batch = writeBatch(db);
   usersSnap.forEach((d) => batch.update(d.ref, { category: trimmed }));
   batch.update(ref, { name: trimmed });

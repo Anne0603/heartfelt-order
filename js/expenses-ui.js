@@ -1,9 +1,10 @@
 // ============================================================
-// 支出管理頁面（獨立功能區，不再塞在利潤總覽裡）
+// 支出管理頁面（獨立功能區）
+// 每筆支出分「銷貨成本」或「營業費用」，各自有自己的分類清單
 // ============================================================
 import { showToast } from "./utils.js";
 import { currentSession } from "./auth.js";
-import { listExpenses, addExpense, updateExpense, deleteExpense, PAYMENT_METHODS } from "./expenses.js";
+import { listExpenses, addExpense, updateExpense, deleteExpense, PAYMENT_METHODS, COST_TYPE_LABELS } from "./expenses.js";
 import { listCategories } from "./categories.js";
 import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js";
 import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js";
@@ -14,8 +15,10 @@ function canWrite() {
 
 export async function renderExpensesPage(container) {
   let expenses = [];
-  let categories = [];
+  let cogsCategories = [];
+  let opexCategories = [];
   let searchText = "";
+  let filterCostType = "all";
   let filterCategory = "all";
   let rangeStart = "";
   let rangeEnd = "";
@@ -28,6 +31,11 @@ export async function renderExpensesPage(container) {
     <div class="card" style="margin-bottom:16px;">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
         <input type="text" id="search-input" placeholder="搜尋備註/金額" style="flex:1;min-width:160px;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;" />
+        <select id="filter-costtype" style="padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;">
+          <option value="all">全部（銷貨成本＋營業費用）</option>
+          <option value="cogs">銷貨成本</option>
+          <option value="opex">營業費用</option>
+        </select>
         <select id="filter-category" style="padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;">
           <option value="all">全部類別</option>
         </select>
@@ -42,6 +50,12 @@ export async function renderExpensesPage(container) {
 
   container.querySelector("#search-input").addEventListener("input", (e) => {
     searchText = e.target.value.trim().toLowerCase();
+    renderList();
+  });
+  container.querySelector("#filter-costtype").addEventListener("change", (e) => {
+    filterCostType = e.target.value;
+    filterCategory = "all";
+    updateCategoryFilterOptions();
     renderList();
   });
   container.querySelector("#filter-category").addEventListener("change", (e) => {
@@ -60,13 +74,22 @@ export async function renderExpensesPage(container) {
     container.querySelector("#btn-new-expense").addEventListener("click", () => openExpenseModal(null, reload));
   }
 
+  function updateCategoryFilterOptions() {
+    const catSelect = container.querySelector("#filter-category");
+    const list = filterCostType === "cogs" ? cogsCategories : filterCostType === "opex" ? opexCategories : [...cogsCategories, ...opexCategories];
+    catSelect.innerHTML = `<option value="all">全部類別</option>` + list.map((c) => `<option value="${c.name}">${c.name}</option>`).join("");
+  }
+
   async function reload() {
     const listEl = container.querySelector("#expenses-list");
     listEl.innerHTML = `<div class="card" style="color:var(--text-muted);">載入中…</div>`;
     try {
-      [expenses, categories] = await Promise.all([listExpenses(), listCategories("expenses")]);
-      const catSelect = container.querySelector("#filter-category");
-      catSelect.innerHTML = `<option value="all">全部類別</option>` + categories.map((c) => `<option value="${c.name}">${c.name}</option>`).join("");
+      [expenses, cogsCategories, opexCategories] = await Promise.all([
+        listExpenses(),
+        listCategories("expense_cogs"),
+        listCategories("expense_opex"),
+      ]);
+      updateCategoryFilterOptions();
       renderList();
     } catch (err) {
       listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${err.message}</div>`;
@@ -75,6 +98,7 @@ export async function renderExpensesPage(container) {
 
   function getFiltered() {
     let filtered = expenses;
+    if (filterCostType !== "all") filtered = filtered.filter((e) => e.costType === filterCostType);
     if (filterCategory !== "all") filtered = filtered.filter((e) => e.category === filterCategory);
     if (rangeStart) filtered = filtered.filter((e) => e.date >= rangeStart);
     if (rangeEnd) filtered = filtered.filter((e) => e.date <= rangeEnd);
@@ -103,7 +127,10 @@ export async function renderExpensesPage(container) {
             }
             <div>
               <div style="font-weight:700;font-size:16px;color:var(--ink);">${exp.category || "（未分類）"}</div>
-              <div style="font-size:13px;color:var(--text-muted);margin-top:2px;">${exp.date}${exp.paymentMethod ? " · " + exp.paymentMethod : ""}${exp.note ? " · " + exp.note : ""}</div>
+              <div style="font-size:13px;color:var(--text-muted);margin-top:2px;">
+                <span class="seal-badge ${exp.costType === "cogs" ? "warn" : "ok"}" style="padding:1px 8px 1px 3px;font-size:11px;"><span class="dot"></span>${COST_TYPE_LABELS[exp.costType] || "營業費用"}</span>
+                ${exp.date}${exp.paymentMethod ? " · " + exp.paymentMethod : ""}${exp.note ? " · " + exp.note : ""}
+              </div>
             </div>
           </div>
           <div style="font-family:var(--font-mono);font-size:18px;font-weight:700;color:var(--rose);">$${exp.amount}</div>
@@ -142,6 +169,8 @@ export async function renderExpensesPage(container) {
   // ---------- 新增 / 編輯支出 ----------
   function openExpenseModal(exp, onSaved) {
     const isEdit = !!exp;
+    const initialCostType = exp?.costType || "cogs";
+
     const overlay = openModal(`
       <h3 style="margin-bottom:16px;">${isEdit ? "編輯支出" : "新增支出"}</h3>
 
@@ -156,12 +185,15 @@ export async function renderExpensesPage(container) {
         <input type="file" accept="image/*" id="ee-photo-input" style="display:none;" />
       </div>
 
-      <div class="field"><label>類別</label>
-        <select id="ee-category">
-          <option value="">不分類</option>
-          ${categories.map((c) => `<option value="${c.name}" ${exp?.category === c.name ? "selected" : ""}>${c.name}</option>`).join("")}
+      <div class="field"><label>類型</label>
+        <select id="ee-costtype">
+          <option value="cogs" ${initialCostType === "cogs" ? "selected" : ""}>銷貨成本（跟著訂單/產量變動）</option>
+          <option value="opex" ${initialCostType === "opex" ? "selected" : ""}>營業費用（固定支出）</option>
         </select>
-        ${categories.length === 0 ? `<div class="hint">尚未建立任何支出類別，可以到「系統設定 → 分類管理」新增。</div>` : ""}
+      </div>
+      <div class="field"><label>類別</label>
+        <select id="ee-category"></select>
+        <div class="hint" id="ee-category-empty-hint" style="display:none;">尚未建立任何類別，可以到「系統設定 → 分類管理」新增。</div>
       </div>
       <div class="field"><label>金額</label><input type="number" id="ee-amount" value="${exp?.amount ?? ""}" /></div>
       <div class="field"><label>日期</label><input type="date" id="ee-date" value="${exp?.date || new Date().toISOString().slice(0,10)}" /></div>
@@ -176,6 +208,15 @@ export async function renderExpensesPage(container) {
         <button class="btn btn-primary" id="ee-save">儲存</button>
       </div>
     `, 440);
+
+    function syncCategoryOptions(costType) {
+      const list = costType === "cogs" ? cogsCategories : opexCategories;
+      const catSelect = overlay.querySelector("#ee-category");
+      catSelect.innerHTML = `<option value="">不分類</option>` + list.map((c) => `<option value="${c.name}" ${exp?.category === c.name ? "selected" : ""}>${c.name}</option>`).join("");
+      overlay.querySelector("#ee-category-empty-hint").style.display = list.length === 0 ? "block" : "none";
+    }
+    syncCategoryOptions(initialCostType);
+    overlay.querySelector("#ee-costtype").addEventListener("change", (e) => syncCategoryOptions(e.target.value));
 
     let uploadedReceiptUrl = exp?.receiptUrl || "";
     const photoBox = overlay.querySelector("#ee-photo-box");
@@ -204,6 +245,7 @@ export async function renderExpensesPage(container) {
       btn.disabled = true;
       try {
         const data = {
+          costType: overlay.querySelector("#ee-costtype").value,
           category: overlay.querySelector("#ee-category").value,
           amount,
           date: overlay.querySelector("#ee-date").value,

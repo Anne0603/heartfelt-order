@@ -281,18 +281,29 @@ export async function renderCategoriesPage(container) {
         <button class="btn btn-primary" id="cat-items-add" style="padding:9px 16px;">新增</button>
       </div>
     </div>
-    <div class="card">
-      <h3 style="font-size:15px;margin-bottom:10px;">支出類別</h3>
-      <div id="cat-expenses-list"></div>
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="font-size:15px;margin-bottom:4px;">銷貨成本類別</h3>
+      <div class="hint" style="margin-bottom:10px;">跟著訂單/產量變動的成本，例如原料、不追蹤數量的小包材。</div>
+      <div id="cat-cogs-list"></div>
       <div style="display:flex;gap:8px;margin-top:10px;">
-        <input type="text" id="cat-expenses-input" placeholder="新增類別名稱，例如：原料、人事、電費" style="flex:1;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;" />
-        <button class="btn btn-primary" id="cat-expenses-add" style="padding:9px 16px;">新增</button>
+        <input type="text" id="cat-cogs-input" placeholder="新增類別名稱，例如：原料" style="flex:1;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;" />
+        <button class="btn btn-primary" id="cat-cogs-add" style="padding:9px 16px;">新增</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3 style="font-size:15px;margin-bottom:4px;">營業費用類別</h3>
+      <div class="hint" style="margin-bottom:10px;">不管有沒有訂單都要付的固定支出，例如電費、房租、設備。</div>
+      <div id="cat-opex-list"></div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <input type="text" id="cat-opex-input" placeholder="新增類別名稱，例如：電費" style="flex:1;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;" />
+        <button class="btn btn-primary" id="cat-opex-add" style="padding:9px 16px;">新增</button>
       </div>
     </div>
   `;
 
   await setupCategorySection("items", "cat-items-list", "cat-items-input", "cat-items-add");
-  await setupCategorySection("expenses", "cat-expenses-list", "cat-expenses-input", "cat-expenses-add");
+  await setupCategorySection("expense_cogs", "cat-cogs-list", "cat-cogs-input", "cat-cogs-add");
+  await setupCategorySection("expense_opex", "cat-opex-list", "cat-opex-input", "cat-opex-add");
 
   async function setupCategorySection(module, listId, inputId, addBtnId) {
     const listEl = container.querySelector(`#${listId}`);

@@ -11,6 +11,7 @@ import { currentSession, getDisplayName } from "./auth.js";
 const expensesCol = collection(db, "expenses");
 
 export const PAYMENT_METHODS = ["現金", "轉帳", "其他"];
+export const COST_TYPE_LABELS = { cogs: "銷貨成本", opex: "營業費用" };
 
 function whoAmI() {
   return {
@@ -36,9 +37,10 @@ export async function listExpensesInRange(startDate, endDate) {
   return list;
 }
 
-export async function addExpense({ category, amount, date, paymentMethod, note, receiptUrl }) {
+export async function addExpense({ costType, category, amount, date, paymentMethod, note, receiptUrl }) {
   const who = whoAmI();
   await addDoc(expensesCol, {
+    costType: costType || "opex",
     category: category || "",
     amount: Number(amount) || 0,
     date: date || new Date().toISOString().slice(0, 10),
@@ -51,8 +53,9 @@ export async function addExpense({ category, amount, date, paymentMethod, note, 
   });
 }
 
-export async function updateExpense(id, { category, amount, date, paymentMethod, note, receiptUrl }) {
+export async function updateExpense(id, { costType, category, amount, date, paymentMethod, note, receiptUrl }) {
   await updateDoc(doc(db, "expenses", id), {
+    costType: costType || "opex",
     category: category || "",
     amount: Number(amount) || 0,
     date,
