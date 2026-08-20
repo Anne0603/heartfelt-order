@@ -3,7 +3,7 @@
 // 開一個新視窗，排版乾淨的出貨單，不含成本/毛利，叫出瀏覽器列印功能。
 // ============================================================
 import { alertDialog } from "./modal-ui.js";
-import { SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS } from "./orders.js";
+import { SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getPaymentStatus } from "./orders.js";
 
 export function printOrderSlip(order) {
   const win = window.open("", "_blank", "width=480,height=700");
@@ -71,7 +71,7 @@ export function printOrderSlip(order) {
   </div>
 
   <div class="section" style="margin-top:16px;">
-    <span class="badge">收款狀態：${PAYMENT_STATUS_LABELS[order.paymentStatus]}</span>
+    <span class="badge">收款狀態：${PAYMENT_STATUS_LABELS[getPaymentStatus(order)]}${order.amountReceived ? `（已收 $${order.amountReceived}${order.totalAmount - order.amountReceived > 0 ? `，尚欠 $${order.totalAmount - order.amountReceived}` : ""}）` : ""}</span>
   </div>
 
   ${order.note ? `<div class="section"><div class="label">備註</div><div class="value">${order.note}</div></div>` : ""}

@@ -4,7 +4,7 @@
 import { showToast } from "./utils.js";
 import { currentSession } from "./auth.js";
 import {
-  listOrders, createOrder, updateOrderBeforeShip, updatePaymentStatus,
+  listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, getPaymentStatus,
   markPreparing, markShipped, markDone, voidOrder,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS,
 } from "./orders.js";
@@ -150,7 +150,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
           </div>
           <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
             <span class="seal-badge ${shipBadgeClass(o.shipStatus)}"><span class="dot"></span>${SHIP_STATUS_LABELS[o.shipStatus]}</span>
-            <span class="seal-badge ${paymentBadgeClass(o.paymentStatus)}"><span class="dot"></span>${PAYMENT_STATUS_LABELS[o.paymentStatus]}</span>
+            <span class="seal-badge ${paymentBadgeClass(getPaymentStatus(o))}"><span class="dot"></span>${PAYMENT_STATUS_LABELS[getPaymentStatus(o)]}</span>
           </div>
           <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
             <button class="btn btn-secondary" data-detail="${o.id}" style="padding:7px 14px;font-size:13px;">查看/處理</button>
@@ -387,13 +387,16 @@ export async function renderOrdersPage(container, initialFilter = null) {
 
   function renderDetailHtml(order) {
     const profit = order.lineItems.reduce((s, li) => s + (li.subtotal - li.unitCost * li.qty), 0);
+    const received = order.amountReceived || 0;
+    const outstanding = order.totalAmount - received;
+    const payStatus = getPaymentStatus(order);
     return `
       <h3 style="margin-bottom:4px;font-family:var(--font-mono);">${order.orderNumber}</h3>
       <div class="hint" style="margin-bottom:14px;">${order.contactName || "（未指定客戶）"} · ${order.orderDate}${order.orderChannel ? " · " + order.orderChannel : ""}</div>
 
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
         <span class="seal-badge ${shipBadgeClass(order.shipStatus)}"><span class="dot"></span>${SHIP_STATUS_LABELS[order.shipStatus]}</span>
-        <span class="seal-badge ${paymentBadgeClass(order.paymentStatus)}"><span class="dot"></span>${PAYMENT_STATUS_LABELS[order.paymentStatus]}</span>
+        <span class="seal-badge ${paymentBadgeClass(payStatus)}"><span class="dot"></span>${PAYMENT_STATUS_LABELS[payStatus]}</span>
         ${order.voided ? `<span class="seal-badge bad"><span class="dot"></span>已作廢</span>` : ""}
       </div>
 
@@ -407,6 +410,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
         <div>商品小計：$${order.itemsTotal}</div>
         <div>運費：$${order.shippingFee}</div>
         <div style="font-weight:700;font-size:16px;margin-top:4px;">總金額：$${order.totalAmount}</div>
+        <div style="margin-top:6px;">已收：$${received}${outstanding > 0 ? `　<span style="color:var(--rose);">尚欠 $${outstanding}</span>` : ""}</div>
         ${canSeeCost() ? `<div style="color:${profit>=0?"var(--jade)":"var(--rose)"};margin-top:4px;">毛利：$${profit.toFixed(0)}</div>` : ""}
       </div>
 
@@ -425,6 +429,33 @@ export async function renderOrdersPage(container, initialFilter = null) {
         <button class="btn btn-secondary" id="d-print">列印出貨單</button>
       </div>
     `;
+  }
+
+  // ---------- 登記收款 ----------
+  function openReceivePaymentModal(order, onSaved) {
+    const overlay = openModal(`
+      <h3 style="margin-bottom:4px;">登記收款</h3>
+      <div class="hint" style="margin-bottom:16px;">${order.orderNumber} · 總金額 $${order.totalAmount}</div>
+      <div class="field"><label>目前已收金額</label><input type="number" id="rp-amount" value="${order.amountReceived || 0}" /></div>
+      <div class="hint" style="margin-bottom:16px;">填入「目前總共收到多少錢」，不是這次新增的金額。例如原本收了 500，這次客人又付了 300，這裡就填 800。</div>
+      <div style="display:flex;justify-content:flex-end;">
+        <button class="btn btn-primary" id="rp-save">儲存</button>
+      </div>
+    `, 380);
+    overlay.querySelector("#rp-save").addEventListener("click", async (e) => {
+      const btn = e.currentTarget;
+      const amount = overlay.querySelector("#rp-amount").value;
+      btn.disabled = true;
+      try {
+        await updateAmountReceived(order.id, amount);
+        showToast("已更新收款", "success");
+        overlay.remove();
+        onSaved();
+      } catch (err) {
+        showToast("失敗：" + err.message, "error");
+        btn.disabled = false;
+      }
+    });
   }
 
   function wireDetailEvents(overlay, order) {
@@ -487,17 +518,9 @@ export async function renderOrdersPage(container, initialFilter = null) {
       });
     }
     if (canWrite()) {
-      const paymentOptions = Object.keys(PAYMENT_STATUS_LABELS).map((k) =>
-        `<option value="${k}" ${k === order.paymentStatus ? "selected" : ""}>${PAYMENT_STATUS_LABELS[k]}</option>`
-      ).join("");
-      const sel = document.createElement("select");
-      sel.style.cssText = "padding:8px 10px;border:1px solid var(--paper-line);border-radius:8px;font-size:13px;";
-      sel.innerHTML = paymentOptions;
-      sel.addEventListener("change", async () => {
-        try { await updatePaymentStatus(order.id, sel.value); showToast("收款狀態已更新", "success"); await reload(); }
-        catch (err) { msgEl.textContent = "失敗：" + err.message; }
+      addActionButton("登記收款", "btn-secondary", () => {
+        openReceivePaymentModal(order, () => { overlay.remove(); reload(); });
       });
-      actionsEl.appendChild(sel);
     }
     if (canVoid()) {
       addActionButton("作廢訂單", "btn-danger", async (e) => {

@@ -2,7 +2,7 @@
 // 匯出 Excel（純前端，點擊直接下載，不需要後端伺服器）
 // ============================================================
 import * as XLSX from "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm";
-import { SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS } from "./orders.js";
+import { SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getPaymentStatus } from "./orders.js";
 import { TYPE_LABELS, ORDERABLE_TYPES, STOCK_TRACKED_TYPES, computeStock, computeAvgCost, calcItemCost, buildItemsIndex } from "./items.js";
 
 function downloadWorkbook(sheets, filename) {
@@ -28,7 +28,9 @@ export function exportOrders(orders, { includeCost }) {
       客戶: o.contactName || "",
       訂購管道: o.orderChannel || "",
       出貨狀態: SHIP_STATUS_LABELS[o.shipStatus] || o.shipStatus,
-      收款狀態: PAYMENT_STATUS_LABELS[o.paymentStatus] || o.paymentStatus,
+      收款狀態: PAYMENT_STATUS_LABELS[getPaymentStatus(o)],
+      實收金額: o.amountReceived || 0,
+      尚欠金額: o.totalAmount - (o.amountReceived || 0),
       商品小計: o.itemsTotal,
       運費: o.shippingFee,
       總金額: o.totalAmount,
