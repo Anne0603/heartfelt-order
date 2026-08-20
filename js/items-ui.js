@@ -75,7 +75,7 @@ export async function renderItemsPage(container, initialFilter = null) {
     container.innerHTML = `
       <div class="page-header">
         <h2>商品與庫存</h2>
-        <button class="icon-btn" id="btn-export-items" title="匯出 Excel" aria-label="匯出 Excel">⬇️</button>
+        <button class="btn btn-secondary" id="btn-export-items" style="padding:8px 14px;font-size:13px;">匯出</button>
       </div>
       <div class="pill-toggle" id="status-toggle">
         <button class="pill-toggle-btn ${statusTab === "active" ? "active" : ""}" data-status="active">使用中</button>

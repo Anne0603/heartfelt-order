@@ -26,7 +26,7 @@ export async function renderContactsPage(container) {
   container.innerHTML = `
     <div class="page-header">
       <h2>客戶與廠商</h2>
-      <button class="icon-btn" id="btn-export-contacts" title="匯出 Excel" aria-label="匯出 Excel">⬇️</button>
+      <button class="btn btn-secondary" id="btn-export-contacts" style="padding:8px 14px;font-size:13px;">匯出</button>
     </div>
     <div class="pill-toggle" id="status-toggle">
       <button class="pill-toggle-btn ${statusTab === "active" ? "active" : ""}" data-status="active">使用中</button>
@@ -116,9 +116,8 @@ export async function renderContactsPage(container) {
               ${c.roles?.includes("supplier") && c.supplyCategory ? `<div class="hint">供應類別：${c.supplyCategory}</div>` : ""}
             </div>
           </div>
-          <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+          <div style="margin-top:10px;display:flex;justify-content:flex-end;">
             ${canWrite() ? `<button class="btn btn-secondary" data-edit="${c.id}" style="padding:7px 14px;font-size:13px;">編輯</button>` : ""}
-            ${canWrite() ? `<button class="btn ${isArchived ? "btn-success" : "btn-secondary"}" data-archive="${c.id}" style="padding:7px 14px;font-size:13px;">${isArchived ? "恢復使用" : "停用"}</button>` : ""}
           </div>
         </div>
       `;
@@ -130,33 +129,21 @@ export async function renderContactsPage(container) {
         openContactModal(c);
       });
     });
-    listEl.querySelectorAll("[data-archive]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const c = contacts.find((x) => x.id === btn.getAttribute("data-archive"));
-        const willArchive = c.status !== "archived";
-        if (willArchive && !await confirmDialog(`確定要停用「${c.name}」嗎？`)) return;
-        try {
-          await setContactArchived(c.id, willArchive);
-          showToast(willArchive ? "已停用" : "已恢復使用", "success");
-          await reload();
-        } catch (err) {
-          showToast("操作失敗：" + err.message, "error");
-        }
-      });
-    });
   }
 
   function openContactModal(contact = null) {
     const isEdit = !!contact;
     const roles = contact?.roles || [];
 
+    let selectedRoles = [...roles];
+
     const overlay = openModal(`
       <h3 style="margin-bottom:16px;">${isEdit ? "編輯聯絡人" : "新增聯絡人"}</h3>
       <div class="field"><label>名稱</label><input type="text" id="c-name" value="${contact?.name || ""}" /></div>
       <div class="field"><label>類型（至少選一個）</label>
-        <div style="display:flex;gap:16px;">
-          <label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" id="c-role-customer" ${roles.includes("customer") ? "checked" : ""} /> 客戶</label>
-          <label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" id="c-role-supplier" ${roles.includes("supplier") ? "checked" : ""} /> 廠商</label>
+        <div class="chip-select">
+          <button type="button" class="chip-btn ${selectedRoles.includes("customer") ? "active" : ""}" data-role="customer">客戶</button>
+          <button type="button" class="chip-btn ${selectedRoles.includes("supplier") ? "active" : ""}" data-role="supplier">廠商</button>
         </div>
       </div>
       <div class="field"><label>聯絡電話（選填）</label><input type="text" id="c-phone" value="${contact?.phone || ""}" /></div>
@@ -172,26 +159,42 @@ export async function renderContactsPage(container) {
         </select>
       </div>
       <div class="field"><label>備註（選填）</label><input type="text" id="c-note" value="${contact?.note || ""}" /></div>
-      <div style="display:flex;justify-content:flex-end;">
+      <div style="display:flex;justify-content:${isEdit && canWrite() ? "space-between" : "flex-end"};align-items:center;">
+        ${isEdit && canWrite() ? `<button class="btn ${contact.status === "archived" ? "btn-success" : "btn-secondary"}" id="c-toggle-archive">${contact.status === "archived" ? "恢復使用" : "停用"}</button>` : ""}
         <button class="btn btn-primary" id="c-save">儲存</button>
       </div>
     `);
 
     function syncRoleFields() {
-      const isCustomer = overlay.querySelector("#c-role-customer").checked;
-      const isSupplier = overlay.querySelector("#c-role-supplier").checked;
-      overlay.querySelector("#c-channel-field").style.display = isCustomer ? "block" : "none";
-      overlay.querySelector("#c-supply-field").style.display = isSupplier ? "block" : "none";
+      overlay.querySelector("#c-channel-field").style.display = selectedRoles.includes("customer") ? "block" : "none";
+      overlay.querySelector("#c-supply-field").style.display = selectedRoles.includes("supplier") ? "block" : "none";
     }
-    overlay.querySelector("#c-role-customer").addEventListener("change", syncRoleFields);
-    overlay.querySelector("#c-role-supplier").addEventListener("change", syncRoleFields);
+    overlay.querySelectorAll("[data-role]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const role = btn.getAttribute("data-role");
+        if (selectedRoles.includes(role)) selectedRoles = selectedRoles.filter((r) => r !== role);
+        else selectedRoles.push(role);
+        btn.classList.toggle("active");
+        syncRoleFields();
+      });
+    });
+
+    overlay.querySelector("#c-toggle-archive")?.addEventListener("click", async () => {
+      const willArchive = contact.status !== "archived";
+      if (willArchive && !await confirmDialog(`確定要停用「${contact.name}」嗎？`)) return;
+      try {
+        await setContactArchived(contact.id, willArchive);
+        showToast(willArchive ? "已停用" : "已恢復使用", "success");
+        overlay.remove();
+        await reload();
+      } catch (err) {
+        showToast("操作失敗：" + err.message, "error");
+      }
+    });
 
     overlay.querySelector("#c-save").addEventListener("click", async (e) => {
       const btn = e.currentTarget;
       const name = overlay.querySelector("#c-name").value.trim();
-      const selectedRoles = [];
-      if (overlay.querySelector("#c-role-customer").checked) selectedRoles.push("customer");
-      if (overlay.querySelector("#c-role-supplier").checked) selectedRoles.push("supplier");
       if (!name) { showToast("請輸入名稱", "error"); return; }
       if (selectedRoles.length === 0) { showToast("類型至少要選一個", "error"); return; }
 

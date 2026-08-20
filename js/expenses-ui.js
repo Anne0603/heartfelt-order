@@ -20,8 +20,16 @@ export async function renderExpensesPage(container) {
   let searchText = "";
   let filterCostType = "all";
   let filterCategory = "all";
-  let rangeStart = "";
-  let rangeEnd = "";
+  function currentMonthRange() {
+    const today = new Date();
+    const start = new Date(today.getFullYear(), today.getMonth(), 1);
+    const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    return { start: fmt(start), end: fmt(end) };
+  }
+  const defaultRange = currentMonthRange();
+  let rangeStart = defaultRange.start;
+  let rangeEnd = defaultRange.end;
 
   container.innerHTML = `
     <div class="page-header">
@@ -39,9 +47,9 @@ export async function renderExpensesPage(container) {
         <select id="filter-category" style="padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;">
           <option value="all">全部類別</option>
         </select>
-        <input type="date" id="filter-start" style="padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;" />
+        <input type="date" id="filter-start" value="${rangeStart}" style="padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;" />
         <span class="hint">～</span>
-        <input type="date" id="filter-end" style="padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;" />
+        <input type="date" id="filter-end" value="${rangeEnd}" style="padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;" />
       </div>
     </div>
     <div id="expenses-total" class="hint" style="margin-bottom:10px;"></div>

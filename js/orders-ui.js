@@ -50,7 +50,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
   container.innerHTML = `
     <div class="page-header">
       <h2>訂單管理</h2>
-      <button class="icon-btn" id="btn-export-orders" title="匯出 Excel" aria-label="匯出 Excel">⬇️</button>
+      <button class="btn btn-secondary" id="btn-export-orders" style="padding:8px 14px;font-size:13px;">匯出</button>
     </div>
     <div class="card" style="margin-bottom:16px;">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
@@ -62,8 +62,9 @@ export async function renderOrdersPage(container, initialFilter = null) {
           <option value="shipped">已出貨</option>
           <option value="done">已完成</option>
         </select>
-        <label style="display:flex;align-items:center;gap:6px;font-size:14px;color:var(--text-muted);">
-          <input type="checkbox" id="filter-today" ${filterToday ? "checked" : ""} /> 只看今天應出貨
+        <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text-muted);">
+          <span class="switch"><input type="checkbox" id="filter-today" ${filterToday ? "checked" : ""} /><span class="switch-slider"></span></span>
+          只看今天應出貨
         </label>
       </div>
     </div>
