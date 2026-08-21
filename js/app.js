@@ -13,6 +13,7 @@ import { renderReportsPage } from "./reports-ui.js";
 import { renderProfitPage } from "./profit-ui.js";
 import { renderExpensesPage } from "./expenses-ui.js";
 import { lowStockItems } from "./items.js";
+import { listOrders, getPaymentStatus } from "./orders.js";
 import { showToast } from "./utils.js";
 import { db } from "./firebase-config.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
@@ -295,7 +296,20 @@ async function refreshNotifBell() {
     if (myRole === "superadmin") {
       pendingCount = await getPendingCount();
     }
-    const total = low.length + pendingCount;
+
+    let overdueCount = 0, todayCount = 0, unpaidDoneCount = 0;
+    try {
+      const orders = await listOrders();
+      const active = orders.filter((o) => !o.voided);
+      const today = new Date().toISOString().slice(0, 10);
+      overdueCount = active.filter((o) => o.expectedDate && o.expectedDate < today && !["shipped", "done"].includes(o.shipStatus)).length;
+      todayCount = active.filter((o) => o.expectedDate === today && !["shipped", "done"].includes(o.shipStatus)).length;
+      unpaidDoneCount = active.filter((o) => o.shipStatus === "done" && getPaymentStatus(o) !== "paid").length;
+    } catch (err) {
+      // 訂單載入失敗不影響其他通知照常顯示
+    }
+
+    const total = low.length + pendingCount + overdueCount + todayCount + unpaidDoneCount;
     if (total > 0) {
       notifBadge.textContent = total;
       notifBadge.style.display = "flex";
@@ -303,22 +317,23 @@ async function refreshNotifBell() {
       notifBadge.style.display = "none";
     }
     notifDropdown.innerHTML = "";
-    if (low.length === 0 && pendingCount === 0) {
+    if (total === 0) {
       notifDropdown.innerHTML = `<div class="notif-empty">目前沒有通知</div>`;
       return;
     }
-    let html = "";
-    if (low.length > 0) {
-      html += `<button class="notif-item" data-goto="items">📦 ${low.length} 項庫存偏低</button>`;
-    }
-    if (pendingCount > 0) {
-      html += `<button class="notif-item" data-goto="pending">🕓 ${pendingCount} 筆待審核申請</button>`;
-    }
-    notifDropdown.innerHTML = html;
-    notifDropdown.querySelectorAll("[data-goto]").forEach((btn) => {
+    const items = [];
+    if (overdueCount > 0) items.push({ label: `🔴 ${overdueCount} 張訂單已逾期未出貨`, target: "orders", filter: { quick: "overdue" } });
+    if (todayCount > 0) items.push({ label: `🟡 ${todayCount} 張訂單今天應出貨`, target: "orders", filter: { quick: "today" } });
+    if (unpaidDoneCount > 0) items.push({ label: `💰 ${unpaidDoneCount} 張已完成但未收款`, target: "orders", filter: { quick: "unpaid_done" } });
+    if (low.length > 0) items.push({ label: `📦 ${low.length} 項庫存偏低`, target: "items", filter: null });
+    if (pendingCount > 0) items.push({ label: `🕓 ${pendingCount} 筆待審核申請`, target: "pending", filter: null });
+
+    notifDropdown.innerHTML = items.map((it, idx) => `<button class="notif-item" data-notif-idx="${idx}">${it.label}</button>`).join("");
+    notifDropdown.querySelectorAll("[data-notif-idx]").forEach((btn) => {
       btn.addEventListener("click", () => {
+        const it = items[Number(btn.getAttribute("data-notif-idx"))];
         notifDropdown.classList.remove("show");
-        goToModule(btn.getAttribute("data-goto"));
+        goToModule(it.target, it.filter);
       });
     });
   } catch (err) {

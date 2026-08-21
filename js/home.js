@@ -30,7 +30,11 @@ export async function renderHomePage(container, navigateTo) {
         <div class="hint">今日應出貨</div>
         <div style="font-family:var(--font-mono);font-size:26px;font-weight:700;color:var(--ink);" id="today-ship-count">…</div>
       </div>
-      <div class="card" style="padding:16px;grid-column:span 2;cursor:pointer;" id="low-stock-card">
+      <div class="card" style="padding:16px;cursor:pointer;" id="overdue-card">
+        <div class="hint">已逾期未出貨</div>
+        <div style="font-family:var(--font-mono);font-size:26px;font-weight:700;color:var(--rose);" id="overdue-count">…</div>
+      </div>
+      <div class="card" style="padding:16px;cursor:pointer;" id="low-stock-card">
         <div class="hint">低庫存項目</div>
         <div style="font-family:var(--font-mono);font-size:26px;font-weight:700;color:var(--ink);" id="low-stock-count">載入中…</div>
       </div>
@@ -49,12 +53,13 @@ export async function renderHomePage(container, navigateTo) {
     btn.addEventListener("click", () => {
       const id = btn.getAttribute("data-goto");
       const filter = btn.getAttribute("data-filter");
-      navigateTo(id, filter === "today" ? { today: true } : null);
+      navigateTo(id, filter === "today" ? { quick: "today" } : null);
     });
   });
 
   container.querySelector("#pending-card").addEventListener("click", () => navigateTo("orders", { shipStatus: "pending" }));
-  container.querySelector("#today-ship-card").addEventListener("click", () => navigateTo("orders", { today: true }));
+  container.querySelector("#today-ship-card").addEventListener("click", () => navigateTo("orders", { quick: "today" }));
+  container.querySelector("#overdue-card").addEventListener("click", () => navigateTo("orders", { quick: "overdue" }));
   container.querySelector("#low-stock-card").addEventListener("click", () => navigateTo("items"));
 
   try {
@@ -63,9 +68,11 @@ export async function renderHomePage(container, navigateTo) {
     const today = new Date().toISOString().slice(0, 10);
     container.querySelector("#pending-count").textContent = active.filter((o) => o.shipStatus === "pending" || o.shipStatus === "preparing").length;
     container.querySelector("#today-ship-count").textContent = active.filter((o) => o.expectedDate === today && !["shipped","done"].includes(o.shipStatus)).length;
+    container.querySelector("#overdue-count").textContent = active.filter((o) => o.expectedDate && o.expectedDate < today && !["shipped","done"].includes(o.shipStatus)).length;
   } catch (err) {
     container.querySelector("#pending-count").textContent = "—";
     container.querySelector("#today-ship-count").textContent = "—";
+    container.querySelector("#overdue-count").textContent = "—";
   }
 
   try {

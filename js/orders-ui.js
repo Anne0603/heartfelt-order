@@ -45,7 +45,9 @@ export async function renderOrdersPage(container, initialFilter = null) {
   let contacts = [];
   let searchText = "";
   let filterShipStatus = initialFilter?.shipStatus || "all";
-  let filterToday = !!initialFilter?.today;
+  let filterQuick = initialFilter?.quick || "all"; // 'all' | 'today' | 'overdue' | 'unpaid_done'
+  let filterDateStart = "";
+  let filterDateEnd = "";
 
   container.innerHTML = `
     <div class="page-header">
@@ -53,25 +55,31 @@ export async function renderOrdersPage(container, initialFilter = null) {
       <button class="btn btn-secondary" id="btn-export-orders" style="padding:8px 14px;font-size:13px;">匯出</button>
     </div>
     <div class="card" style="margin-bottom:16px;">
-      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-        <input type="text" id="search-input" placeholder="搜尋訂單編號/客戶" style="flex:1;min-width:160px;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;" />
-        <select id="filter-status" style="padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;">
-          <option value="all">全部狀態</option>
-          <option value="pending">待處理</option>
-          <option value="preparing">備貨中</option>
-          <option value="shipped">已出貨</option>
-          <option value="done">已完成</option>
-        </select>
-        <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text-muted);">
-          <span class="switch"><input type="checkbox" id="filter-today" ${filterToday ? "checked" : ""} /><span class="switch-slider"></span></span>
-          只看今天應出貨
-        </label>
+      <input type="text" id="search-input" placeholder="搜尋訂單編號/客戶" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;" />
+      <select id="filter-status" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;">
+        <option value="all">全部狀態</option>
+        <option value="pending">待處理</option>
+        <option value="preparing">備貨中</option>
+        <option value="shipped">已出貨</option>
+        <option value="done">已完成</option>
+      </select>
+      <select id="filter-quick" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;">
+        <option value="all">不特別篩選</option>
+        <option value="today">今天應出貨</option>
+        <option value="overdue">已逾期未出貨</option>
+        <option value="unpaid_done">已完成但未收款</option>
+      </select>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="date" id="filter-date-start" style="flex:1;min-width:0;padding:9px 8px;border:1px solid var(--paper-line);border-radius:8px;font-size:14px;" />
+        <span class="hint">～</span>
+        <input type="date" id="filter-date-end" style="flex:1;min-width:0;padding:9px 8px;border:1px solid var(--paper-line);border-radius:8px;font-size:14px;" />
       </div>
     </div>
     <div id="orders-list"></div>
   `;
 
   container.querySelector("#filter-status").value = filterShipStatus;
+  container.querySelector("#filter-quick").value = filterQuick;
   container.querySelector("#search-input").addEventListener("input", (e) => {
     searchText = e.target.value.trim().toLowerCase();
     renderList();
@@ -80,8 +88,16 @@ export async function renderOrdersPage(container, initialFilter = null) {
     filterShipStatus = e.target.value;
     renderList();
   });
-  container.querySelector("#filter-today").addEventListener("change", (e) => {
-    filterToday = e.target.checked;
+  container.querySelector("#filter-quick").addEventListener("change", (e) => {
+    filterQuick = e.target.value;
+    renderList();
+  });
+  container.querySelector("#filter-date-start").addEventListener("change", (e) => {
+    filterDateStart = e.target.value;
+    renderList();
+  });
+  container.querySelector("#filter-date-end").addEventListener("change", (e) => {
+    filterDateEnd = e.target.value;
     renderList();
   });
   if (canWrite()) {
@@ -137,7 +153,15 @@ export async function renderOrdersPage(container, initialFilter = null) {
     const today = new Date().toISOString().slice(0, 10);
     let filtered = orders;
     if (filterShipStatus !== "all") filtered = filtered.filter((o) => o.shipStatus === filterShipStatus);
-    if (filterToday) filtered = filtered.filter((o) => o.expectedDate === today && !o.voided);
+    if (filterQuick === "today") {
+      filtered = filtered.filter((o) => !o.voided && o.expectedDate === today && !["shipped", "done"].includes(o.shipStatus));
+    } else if (filterQuick === "overdue") {
+      filtered = filtered.filter((o) => !o.voided && o.expectedDate && o.expectedDate < today && !["shipped", "done"].includes(o.shipStatus));
+    } else if (filterQuick === "unpaid_done") {
+      filtered = filtered.filter((o) => !o.voided && o.shipStatus === "done" && getPaymentStatus(o) !== "paid");
+    }
+    if (filterDateStart) filtered = filtered.filter((o) => o.orderDate >= filterDateStart);
+    if (filterDateEnd) filtered = filtered.filter((o) => o.orderDate <= filterDateEnd);
     if (searchText) {
       filtered = filtered.filter((o) =>
         (o.orderNumber || "").toLowerCase().includes(searchText) ||

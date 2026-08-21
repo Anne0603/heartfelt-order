@@ -5,6 +5,7 @@ import { showToast } from "./utils.js";
 import { currentSession } from "./auth.js";
 import { openModal, confirmDialog } from "./modal-ui.js";
 import { listContacts, createContact, updateContact, setContactArchived } from "./contacts.js";
+import { listOrders, getPaymentStatus } from "./orders.js";
 import { listCategories } from "./categories.js";
 import { exportContacts } from "./export-xlsx.js";
 import { setFab } from "./fab-ui.js";
@@ -167,6 +168,43 @@ export async function renderContactsPage(container) {
     });
   }
 
+  async function loadOrderHistory(contact, overlay) {
+    const box = overlay.querySelector("#c-order-history");
+    if (!box) return;
+    try {
+      const orders = await listOrders();
+      const theirs = orders.filter((o) => o.contactId === contact.id && !o.voided);
+      if (theirs.length === 0) {
+        box.innerHTML = `<div class="hint">這位客戶還沒有訂購紀錄</div>`;
+        return;
+      }
+      const totalSpent = theirs.reduce((s, o) => s + o.totalAmount, 0);
+      const sorted = [...theirs].sort((a, b) => b.orderDate.localeCompare(a.orderDate));
+      const lastOrder = sorted[0];
+      const unpaidCount = theirs.filter((o) => getPaymentStatus(o) !== "paid").length;
+
+      box.innerHTML = `
+        <div class="hint" style="margin-bottom:8px;font-weight:600;color:var(--ink);">訂購紀錄</div>
+        <div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:10px;">
+          <div><div class="hint">累積訂單</div><div style="font-family:var(--font-mono);font-weight:700;">${theirs.length} 張</div></div>
+          <div><div class="hint">累積消費</div><div style="font-family:var(--font-mono);font-weight:700;">$${totalSpent.toFixed(0)}</div></div>
+          <div><div class="hint">最後下單</div><div style="font-family:var(--font-mono);font-weight:700;">${lastOrder.orderDate}</div></div>
+        </div>
+        ${unpaidCount > 0 ? `<div class="hint" style="color:var(--rose);margin-bottom:8px;">有 ${unpaidCount} 張訂單還沒收齊款項</div>` : ""}
+        <div style="border-top:1px solid var(--paper-line);padding-top:8px;">
+          ${sorted.slice(0, 3).map((o) => `
+            <div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;">
+              <span>${o.orderDate} · ${o.orderNumber}</span>
+              <span style="font-family:var(--font-mono);">$${o.totalAmount}</span>
+            </div>
+          `).join("")}
+        </div>
+      `;
+    } catch (err) {
+      box.innerHTML = `<div class="hint">訂購紀錄載入失敗</div>`;
+    }
+  }
+
   function openContactModal(contact = null) {
     const isEdit = !!contact;
     const roles = contact?.roles || [];
@@ -176,6 +214,7 @@ export async function renderContactsPage(container) {
     const overlay = openModal(`
       <h3 style="margin-bottom:16px;">${isEdit ? "編輯聯絡人" : "新增聯絡人"}</h3>
       <div class="field"><label>名稱</label><input type="text" id="c-name" value="${contact?.name || ""}" /></div>
+      ${isEdit && roles.includes("customer") ? `<div class="card" style="background:var(--paper);box-shadow:none;margin-bottom:16px;" id="c-order-history"><div class="hint">載入訂購紀錄中…</div></div>` : ""}
       <div class="field"><label>類型（至少選一個）</label>
         <div class="chip-select">
           <button type="button" class="chip-btn ${selectedRoles.includes("customer") ? "active" : ""}" data-role="customer">客戶</button>
@@ -205,6 +244,10 @@ export async function renderContactsPage(container) {
       overlay.querySelector("#c-channel-field").style.display = selectedRoles.includes("customer") ? "block" : "none";
       overlay.querySelector("#c-supply-field").style.display = selectedRoles.includes("supplier") ? "block" : "none";
     }
+    if (isEdit && roles.includes("customer")) {
+      loadOrderHistory(contact, overlay);
+    }
+
     overlay.querySelectorAll("[data-role]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const role = btn.getAttribute("data-role");
