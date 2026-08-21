@@ -12,7 +12,6 @@
 import { listOrders } from "./orders.js";
 import { listExpensesInRange } from "./expenses.js";
 import { renderDateRangePicker } from "./date-range-ui.js";
-import { openModal } from "./modal-ui.js";
 import { linkifyErrorMessage } from "./utils.js";
 
 export async function renderProfitPage(container, navigateTo) {
@@ -123,10 +122,10 @@ export async function renderProfitPage(container, navigateTo) {
       `;
 
       summaryEl.querySelector("#btn-packaging-detail").addEventListener("click", () => {
-        openPackagingDetailModal(range, ordersInRange);
+        renderPackagingDetailPage(range, ordersInRange);
       });
       summaryEl.querySelector("#btn-resale-detail").addEventListener("click", () => {
-        openResaleDetailModal(range, ordersInRange);
+        renderResaleDetailPage(range, ordersInRange);
       });
       summaryEl.querySelectorAll(".expense-cat-row").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -145,15 +144,15 @@ export async function renderProfitPage(container, navigateTo) {
 
   // ---------- 明細表格（簡單表格，靠右對齊金額，跟主卡片同一套視覺語言） ----------
   function detailTable(entries, emptyText) {
-    if (entries.length === 0) return `<div class="hint" style="padding:8px 0;">${emptyText}</div>`;
+    if (entries.length === 0) return `<div class="hint" style="text-align:center;padding:16px 0;">${emptyText}</div>`;
     return `<table class="simple-table">${entries.map(([label, amt, extra]) =>
       `<tr><td>${label}${extra ? `<span class="hint"> · ${extra}</span>` : ""}</td><td style="text-align:right;font-family:var(--font-mono);font-weight:600;">$${amt.toFixed(0)}</td></tr>`
     ).join("")}</table>`;
   }
 
   // ---------- 依訂單拆解表格（每一列可以點，帶去訂單管理搜尋出那張訂單） ----------
-  function orderRowsTable(orderEntries) {
-    if (orderEntries.length === 0) return `<div class="hint" style="padding:8px 0;">這段期間沒有資料</div>`;
+  function orderRowsTable(orderEntries, emptyText) {
+    if (orderEntries.length === 0) return `<div class="hint" style="text-align:center;padding:16px 0;">${emptyText}</div>`;
     return `<table class="simple-table">
       ${orderEntries.map((o) => `
         <tr class="order-detail-row" data-ordernumber="${o.orderNumber}" style="cursor:pointer;">
@@ -163,15 +162,73 @@ export async function renderProfitPage(container, navigateTo) {
       `).join("")}
     </table>`;
   }
-  function wireOrderRows(overlay) {
-    overlay.querySelectorAll(".order-detail-row").forEach((row) => {
+  function wireOrderRows(root) {
+    root.querySelectorAll(".order-detail-row").forEach((row) => {
       row.addEventListener("click", () => {
         navigateTo("orders", { search: row.getAttribute("data-ordernumber") });
       });
     });
   }
 
-  function openPackagingDetailModal(range, ordersInRange) {
+  // ---------- 通用的「拆解明細頁」：分頁籤 + 每個分頁籤都能搜尋，取代彈跳視窗 ----------
+  function renderDrilldownPage({ title, range, tabs, note }) {
+    let activeTab = tabs[0].id;
+    let searchText = "";
+
+    container.innerHTML = `
+      <div class="page-header">
+        <button class="btn btn-secondary" id="btn-back-to-summary" style="padding:8px 12px;">← 返回利潤總覽</button>
+      </div>
+      <h2 style="margin-bottom:2px;">${title}</h2>
+      <div class="hint" style="margin-bottom:14px;">${range.start} ～ ${range.end}</div>
+      ${note ? `<div class="hint" style="margin-bottom:10px;">${note}</div>` : ""}
+      <div class="settings-tabs" id="drill-tabs"></div>
+      <div id="drill-content"></div>
+    `;
+    container.querySelector("#btn-back-to-summary").addEventListener("click", () => load(range));
+
+    const tabsEl = container.querySelector("#drill-tabs");
+    const contentEl = container.querySelector("#drill-content");
+
+    function renderTabButtons() {
+      tabsEl.innerHTML = tabs.map((t) => `<button class="settings-tab-btn ${t.id === activeTab ? "active" : ""}" data-tab="${t.id}">${t.label}（${t.rows.length}）</button>`).join("");
+      tabsEl.querySelectorAll("[data-tab]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          activeTab = btn.getAttribute("data-tab");
+          searchText = "";
+          renderTabButtons();
+          renderTabContent();
+        });
+      });
+    }
+
+    function renderTabContent() {
+      const tab = tabs.find((t) => t.id === activeTab);
+      contentEl.innerHTML = `
+        <div class="card">
+          <input type="text" id="drill-search" placeholder="搜尋" value="${searchText}" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:14px;margin-bottom:12px;" />
+          <div id="drill-rows"></div>
+        </div>
+      `;
+      contentEl.querySelector("#drill-search").addEventListener("input", (e) => {
+        searchText = e.target.value.trim().toLowerCase();
+        renderRows(tab);
+      });
+      renderRows(tab);
+    }
+
+    function renderRows(tab) {
+      const filtered = searchText ? tab.rows.filter((r) => tab.matches(r, searchText)) : tab.rows;
+      const rowsEl = contentEl.querySelector("#drill-rows");
+      rowsEl.innerHTML = tab.render(filtered);
+      if (tab.wire) tab.wire(rowsEl);
+    }
+
+    renderTabButtons();
+    renderTabContent();
+  }
+
+  function renderPackagingDetailPage(range, ordersInRange) {
     const byProduct = new Map();
     const byMaterial = new Map();
     const byOrder = new Map();
@@ -200,26 +257,36 @@ export async function renderProfitPage(container, navigateTo) {
       if (orderCost > 0) byOrder.set(o.orderNumber, { orderNumber: o.orderNumber, orderDate: o.orderDate, contactName: o.contactName, amount: orderCost });
     });
 
-    const productEntries = [...byProduct.entries()].sort((a, b) => b[1] - a[1]);
-    const materialEntries = [...byMaterial.values()].sort((a, b) => b.cost - a.cost).map((m) => [m.itemName, m.cost, `用了 ${m.qty}`]);
+    const productRows = [...byProduct.entries()].sort((a, b) => b[1] - a[1]);
+    const materialRows = [...byMaterial.values()].sort((a, b) => b.cost - a.cost);
+    const orderRows = [...byOrder.values()].sort((a, b) => b.amount - a.amount);
 
-    const overlay = openModal(`
-      <h3 style="margin-bottom:4px;">包材成本拆解</h3>
-      <div class="hint" style="margin-bottom:16px;">${range.start} ～ ${range.end}</div>
-      <div style="font-weight:600;color:var(--ink);margin-bottom:8px;">依商品</div>
-      <div style="margin-bottom:20px;">${detailTable(productEntries, "這段期間沒有資料")}</div>
-      <div style="font-weight:600;color:var(--ink);margin-bottom:8px;">依包材項目</div>
-      <div style="margin-bottom:20px;">
-        ${detailTable(materialEntries, "這段期間沒有資料")}
-        ${!hasAnyBreakdown && productEntries.length > 0 ? `<div class="hint" style="margin-top:6px;">這批訂單是在支援「依包材項目」拆解之前建立的，沒有存材料明細，所以列不出來；之後新建的訂單都會準確拆解。</div>` : ""}
-      </div>
-      <div style="font-weight:600;color:var(--ink);margin-bottom:8px;">依訂單（點一筆可以去訂單管理查看）</div>
-      ${orderRowsTable([...byOrder.values()].sort((a, b) => b.amount - a.amount))}
-    `, 460);
-    wireOrderRows(overlay);
+    renderDrilldownPage({
+      title: "包材成本拆解",
+      range,
+      note: !hasAnyBreakdown && productRows.length > 0 ? "這批訂單是在支援「依包材項目」拆解之前建立的，沒有存材料明細，所以那個分頁籤列不出來；之後新建的訂單都會準確拆解。" : "",
+      tabs: [
+        {
+          id: "product", label: "依商品", rows: productRows,
+          matches: (r, kw) => r[0].toLowerCase().includes(kw),
+          render: (rows) => detailTable(rows, "沒有符合的資料"),
+        },
+        {
+          id: "material", label: "依包材項目", rows: materialRows,
+          matches: (r, kw) => r.itemName.toLowerCase().includes(kw),
+          render: (rows) => detailTable(rows.map((m) => [m.itemName, m.cost, `用了 ${m.qty}`]), "沒有符合的資料"),
+        },
+        {
+          id: "order", label: "依訂單", rows: orderRows,
+          matches: (r, kw) => r.orderNumber.toLowerCase().includes(kw) || (r.contactName || "").toLowerCase().includes(kw),
+          render: (rows) => orderRowsTable(rows, "沒有符合的資料"),
+          wire: (root) => wireOrderRows(root),
+        },
+      ],
+    });
   }
 
-  function openResaleDetailModal(range, ordersInRange) {
+  function renderResaleDetailPage(range, ordersInRange) {
     const byProduct = new Map();
     const byOrder = new Map();
     ordersInRange.forEach((o) => {
@@ -233,15 +300,25 @@ export async function renderProfitPage(container, navigateTo) {
       });
       if (orderCost > 0) byOrder.set(o.orderNumber, { orderNumber: o.orderNumber, orderDate: o.orderDate, contactName: o.contactName, amount: orderCost });
     });
-    const entries = [...byProduct.entries()].sort((a, b) => b[1] - a[1]);
-    const overlay = openModal(`
-      <h3 style="margin-bottom:4px;">進貨成本拆解</h3>
-      <div class="hint" style="margin-bottom:16px;">${range.start} ～ ${range.end}</div>
-      <div style="font-weight:600;color:var(--ink);margin-bottom:8px;">依商品</div>
-      <div style="margin-bottom:20px;">${detailTable(entries, "這段期間沒有資料")}</div>
-      <div style="font-weight:600;color:var(--ink);margin-bottom:8px;">依訂單（點一筆可以去訂單管理查看）</div>
-      ${orderRowsTable([...byOrder.values()].sort((a, b) => b.amount - a.amount))}
-    `, 420);
-    wireOrderRows(overlay);
+    const productRows = [...byProduct.entries()].sort((a, b) => b[1] - a[1]);
+    const orderRows = [...byOrder.values()].sort((a, b) => b.amount - a.amount);
+
+    renderDrilldownPage({
+      title: "進貨成本拆解",
+      range,
+      tabs: [
+        {
+          id: "product", label: "依商品", rows: productRows,
+          matches: (r, kw) => r[0].toLowerCase().includes(kw),
+          render: (rows) => detailTable(rows, "沒有符合的資料"),
+        },
+        {
+          id: "order", label: "依訂單", rows: orderRows,
+          matches: (r, kw) => r.orderNumber.toLowerCase().includes(kw) || (r.contactName || "").toLowerCase().includes(kw),
+          render: (rows) => orderRowsTable(rows, "沒有符合的資料"),
+          wire: (root) => wireOrderRows(root),
+        },
+      ],
+    });
   }
 }
