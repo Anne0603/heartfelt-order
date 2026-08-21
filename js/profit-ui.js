@@ -40,14 +40,11 @@ export async function renderProfitPage(container, navigateTo) {
   }
 
   // ---------- 可點擊的子項目一行（縮排、灰階、右邊帶箭頭） ----------
-  function subRow({ label, amount, onClickAttrs = "" }) {
+  function subRow({ label, amount, extraClass = "", attrs = "" }) {
     return `
-      <button class="profit-sub-row" ${onClickAttrs} style="display:flex;justify-content:space-between;align-items:center;width:100%;padding:8px 0 8px 14px;border:none;background:transparent;text-align:left;cursor:pointer;font-family:var(--font-body);">
+      <button class="profit-sub-row ${extraClass}" ${attrs} style="display:flex;justify-content:space-between;align-items:center;width:100%;padding:8px 0 8px 14px;border:none;background:transparent;text-align:left;cursor:pointer;font-family:var(--font-body);">
         <span style="color:var(--text-muted);font-size:13.5px;">${label}</span>
-        <span style="display:flex;align-items:center;gap:6px;">
-          <span style="font-family:var(--font-mono);font-size:14px;font-weight:600;color:var(--text-muted);">$${amount.toFixed(0)}</span>
-          <span style="color:var(--text-muted);font-size:12px;">→</span>
-        </span>
+        <span style="font-family:var(--font-mono);font-size:14px;font-weight:600;color:var(--text-muted);">$${amount.toFixed(0)}</span>
       </button>
     `;
   }
@@ -61,7 +58,7 @@ export async function renderProfitPage(container, navigateTo) {
     const entries = Object.entries(byCategory);
     if (entries.length === 0) return "";
     return entries.map(([label, amt]) =>
-      subRow({ label, amount: amt, onClickAttrs: `class="expense-cat-row" data-costtype="${costType}" data-category="${label === "（未分類）" ? "" : label}"` })
+      subRow({ label, amount: amt, extraClass: "expense-cat-row", attrs: `data-costtype="${costType}" data-category="${label === "（未分類）" ? "" : label}"` })
     ).join("");
   }
 
@@ -104,8 +101,8 @@ export async function renderProfitPage(container, navigateTo) {
 
           <div style="border-top:1px solid var(--paper-line);margin-top:4px;padding-top:4px;">
             ${ledgerRow({ label: "銷貨成本", amount: totalCOGS, size: 18 })}
-            ${subRow({ label: "包材", amount: packagingCost, onClickAttrs: `id="btn-packaging-detail"` })}
-            ${subRow({ label: "進貨成本", amount: resaleCost, onClickAttrs: `id="btn-resale-detail"` })}
+            ${subRow({ label: "包材", amount: packagingCost, attrs: `id="btn-packaging-detail"` })}
+            ${subRow({ label: "進貨成本", amount: resaleCost, attrs: `id="btn-resale-detail"` })}
             ${categoryRows(cogsExpenses, "cogs")}
           </div>
 
@@ -155,6 +152,26 @@ export async function renderProfitPage(container, navigateTo) {
     ).join("")}</table>`;
   }
 
+  // ---------- 依訂單拆解表格（每一列可以點，帶去訂單管理搜尋出那張訂單） ----------
+  function orderRowsTable(orderEntries) {
+    if (orderEntries.length === 0) return `<div class="hint" style="padding:8px 0;">這段期間沒有資料</div>`;
+    return `<table class="simple-table">
+      ${orderEntries.map((o) => `
+        <tr class="order-detail-row" data-ordernumber="${o.orderNumber}" style="cursor:pointer;">
+          <td>${o.orderNumber}<div class="hint">${o.orderDate}${o.contactName ? " · " + o.contactName : ""}</div></td>
+          <td style="text-align:right;font-family:var(--font-mono);font-weight:600;">$${o.amount.toFixed(0)}</td>
+        </tr>
+      `).join("")}
+    </table>`;
+  }
+  function wireOrderRows(overlay) {
+    overlay.querySelectorAll(".order-detail-row").forEach((row) => {
+      row.addEventListener("click", () => {
+        navigateTo("orders", { search: row.getAttribute("data-ordernumber") });
+      });
+    });
+  }
+
   async function openPackagingDetailModal(range, ordersInRange) {
     const overlay = openModal(`
       <h3 style="margin-bottom:4px;">包材成本拆解</h3>
@@ -162,20 +179,28 @@ export async function renderProfitPage(container, navigateTo) {
       <div style="font-weight:600;color:var(--ink);margin-bottom:8px;">依商品</div>
       <div id="packaging-by-product" style="margin-bottom:20px;"></div>
       <div style="font-weight:600;color:var(--ink);margin-bottom:8px;">依包材項目</div>
-      <div id="packaging-by-item">載入中…</div>
+      <div id="packaging-by-item" style="margin-bottom:20px;">載入中…</div>
+      <div style="font-weight:600;color:var(--ink);margin-bottom:8px;">依訂單（點一筆可以去訂單管理查看）</div>
+      <div id="packaging-by-order"></div>
     `, 460);
 
     const byProduct = new Map();
+    const byOrder = new Map();
     ordersInRange.forEach((o) => {
+      let orderCost = 0;
       o.lineItems.forEach((li) => {
         if (li.productType === "resale") return;
         const cost = li.unitCost * li.qty;
         if (cost <= 0) return;
         byProduct.set(li.productName, (byProduct.get(li.productName) || 0) + cost);
+        orderCost += cost;
       });
+      if (orderCost > 0) byOrder.set(o.orderNumber, { orderNumber: o.orderNumber, orderDate: o.orderDate, contactName: o.contactName, amount: orderCost });
     });
     const productEntries = [...byProduct.entries()].sort((a, b) => b[1] - a[1]);
     overlay.querySelector("#packaging-by-product").innerHTML = detailTable(productEntries, "這段期間沒有資料");
+    overlay.querySelector("#packaging-by-order").innerHTML = orderRowsTable([...byOrder.values()].sort((a, b) => b.amount - a.amount));
+    wireOrderRows(overlay);
 
     try {
       const breakdown = await computePackagingCostBreakdown(range.start, range.end);
@@ -188,19 +213,27 @@ export async function renderProfitPage(container, navigateTo) {
 
   function openResaleDetailModal(range, ordersInRange) {
     const byProduct = new Map();
+    const byOrder = new Map();
     ordersInRange.forEach((o) => {
+      let orderCost = 0;
       o.lineItems.forEach((li) => {
         if (li.productType !== "resale") return;
         const cost = li.unitCost * li.qty;
         if (cost <= 0) return;
         byProduct.set(li.productName, (byProduct.get(li.productName) || 0) + cost);
+        orderCost += cost;
       });
+      if (orderCost > 0) byOrder.set(o.orderNumber, { orderNumber: o.orderNumber, orderDate: o.orderDate, contactName: o.contactName, amount: orderCost });
     });
     const entries = [...byProduct.entries()].sort((a, b) => b[1] - a[1]);
-    openModal(`
+    const overlay = openModal(`
       <h3 style="margin-bottom:4px;">進貨成本拆解</h3>
-      <div class="hint" style="margin-bottom:16px;">${range.start} ～ ${range.end}　·　依商品</div>
-      ${detailTable(entries, "這段期間沒有資料")}
+      <div class="hint" style="margin-bottom:16px;">${range.start} ～ ${range.end}</div>
+      <div style="font-weight:600;color:var(--ink);margin-bottom:8px;">依商品</div>
+      <div style="margin-bottom:20px;">${detailTable(entries, "這段期間沒有資料")}</div>
+      <div style="font-weight:600;color:var(--ink);margin-bottom:8px;">依訂單（點一筆可以去訂單管理查看）</div>
+      ${orderRowsTable([...byOrder.values()].sort((a, b) => b.amount - a.amount))}
     `, 420);
+    wireOrderRows(overlay);
   }
 }
