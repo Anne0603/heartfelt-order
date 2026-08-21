@@ -88,12 +88,12 @@ export async function renderProfitPage(container, navigateTo) {
           <div class="hint" style="margin-top:10px;">共 ${ordersInRange.length} 張訂單（不含作廢）· ${range.start} ～ ${range.end}</div>
 
           <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--paper-line);">
-            <div class="hint" style="margin-bottom:6px;">銷貨成本明細（不含包材，那部分由訂單自動算；點一項可以直接去支出管理查看）</div>
+            <div class="hint" style="margin-bottom:6px;">銷貨成本明細</div>
             ${categoryRows(cogsExpenses, "cogs")}
           </div>
 
           <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--paper-line);">
-            <div class="hint" style="margin-bottom:6px;">營業費用明細（點一項可以直接去支出管理查看）</div>
+            <div class="hint" style="margin-bottom:6px;">營業費用明細</div>
             ${categoryRows(opexExpenses, "opex")}
           </div>
         </div>
