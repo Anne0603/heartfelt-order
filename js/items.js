@@ -312,6 +312,45 @@ export async function permanentlyDelete(kind, recordId) {
 }
 
 // ---------- 查詢記錄 ----------
+export async function listUsagesInRange(startDate, endDate) {
+  const q = query(usagesCol, where("date", ">=", startDate), where("date", "<=", endDate), where("status", "==", "active"));
+  const snap = await getDocs(q);
+  const list = [];
+  snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
+  return list;
+}
+
+/**
+ * 依包材項目拆解某段期間的包材成本。
+ * 用「領用當下、累積到那個時間點為止」的進貨紀錄回推當時的加權平均單價，
+ * 不是用現在的均價去回推，所以就算包材後來漲價/換供應商，舊訂單拆出來的
+ * 數字還是當時真正的成本，不會跟現在對不上。
+ */
+export async function computePackagingCostBreakdown(startDate, endDate) {
+  const usages = (await listUsagesInRange(startDate, endDate)).filter((u) => u.source === "order");
+  const byItem = new Map(); // itemId -> { itemName, qty, cost }
+  const purchaseCache = new Map(); // itemId -> 該項目所有有效進貨記錄
+
+  for (const u of usages) {
+    if (!purchaseCache.has(u.itemId)) {
+      const purchases = await listPurchases(u.itemId);
+      purchaseCache.set(u.itemId, purchases.filter((p) => p.status !== "void"));
+    }
+    const purchases = purchaseCache.get(u.itemId);
+    const asOf = purchases.filter((p) => p.date <= u.date);
+    const totalQty = asOf.reduce((s, p) => s + p.qty, 0);
+    const totalCost = asOf.reduce((s, p) => s + p.amount, 0);
+    const avgCostThen = totalQty > 0 ? totalCost / totalQty : 0;
+    const cost = avgCostThen * u.qty;
+
+    const cur = byItem.get(u.itemId) || { itemName: u.itemName, qty: 0, cost: 0 };
+    cur.qty += u.qty;
+    cur.cost += cost;
+    byItem.set(u.itemId, cur);
+  }
+  return [...byItem.values()].sort((a, b) => b.cost - a.cost);
+}
+
 export async function listPurchases(itemId) {
   const q = query(purchasesCol, where("itemId", "==", itemId));
   const snap = await getDocs(q);

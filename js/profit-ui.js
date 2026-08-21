@@ -11,6 +11,8 @@
 import { listOrders } from "./orders.js";
 import { listExpensesInRange } from "./expenses.js";
 import { renderDateRangePicker } from "./date-range-ui.js";
+import { computePackagingCostBreakdown } from "./items.js";
+import { openModal } from "./modal-ui.js";
 
 export async function renderProfitPage(container, navigateTo) {
   container.innerHTML = `
@@ -83,7 +85,14 @@ export async function renderProfitPage(container, navigateTo) {
           ${ledgerRow({ label: "營收", amount: revenue, size: 20 })}
 
           <div style="border-top:1px solid var(--paper-line);margin-top:4px;padding-top:4px;">
-            ${ledgerRow({ label: "銷貨成本", sub: `包材 $${packagingCost.toFixed(0)} + 其他 $${cogsExtra.toFixed(0)}`, amount: totalCOGS, size: 18 })}
+            ${ledgerRow({ label: "銷貨成本", amount: totalCOGS, size: 18 })}
+            <button class="packaging-detail-row" id="btn-packaging-detail" style="display:flex;justify-content:space-between;align-items:center;width:100%;padding:8px 0 8px 14px;border:none;background:transparent;text-align:left;cursor:pointer;font-family:var(--font-body);">
+              <span style="color:var(--text-muted);font-size:13.5px;">包材（自動抓，可點看依商品/依包材項目拆解）</span>
+              <span style="display:flex;align-items:center;gap:6px;">
+                <span style="font-family:var(--font-mono);font-size:14px;font-weight:600;color:var(--text-muted);">$${packagingCost.toFixed(0)}</span>
+                <span style="color:var(--text-muted);font-size:12px;">→</span>
+              </span>
+            </button>
             ${categoryRows(cogsExpenses, "cogs")}
           </div>
 
@@ -104,6 +113,10 @@ export async function renderProfitPage(container, navigateTo) {
         </div>
       `;
 
+      summaryEl.querySelector("#btn-packaging-detail").addEventListener("click", () => {
+        openPackagingDetailModal(range, ordersInRange);
+      });
+
       summaryEl.querySelectorAll(".expense-cat-row").forEach((btn) => {
         btn.addEventListener("click", () => {
           navigateTo("expenses", {
@@ -116,6 +129,39 @@ export async function renderProfitPage(container, navigateTo) {
       });
     } catch (err) {
       summaryEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${err.message}</div>`;
+    }
+  }
+
+  async function openPackagingDetailModal(range, ordersInRange) {
+    const overlay = openModal(`
+      <h3 style="margin-bottom:16px;">包材成本拆解</h3>
+      <div class="hint" style="margin-bottom:14px;">${range.start} ～ ${range.end}</div>
+      <div class="hint" style="margin-bottom:6px;font-weight:600;color:var(--ink);">依商品</div>
+      <table class="simple-table" style="margin-bottom:18px;">
+        ${(() => {
+          const byProduct = new Map();
+          ordersInRange.forEach((o) => {
+            o.lineItems.forEach((li) => {
+              const cost = li.unitCost * li.qty;
+              byProduct.set(li.productName, (byProduct.get(li.productName) || 0) + cost);
+            });
+          });
+          const entries = [...byProduct.entries()].filter(([, c]) => c > 0).sort((a, b) => b[1] - a[1]);
+          if (entries.length === 0) return `<tr><td class="hint">這段期間沒有資料</td></tr>`;
+          return entries.map(([name, cost]) => `<tr><td>${name}</td><td style="text-align:right;font-family:var(--font-mono);">$${cost.toFixed(0)}</td></tr>`).join("");
+        })()}
+      </table>
+      <div class="hint" style="margin-bottom:6px;font-weight:600;color:var(--ink);">依包材項目</div>
+      <div id="packaging-by-item">載入中…</div>
+    `, 460);
+
+    try {
+      const breakdown = await computePackagingCostBreakdown(range.start, range.end);
+      overlay.querySelector("#packaging-by-item").innerHTML = breakdown.length === 0
+        ? `<div class="hint">這段期間沒有資料</div>`
+        : `<table class="simple-table">${breakdown.map((b) => `<tr><td>${b.itemName}（${b.qty}）</td><td style="text-align:right;font-family:var(--font-mono);">$${b.cost.toFixed(0)}</td></tr>`).join("")}</table>`;
+    } catch (err) {
+      overlay.querySelector("#packaging-by-item").innerHTML = `<div class="hint" style="color:var(--rose);">載入失敗：${err.message}</div>`;
     }
   }
 }
