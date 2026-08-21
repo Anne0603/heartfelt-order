@@ -668,6 +668,18 @@ table.simple-table tr:last-child td { border-bottom: none; }
 .switch input:checked + .switch-slider { background: var(--gold-deep); }
 .switch input:checked + .switch-slider::before { transform: translateX(18px); }
 
+/* 可搜尋選擇按鈕（選客戶/商品/包材…）加上下拉箭頭提示，讓人看得出這是可以點的選擇欄位 */
+.picker-trigger { position: relative; padding-right: 28px !important; box-sizing: border-box; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.picker-trigger::after {
+  content: "▾";
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
 .toast {
   position: fixed;
   bottom: 24px;

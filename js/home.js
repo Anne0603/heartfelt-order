@@ -22,21 +22,25 @@ export async function renderHomePage(container, navigateTo) {
   container.innerHTML = `
     <div class="page-header"><h2>首頁</h2></div>
     <div id="home-stats" style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:20px;">
-      <div class="card" style="padding:16px;cursor:pointer;" id="pending-card">
+      <div class="card" style="padding:16px;cursor:pointer;position:relative;" id="pending-card">
         <div class="hint">待處理訂單</div>
         <div style="font-family:var(--font-mono);font-size:26px;font-weight:700;color:var(--ink);" id="pending-count">…</div>
+        <span style="position:absolute;top:14px;right:14px;color:var(--text-muted);">→</span>
       </div>
-      <div class="card" style="padding:16px;cursor:pointer;" id="today-ship-card">
+      <div class="card" style="padding:16px;cursor:pointer;position:relative;" id="today-ship-card">
         <div class="hint">今日應出貨</div>
         <div style="font-family:var(--font-mono);font-size:26px;font-weight:700;color:var(--ink);" id="today-ship-count">…</div>
+        <span style="position:absolute;top:14px;right:14px;color:var(--text-muted);">→</span>
       </div>
-      <div class="card" style="padding:16px;cursor:pointer;" id="overdue-card">
+      <div class="card" style="padding:16px;cursor:pointer;position:relative;" id="overdue-card">
         <div class="hint">已逾期未出貨</div>
         <div style="font-family:var(--font-mono);font-size:26px;font-weight:700;color:var(--rose);" id="overdue-count">…</div>
+        <span style="position:absolute;top:14px;right:14px;color:var(--text-muted);">→</span>
       </div>
-      <div class="card" style="padding:16px;cursor:pointer;" id="low-stock-card">
+      <div class="card" style="padding:16px;cursor:pointer;position:relative;" id="low-stock-card">
         <div class="hint">低庫存項目</div>
         <div style="font-family:var(--font-mono);font-size:26px;font-weight:700;color:var(--ink);" id="low-stock-count">載入中…</div>
+        <span style="position:absolute;top:14px;right:14px;color:var(--text-muted);">→</span>
       </div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;" id="quick-actions"></div>
