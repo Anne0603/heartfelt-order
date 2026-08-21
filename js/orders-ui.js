@@ -55,7 +55,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
       <button class="btn btn-secondary" id="btn-export-orders" style="padding:8px 14px;font-size:13px;">匯出</button>
     </div>
     <div class="card" style="margin-bottom:16px;">
-      <input type="text" id="search-input" placeholder="搜尋訂單編號/客戶" value="${initialFilter?.search || ""}" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;" />
+      <input type="text" id="search-input" placeholder="搜尋訂單編號/客戶/電話" value="${initialFilter?.search || ""}" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;" />
       <select id="filter-status" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;">
         <option value="all">全部狀態</option>
         <option value="pending">待處理</option>
@@ -165,7 +165,8 @@ export async function renderOrdersPage(container, initialFilter = null) {
     if (searchText) {
       filtered = filtered.filter((o) =>
         (o.orderNumber || "").toLowerCase().includes(searchText) ||
-        (o.contactName || "").toLowerCase().includes(searchText)
+        (o.contactName || "").toLowerCase().includes(searchText) ||
+        (o.contactPhone || "").includes(searchText)
       );
     }
     return filtered;

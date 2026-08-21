@@ -35,7 +35,7 @@ export async function renderContactsPage(container) {
     </div>
     <div class="card" style="margin-bottom:16px;">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-        <input type="text" id="search-input" placeholder="搜尋名稱" style="flex:1;min-width:160px;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;" />
+        <input type="text" id="search-input" placeholder="搜尋名稱/電話" style="flex:1;min-width:160px;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;" />
         <select id="filter-role" style="padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;">
           <option value="all">全部</option>
           <option value="customer">客戶</option>
@@ -109,7 +109,10 @@ export async function renderContactsPage(container) {
   function getFilteredContacts() {
     let filtered = contacts.filter((c) => (statusTab === "archived") === (c.status === "archived"));
     if (filterRole !== "all") filtered = filtered.filter((c) => (c.roles || []).includes(filterRole));
-    if (searchText) filtered = filtered.filter((c) => (c.name || "").toLowerCase().includes(searchText));
+    if (searchText) filtered = filtered.filter((c) =>
+      (c.name || "").toLowerCase().includes(searchText) ||
+      (c.phone || "").includes(searchText)
+    );
     return filtered;
   }
 
