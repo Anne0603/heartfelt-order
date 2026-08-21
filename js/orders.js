@@ -56,7 +56,7 @@ async function generateOrderNumber(orderDate) {
 function buildLineItems(rawLineItems, itemsById) {
   return rawLineItems.map((li) => {
     const item = itemsById.get(li.productId);
-    const calc = item ? calcItemCost(item, itemsById) : { cost: 0 };
+    const calc = item ? calcItemCost(item, itemsById) : { cost: 0, breakdown: [] };
     return {
       productId: li.productId,
       productName: li.productName,
@@ -65,6 +65,10 @@ function buildLineItems(rawLineItems, itemsById) {
       unitPrice: Number(li.unitPrice),
       subtotal: Number(li.qty) * Number(li.unitPrice),
       unitCost: calc?.cost || 0, // 鎖住當下的成本，之後商品成本調整不影響這張訂單
+      // 鎖住當下的成本「明細」（哪個包材花多少錢），跟 unitCost 同一個時間點算出來的，
+      // 供利潤總覽拆解用，保證「依商品」跟「依包材項目」加總起來永遠對得起來。
+      // 只有自製商品才有意義（現貨商品的成本就是它自己的進貨均價，沒有材料明細）。
+      costBreakdown: item?.type === "self_made" ? (calc?.breakdown || []) : [],
     };
   });
 }

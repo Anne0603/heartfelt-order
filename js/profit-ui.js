@@ -12,7 +12,6 @@
 import { listOrders } from "./orders.js";
 import { listExpensesInRange } from "./expenses.js";
 import { renderDateRangePicker } from "./date-range-ui.js";
-import { computePackagingCostBreakdown } from "./items.js";
 import { openModal } from "./modal-ui.js";
 import { linkifyErrorMessage } from "./utils.js";
 
@@ -172,43 +171,52 @@ export async function renderProfitPage(container, navigateTo) {
     });
   }
 
-  async function openPackagingDetailModal(range, ordersInRange) {
-    const overlay = openModal(`
-      <h3 style="margin-bottom:4px;">包材成本拆解</h3>
-      <div class="hint" style="margin-bottom:16px;">${range.start} ～ ${range.end}</div>
-      <div style="font-weight:600;color:var(--ink);margin-bottom:8px;">依商品</div>
-      <div id="packaging-by-product" style="margin-bottom:20px;"></div>
-      <div style="font-weight:600;color:var(--ink);margin-bottom:8px;">依包材項目</div>
-      <div id="packaging-by-item" style="margin-bottom:20px;">載入中…</div>
-      <div style="font-weight:600;color:var(--ink);margin-bottom:8px;">依訂單（點一筆可以去訂單管理查看）</div>
-      <div id="packaging-by-order"></div>
-    `, 460);
-
+  function openPackagingDetailModal(range, ordersInRange) {
     const byProduct = new Map();
+    const byMaterial = new Map();
     const byOrder = new Map();
+    let hasAnyBreakdown = false;
+
     ordersInRange.forEach((o) => {
       let orderCost = 0;
       o.lineItems.forEach((li) => {
         if (li.productType === "resale") return;
-        const cost = li.unitCost * li.qty;
-        if (cost <= 0) return;
-        byProduct.set(li.productName, (byProduct.get(li.productName) || 0) + cost);
-        orderCost += cost;
+        const lineCost = li.unitCost * li.qty;
+        if (lineCost <= 0) return;
+        byProduct.set(li.productName, (byProduct.get(li.productName) || 0) + lineCost);
+        orderCost += lineCost;
+
+        (li.costBreakdown || []).forEach((b) => {
+          if (!b.itemId) return;
+          hasAnyBreakdown = true;
+          const cost = b.amount * li.qty;
+          const qty = (b.qty || 0) * li.qty;
+          const cur = byMaterial.get(b.itemId) || { itemName: b.itemName, qty: 0, cost: 0 };
+          cur.qty += qty;
+          cur.cost += cost;
+          byMaterial.set(b.itemId, cur);
+        });
       });
       if (orderCost > 0) byOrder.set(o.orderNumber, { orderNumber: o.orderNumber, orderDate: o.orderDate, contactName: o.contactName, amount: orderCost });
     });
-    const productEntries = [...byProduct.entries()].sort((a, b) => b[1] - a[1]);
-    overlay.querySelector("#packaging-by-product").innerHTML = detailTable(productEntries, "這段期間沒有資料");
-    overlay.querySelector("#packaging-by-order").innerHTML = orderRowsTable([...byOrder.values()].sort((a, b) => b.amount - a.amount));
-    wireOrderRows(overlay);
 
-    try {
-      const breakdown = await computePackagingCostBreakdown(range.start, range.end);
-      const itemEntries = breakdown.map((b) => [b.itemName, b.cost, `用了 ${b.qty}`]);
-      overlay.querySelector("#packaging-by-item").innerHTML = detailTable(itemEntries, "這段期間沒有資料");
-    } catch (err) {
-      overlay.querySelector("#packaging-by-item").innerHTML = `<div class="hint" style="color:var(--rose);">載入失敗：${linkifyErrorMessage(err.message)}</div>`;
-    }
+    const productEntries = [...byProduct.entries()].sort((a, b) => b[1] - a[1]);
+    const materialEntries = [...byMaterial.values()].sort((a, b) => b.cost - a.cost).map((m) => [m.itemName, m.cost, `用了 ${m.qty}`]);
+
+    const overlay = openModal(`
+      <h3 style="margin-bottom:4px;">包材成本拆解</h3>
+      <div class="hint" style="margin-bottom:16px;">${range.start} ～ ${range.end}</div>
+      <div style="font-weight:600;color:var(--ink);margin-bottom:8px;">依商品</div>
+      <div style="margin-bottom:20px;">${detailTable(productEntries, "這段期間沒有資料")}</div>
+      <div style="font-weight:600;color:var(--ink);margin-bottom:8px;">依包材項目</div>
+      <div style="margin-bottom:20px;">
+        ${detailTable(materialEntries, "這段期間沒有資料")}
+        ${!hasAnyBreakdown && productEntries.length > 0 ? `<div class="hint" style="margin-top:6px;">這批訂單是在支援「依包材項目」拆解之前建立的，沒有存材料明細，所以列不出來；之後新建的訂單都會準確拆解。</div>` : ""}
+      </div>
+      <div style="font-weight:600;color:var(--ink);margin-bottom:8px;">依訂單（點一筆可以去訂單管理查看）</div>
+      ${orderRowsTable([...byOrder.values()].sort((a, b) => b.amount - a.amount))}
+    `, 460);
+    wireOrderRows(overlay);
   }
 
   function openResaleDetailModal(range, ordersInRange) {
