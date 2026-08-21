@@ -20,8 +20,8 @@ function defaultRange() {
  * 渲染日期區間選擇器到 container，onChange({start,end}) 會在區間變動時呼叫。
  * 回傳 { getRange() } 供外部讀取目前選到的區間。
  */
-export function renderDateRangePicker(container, onChange) {
-  let current = defaultRange();
+export function renderDateRangePicker(container, onChange, initialRange = null) {
+  let current = initialRange || defaultRange();
 
   container.innerHTML = `
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px;">

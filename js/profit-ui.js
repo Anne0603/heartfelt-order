@@ -15,13 +15,17 @@ import { renderDateRangePicker } from "./date-range-ui.js";
 import { linkifyErrorMessage } from "./utils.js";
 
 export async function renderProfitPage(container, navigateTo) {
-  container.innerHTML = `
-    <div class="page-header"><h2>利潤總覽</h2></div>
-    <div id="range-picker"></div>
-    <div id="profit-summary"></div>
-  `;
+  function renderSummaryShell(initialRange) {
+    container.innerHTML = `
+      <div class="page-header"><h2>利潤總覽</h2></div>
+      <div id="range-picker"></div>
+      <div id="profit-summary"></div>
+    `;
+    const { getRange } = renderDateRangePicker(container.querySelector("#range-picker"), (range) => load(range), initialRange);
+    return getRange;
+  }
 
-  const { getRange } = renderDateRangePicker(container.querySelector("#range-picker"), (range) => load(range));
+  const getRange = renderSummaryShell();
   await load(getRange());
 
   // ---------- 會計報表慣例的一行：項目靠左，金額靠右 ----------
@@ -185,7 +189,10 @@ export async function renderProfitPage(container, navigateTo) {
       <div class="settings-tabs" id="drill-tabs"></div>
       <div id="drill-content"></div>
     `;
-    container.querySelector("#btn-back-to-summary").addEventListener("click", () => load(range));
+    container.querySelector("#btn-back-to-summary").addEventListener("click", () => {
+      renderSummaryShell(range);
+      load(range);
+    });
 
     const tabsEl = container.querySelector("#drill-tabs");
     const contentEl = container.querySelector("#drill-content");
