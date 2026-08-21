@@ -211,7 +211,11 @@ async function renderCurrentModule() {
   if (currentModule === "contacts") return renderContactsPage(mainContent);
   if (currentModule === "reports") return renderReportsPage(mainContent);
   if (currentModule === "profit") return renderProfitPage(mainContent, goToModule);
-  if (currentModule === "expenses") return renderExpensesPage(mainContent);
+  if (currentModule === "expenses") {
+    const filter = pendingModuleFilter;
+    pendingModuleFilter = null;
+    return renderExpensesPage(mainContent, filter);
+  }
   if (currentModule === "cloudinary") return renderCloudinaryPage(mainContent);
   if (currentModule === "categories") return renderCategoriesPage(mainContent);
   if (currentModule === "units") return renderUnitsPage(mainContent);

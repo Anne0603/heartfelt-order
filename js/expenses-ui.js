@@ -14,13 +14,13 @@ function canWrite() {
   return ["superadmin", "admin"].includes(currentSession.member?.role);
 }
 
-export async function renderExpensesPage(container) {
+export async function renderExpensesPage(container, initialFilter = null) {
   let expenses = [];
   let cogsCategories = [];
   let opexCategories = [];
   let searchText = "";
-  let filterCostType = "all";
-  let filterCategory = "all";
+  let filterCostType = initialFilter?.costType || "all";
+  let filterCategory = initialFilter?.category || "all";
   function currentMonthRange() {
     const today = new Date();
     const start = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -29,8 +29,8 @@ export async function renderExpensesPage(container) {
     return { start: fmt(start), end: fmt(end) };
   }
   const defaultRange = currentMonthRange();
-  let rangeStart = defaultRange.start;
-  let rangeEnd = defaultRange.end;
+  let rangeStart = initialFilter?.rangeStart || defaultRange.start;
+  let rangeEnd = initialFilter?.rangeEnd || defaultRange.end;
 
   container.innerHTML = `
     <div class="page-header">
@@ -55,6 +55,8 @@ export async function renderExpensesPage(container) {
     <div id="expenses-total" class="hint" style="margin-bottom:10px;"></div>
     <div id="expenses-list"></div>
   `;
+
+  container.querySelector("#filter-costtype").value = filterCostType;
 
   container.querySelector("#search-input").addEventListener("input", (e) => {
     searchText = e.target.value.trim().toLowerCase();
@@ -86,6 +88,7 @@ export async function renderExpensesPage(container) {
     const catSelect = container.querySelector("#filter-category");
     const list = filterCostType === "cogs" ? cogsCategories : filterCostType === "opex" ? opexCategories : [...cogsCategories, ...opexCategories];
     catSelect.innerHTML = `<option value="all">全部類別</option>` + list.map((c) => `<option value="${c.name}">${c.name}</option>`).join("");
+    catSelect.value = filterCategory;
   }
 
   async function reload() {

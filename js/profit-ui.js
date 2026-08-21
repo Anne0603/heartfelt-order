@@ -4,6 +4,8 @@
 // 淨利 = 毛利 − 營業費用
 // 只有超級管理員/管理員/唯讀主管看得到（跟 MODULES 的角色設定一致）
 // 支出的登記/查詢/編輯在獨立的「支出管理」頁面，這裡只看計算結果。
+// 分類明細每一行都能點，會直接帶著「這段期間 + 這個類型/類別」跳去
+// 支出管理，並且畫面已經套用好篩選，不用自己重新篩一次。
 // ============================================================
 import { listOrders } from "./orders.js";
 import { listExpensesInRange } from "./expenses.js";
@@ -43,7 +45,7 @@ export async function renderProfitPage(container, navigateTo) {
       const grossMargin = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
       const netMargin = revenue > 0 ? (netProfit / revenue) * 100 : 0;
 
-      function categoryTable(list) {
+      function categoryRows(list, costType) {
         const byCategory = {};
         list.forEach((e) => {
           const label = e.category || "（未分類）";
@@ -51,11 +53,19 @@ export async function renderProfitPage(container, navigateTo) {
         });
         const entries = Object.entries(byCategory);
         if (entries.length === 0) return `<div class="hint">這段期間沒有登記</div>`;
-        return `<table class="simple-table">${entries.map(([label, amt]) => `<tr><td>${label}</td><td style="text-align:right;font-family:var(--font-mono);">$${amt.toFixed(0)}</td></tr>`).join("")}</table>`;
+        return entries.map(([label, amt]) => `
+          <button class="expense-cat-row" data-costtype="${costType}" data-category="${label === "（未分類）" ? "" : label}" style="display:flex;justify-content:space-between;align-items:center;width:100%;padding:8px 4px;border:none;background:transparent;text-align:left;cursor:pointer;border-bottom:1px solid var(--paper-line);font-family:var(--font-body);">
+            <span style="color:var(--ink);font-size:14px;">${label}</span>
+            <span style="display:flex;align-items:center;gap:6px;">
+              <span style="font-family:var(--font-mono);font-size:14px;">$${amt.toFixed(0)}</span>
+              <span style="color:var(--text-muted);">→</span>
+            </span>
+          </button>
+        `).join("");
       }
 
       summaryEl.innerHTML = `
-        <div class="card" style="margin-bottom:16px;">
+        <div class="card">
           <div><div class="hint">營收</div><div style="font-family:var(--font-mono);font-size:22px;font-weight:700;">$${revenue.toFixed(0)}</div></div>
           <div style="margin-top:14px;">
             <div class="hint">銷貨成本（包材 $${packagingCost.toFixed(0)} + 其他 $${cogsExtra.toFixed(0)}）</div>
@@ -76,23 +86,29 @@ export async function renderProfitPage(container, navigateTo) {
             <div class="hint">淨利率 ${netMargin.toFixed(1)}%</div>
           </div>
           <div class="hint" style="margin-top:10px;">共 ${ordersInRange.length} 張訂單（不含作廢）· ${range.start} ～ ${range.end}</div>
-        </div>
 
-        <div class="card" style="margin-bottom:16px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-            <h3 style="font-size:15px;">銷貨成本明細（不含包材，那部分由訂單自動算）</h3>
-            <button class="btn btn-secondary" id="btn-goto-expenses" style="padding:7px 14px;font-size:13px;">前往支出管理 →</button>
+          <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--paper-line);">
+            <div class="hint" style="margin-bottom:6px;">銷貨成本明細（不含包材，那部分由訂單自動算；點一項可以直接去支出管理查看）</div>
+            ${categoryRows(cogsExpenses, "cogs")}
           </div>
-          ${categoryTable(cogsExpenses)}
-        </div>
 
-        <div class="card">
-          <h3 style="font-size:15px;margin-bottom:10px;">營業費用明細</h3>
-          ${categoryTable(opexExpenses)}
+          <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--paper-line);">
+            <div class="hint" style="margin-bottom:6px;">營業費用明細（點一項可以直接去支出管理查看）</div>
+            ${categoryRows(opexExpenses, "opex")}
+          </div>
         </div>
       `;
 
-      summaryEl.querySelector("#btn-goto-expenses").addEventListener("click", () => navigateTo("expenses"));
+      summaryEl.querySelectorAll(".expense-cat-row").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          navigateTo("expenses", {
+            costType: btn.getAttribute("data-costtype"),
+            category: btn.getAttribute("data-category") || "all",
+            rangeStart: range.start,
+            rangeEnd: range.end,
+          });
+        });
+      });
     } catch (err) {
       summaryEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${err.message}</div>`;
     }
