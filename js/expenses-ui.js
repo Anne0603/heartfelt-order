@@ -192,7 +192,12 @@ export async function renderExpensesPage(container, initialFilter = null) {
             : `<div style="font-size:22px;">🧾</div><div style="font-size:10px;color:var(--text-muted);margin-top:4px;">收據照片</div>`
           }
         </div>
-        ${exp?.receiptUrl ? `<button type="button" id="ee-photo-view" class="hint" style="background:none;border:none;text-decoration:underline;cursor:pointer;margin-top:6px;color:var(--gold-deep);">放大看收據</button>` : ""}
+        ${exp?.receiptUrl ? `
+          <div style="display:flex;gap:12px;justify-content:center;margin-top:6px;">
+            <button type="button" id="ee-photo-change" class="hint" style="background:none;border:none;text-decoration:underline;cursor:pointer;color:var(--gold-deep);">更換照片</button>
+            <button type="button" id="ee-photo-view" class="hint" style="background:none;border:none;text-decoration:underline;cursor:pointer;color:var(--gold-deep);">放大看收據</button>
+          </div>
+        ` : ""}
         <input type="file" accept="image/*" id="ee-photo-input" style="display:none;" />
       </div>
 
@@ -234,6 +239,7 @@ export async function renderExpensesPage(container, initialFilter = null) {
     const photoInput = overlay.querySelector("#ee-photo-input");
     photoBox.addEventListener("click", () => photoInput.click());
     overlay.querySelector("#ee-photo-view")?.addEventListener("click", () => openImageLightbox(exp.receiptUrl));
+    overlay.querySelector("#ee-photo-change")?.addEventListener("click", () => photoInput.click());
     photoInput.addEventListener("change", async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;

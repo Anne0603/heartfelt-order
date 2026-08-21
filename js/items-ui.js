@@ -484,7 +484,12 @@ export async function renderItemsPage(container, initialFilter = null) {
             : `<div style="font-size:28px;">📷</div><div style="font-size:11px;color:var(--text-muted);margin-top:4px;">點擊上傳</div>`
           }
         </div>
-        ${item?.photoUrl ? `<button type="button" id="photo-view" class="hint" style="background:none;border:none;text-decoration:underline;cursor:pointer;margin-top:6px;color:var(--gold-deep);">放大看照片</button>` : ""}
+        ${item?.photoUrl ? `
+          <div style="display:flex;gap:12px;justify-content:center;margin-top:6px;">
+            <button type="button" id="photo-change" class="hint" style="background:none;border:none;text-decoration:underline;cursor:pointer;color:var(--gold-deep);">更換照片</button>
+            <button type="button" id="photo-view" class="hint" style="background:none;border:none;text-decoration:underline;cursor:pointer;color:var(--gold-deep);">放大看照片</button>
+          </div>
+        ` : ""}
         <input type="file" accept="image/*" id="m-photo-input" style="display:none;" />
       </div>
 
@@ -591,6 +596,7 @@ export async function renderItemsPage(container, initialFilter = null) {
     const photoInput = overlay.querySelector("#m-photo-input");
     photoBox.addEventListener("click", () => photoInput.click());
     overlay.querySelector("#photo-view")?.addEventListener("click", () => openImageLightbox(item.photoUrl));
+    overlay.querySelector("#photo-change")?.addEventListener("click", () => photoInput.click());
     photoInput.addEventListener("change", async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
