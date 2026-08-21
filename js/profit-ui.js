@@ -13,6 +13,7 @@ import { listExpensesInRange } from "./expenses.js";
 import { renderDateRangePicker } from "./date-range-ui.js";
 import { computePackagingCostBreakdown } from "./items.js";
 import { openModal } from "./modal-ui.js";
+import { linkifyErrorMessage } from "./utils.js";
 
 export async function renderProfitPage(container, navigateTo) {
   container.innerHTML = `
@@ -128,7 +129,7 @@ export async function renderProfitPage(container, navigateTo) {
         });
       });
     } catch (err) {
-      summaryEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${err.message}</div>`;
+      summaryEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${linkifyErrorMessage(err.message)}</div>`;
     }
   }
 
@@ -161,7 +162,7 @@ export async function renderProfitPage(container, navigateTo) {
         ? `<div class="hint">這段期間沒有資料</div>`
         : `<table class="simple-table">${breakdown.map((b) => `<tr><td>${b.itemName}（${b.qty}）</td><td style="text-align:right;font-family:var(--font-mono);">$${b.cost.toFixed(0)}</td></tr>`).join("")}</table>`;
     } catch (err) {
-      overlay.querySelector("#packaging-by-item").innerHTML = `<div class="hint" style="color:var(--rose);">載入失敗：${err.message}</div>`;
+      overlay.querySelector("#packaging-by-item").innerHTML = `<div class="hint" style="color:var(--rose);">載入失敗：${linkifyErrorMessage(err.message)}</div>`;
     }
   }
 }

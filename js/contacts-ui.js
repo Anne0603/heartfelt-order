@@ -1,7 +1,7 @@
 // ============================================================
 // 客戶與廠商頁面 UI
 // ============================================================
-import { showToast } from "./utils.js";
+import { showToast, linkifyErrorMessage } from "./utils.js";
 import { currentSession } from "./auth.js";
 import { openModal, confirmDialog } from "./modal-ui.js";
 import { listContacts, createContact, updateContact, setContactArchived } from "./contacts.js";
@@ -123,7 +123,7 @@ export async function renderContactsPage(container) {
       ]);
       renderList();
     } catch (err) {
-      listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${err.message}</div>`;
+      listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${linkifyErrorMessage(err.message)}</div>`;
     }
   }
 

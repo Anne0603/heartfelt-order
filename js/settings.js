@@ -8,7 +8,7 @@ import {
   doc, getDoc, setDoc, deleteDoc,
   collection, getDocs, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { showToast } from "./utils.js";
+import { showToast, linkifyErrorMessage } from "./utils.js";
 import { currentSession, ROLE_LABELS } from "./auth.js";
 import { listCategories, createCategory, renameCategory, deleteCategory } from "./categories.js";
 import { listUnits, createUnit, renameUnit, deleteUnit } from "./units.js";
@@ -345,7 +345,7 @@ export async function renderCategoriesPage(container) {
           });
         });
       } catch (err) {
-        listEl.innerHTML = `<div style="color:var(--rose);">載入失敗：${err.message}</div>`;
+        listEl.innerHTML = `<div style="color:var(--rose);">載入失敗：${linkifyErrorMessage(err.message)}</div>`;
       }
     }
 
@@ -426,7 +426,7 @@ export async function renderUnitsPage(container) {
         });
       });
     } catch (err) {
-      listEl.innerHTML = `<div style="color:var(--rose);">載入失敗：${err.message}</div>`;
+      listEl.innerHTML = `<div style="color:var(--rose);">載入失敗：${linkifyErrorMessage(err.message)}</div>`;
     }
   }
 

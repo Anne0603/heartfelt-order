@@ -1,7 +1,7 @@
 // ============================================================
 // 訂單管理頁面 UI
 // ============================================================
-import { showToast } from "./utils.js";
+import { showToast, linkifyErrorMessage } from "./utils.js";
 import { currentSession } from "./auth.js";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, getPaymentStatus,
@@ -183,7 +183,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
       itemsById = buildItemsIndex(allItems);
       renderList();
     } catch (err) {
-      listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${err.message}</div>`;
+      listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${linkifyErrorMessage(err.message)}</div>`;
     }
   }
 

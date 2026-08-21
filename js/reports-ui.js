@@ -4,6 +4,7 @@
 import { listOrders, getPaymentStatus } from "./orders.js";
 import { listItems, buildItemsIndex } from "./items.js";
 import { renderDateRangePicker } from "./date-range-ui.js";
+import { linkifyErrorMessage } from "./utils.js";
 
 function barRow(label, value, maxValue, formatValue) {
   const pct = maxValue > 0 ? Math.max(4, (value / maxValue) * 100) : 0;
@@ -65,7 +66,7 @@ export async function renderReportsPage(container) {
       renderTabButtons();
       renderTabContent();
     } catch (err) {
-      contentEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${err.message}</div>`;
+      contentEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${linkifyErrorMessage(err.message)}</div>`;
     }
   }
 

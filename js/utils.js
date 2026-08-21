@@ -55,3 +55,14 @@ export function showToast(message, type = "default", duration = 2600) {
 export function isValidEmail(str) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(str).trim());
 }
+
+/**
+ * 把錯誤訊息裡的網址（例如 Firebase 要求建立索引時附的連結）轉成真的
+ * 可以點擊的連結，不管畫面上怎麼換行，點下去都會帶著完整網址跳轉，
+ * 不用使用者自己選取複製（容易漏字、複製到一半斷掉）。
+ */
+export function linkifyErrorMessage(message) {
+  return String(message).replace(/(https?:\/\/[^\s]+)/g, (url) =>
+    `<a href="${url}" target="_blank" rel="noopener" style="color:var(--gold-deep);text-decoration:underline;word-break:break-all;">${url}</a>`
+  );
+}

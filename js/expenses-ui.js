@@ -2,7 +2,7 @@
 // 支出管理頁面（獨立功能區）
 // 每筆支出分「銷貨成本」或「營業費用」，各自有自己的分類清單
 // ============================================================
-import { showToast } from "./utils.js";
+import { showToast, linkifyErrorMessage } from "./utils.js";
 import { currentSession } from "./auth.js";
 import { listExpenses, addExpense, updateExpense, deleteExpense, PAYMENT_METHODS, COST_TYPE_LABELS } from "./expenses.js";
 import { listCategories } from "./categories.js";
@@ -103,7 +103,7 @@ export async function renderExpensesPage(container, initialFilter = null) {
       updateCategoryFilterOptions();
       renderList();
     } catch (err) {
-      listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${err.message}</div>`;
+      listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${linkifyErrorMessage(err.message)}</div>`;
     }
   }
 

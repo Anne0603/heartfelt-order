@@ -1,7 +1,7 @@
 // ============================================================
 // 商品與庫存頁面 UI（合併版）
 // ============================================================
-import { showToast } from "./utils.js";
+import { showToast, linkifyErrorMessage } from "./utils.js";
 import { currentSession } from "./auth.js";
 import {
   listItems, createItem, updateItem, setItemArchived,
@@ -149,7 +149,7 @@ export async function renderItemsPage(container, initialFilter = null) {
       await loadData();
       renderList();
     } catch (err) {
-      if (listEl) listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${err.message}</div>`;
+      if (listEl) listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${linkifyErrorMessage(err.message)}</div>`;
     }
   }
 
