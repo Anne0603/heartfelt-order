@@ -322,7 +322,7 @@ export async function renderItemsPage(container, initialFilter = null) {
         const willArchive = item.status !== "archived";
         if (willArchive && !await confirmDialog(`確定要停用「${item.name}」嗎？`)) return;
         try {
-          await setItemArchived(item.id, willArchive);
+          await setItemArchived(item.id, willArchive, item.name);
           showToast(willArchive ? "已停用" : "已恢復使用", "success");
           await loadData();
           renderDetailView(itemId);

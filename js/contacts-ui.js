@@ -265,7 +265,7 @@ export async function renderContactsPage(container) {
       const willArchive = contact.status !== "archived";
       if (willArchive && !await confirmDialog(`確定要停用「${contact.name}」嗎？`)) return;
       try {
-        await setContactArchived(contact.id, willArchive);
+        await setContactArchived(contact.id, willArchive, contact.name);
         showToast(willArchive ? "已停用" : "已恢復使用", "success");
         overlay.remove();
         await reload();

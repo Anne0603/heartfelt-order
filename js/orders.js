@@ -19,6 +19,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { currentSession, getDisplayName } from "./auth.js";
 import { addUsage, listUsagesByOrder, voidRecord, calcItemCost } from "./items.js";
+import { logActivity } from "./activity-log.js";
 
 const ordersCol = collection(db, "orders");
 
@@ -121,6 +122,7 @@ export async function createOrder(data, itemsById) {
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+  logActivity({ module: "orders", action: "create", summary: `新增訂單 ${orderNumber}` });
   return docRef.id;
 }
 
@@ -146,6 +148,8 @@ export async function updateOrderBeforeShip(orderId, data, itemsById) {
     note: data.note || "",
     updatedAt: serverTimestamp(),
   });
+  const order = await getOrder(orderId);
+  logActivity({ module: "orders", action: "update", summary: `編輯訂單 ${order?.orderNumber || orderId}` });
 }
 
 export async function updateOrderNote(orderId, note) {
@@ -154,6 +158,8 @@ export async function updateOrderNote(orderId, note) {
 
 export async function updateAmountReceived(orderId, amount) {
   await updateDoc(doc(db, "orders", orderId), { amountReceived: Number(amount) || 0, updatedAt: serverTimestamp() });
+  const order = await getOrder(orderId);
+  logActivity({ module: "orders", action: "status", summary: `訂單 ${order?.orderNumber || orderId} 更新收款為 $${amount}` });
 }
 
 export async function markPreparing(orderId) {
@@ -165,6 +171,7 @@ export async function markDone(orderId) {
   if (!order) throw new Error("找不到訂單");
   if (order.shipStatus !== "shipped") throw new Error("要先出貨才能標記完成");
   await updateDoc(doc(db, "orders", orderId), { shipStatus: "done", updatedAt: serverTimestamp() });
+  logActivity({ module: "orders", action: "status", summary: `訂單 ${order.orderNumber} 標記已完成` });
 }
 
 /**
@@ -209,6 +216,7 @@ export async function markShipped(orderId, itemsById) {
     shippedAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+  logActivity({ module: "orders", action: "status", summary: `訂單 ${order.orderNumber} 標記已出貨` });
 }
 
 // ---------- 作廢（任何狀態都可以；已出貨的話自動還原庫存） ----------
@@ -232,4 +240,5 @@ export async function voidOrder(orderId) {
     voidedAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+  logActivity({ module: "orders", action: "void", summary: `訂單 ${order.orderNumber} 已作廢` });
 }

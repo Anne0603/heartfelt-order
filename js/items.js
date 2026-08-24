@@ -29,6 +29,7 @@ import {
   serverTimestamp, query, where
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { currentSession, getDisplayName } from "./auth.js";
+import { logActivity } from "./activity-log.js";
 
 const itemsCol = collection(db, "items");
 const purchasesCol = collection(db, "itemPurchases");
@@ -141,6 +142,7 @@ export async function createItem(data) {
     payload.stocktakeAdjustment = 0;
   }
   await addDoc(itemsCol, payload);
+  logActivity({ module: "items", action: "create", summary: `新增${TYPE_LABELS[data.type]}「${payload.name}」` });
 }
 
 export async function updateItem(itemId, data, type) {
@@ -159,13 +161,15 @@ export async function updateItem(itemId, data, type) {
     payload.lowStockThreshold = Number(data.lowStockThreshold) || 0;
   }
   await updateDoc(doc(db, "items", itemId), payload);
+  logActivity({ module: "items", action: "update", summary: `編輯${TYPE_LABELS[type]}「${payload.name}」` });
 }
 
-export async function setItemArchived(itemId, archived) {
+export async function setItemArchived(itemId, archived, itemName = "") {
   await updateDoc(doc(db, "items", itemId), {
     status: archived ? "archived" : "active",
     updatedAt: serverTimestamp(),
   });
+  logActivity({ module: "items", action: archived ? "archive" : "restore", summary: `${archived ? "停用" : "恢復使用"}「${itemName}」` });
 }
 
 // ---------- 進貨（可批次，只能是 resale / packaging） ----------

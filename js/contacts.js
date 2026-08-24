@@ -9,6 +9,7 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { currentSession, getDisplayName } from "./auth.js";
+import { logActivity } from "./activity-log.js";
 
 const contactsCol = collection(db, "contacts");
 
@@ -35,27 +36,32 @@ export async function getContact(id) {
 
 export async function createContact(data) {
   const who = whoAmI();
+  const normalized = normalize(data);
   await addDoc(contactsCol, {
-    ...normalize(data),
+    ...normalized,
     status: "active",
     createdBy: who.email,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+  logActivity({ module: "contacts", action: "create", summary: `新增聯絡人「${normalized.name}」` });
 }
 
 export async function updateContact(id, data) {
+  const normalized = normalize(data);
   await updateDoc(doc(db, "contacts", id), {
-    ...normalize(data),
+    ...normalized,
     updatedAt: serverTimestamp(),
   });
+  logActivity({ module: "contacts", action: "update", summary: `編輯聯絡人「${normalized.name}」` });
 }
 
-export async function setContactArchived(id, archived) {
+export async function setContactArchived(id, archived, contactName = "") {
   await updateDoc(doc(db, "contacts", id), {
     status: archived ? "archived" : "active",
     updatedAt: serverTimestamp(),
   });
+  logActivity({ module: "contacts", action: archived ? "archive" : "restore", summary: `${archived ? "停用" : "恢復使用"}聯絡人「${contactName}」` });
 }
 
 function normalize(data) {

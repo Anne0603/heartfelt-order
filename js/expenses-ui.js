@@ -168,7 +168,8 @@ export async function renderExpensesPage(container, initialFilter = null) {
       btn.addEventListener("click", async () => {
         if (!await confirmDialog("確定要刪除這筆支出嗎？", { confirmLabel: "刪除", danger: true })) return;
         try {
-          await deleteExpense(btn.getAttribute("data-del"));
+          const exp = expenses.find((x) => x.id === btn.getAttribute("data-del"));
+          await deleteExpense(btn.getAttribute("data-del"), exp?.category, exp?.amount);
           await reload();
         } catch (err) {
           showToast("失敗：" + err.message, "error");

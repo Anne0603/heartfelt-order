@@ -149,6 +149,13 @@ service cloud.firestore {
       allow write: if hasRole(['superadmin', 'admin']);
     }
 
+    // ---------- 操作紀錄（誰、什麼時候、做了什麼；不可修改/刪除，保持稽核紀錄完整性） ----------
+    match /activityLog/{logId} {
+      allow read: if hasRole(['superadmin', 'admin']);
+      allow create: if hasRole(['superadmin', 'admin', 'order_staff']);
+      allow update, delete: if false;
+    }
+
     // ---------- 其他任何未列出的路徑，一律拒絕 ----------
     match /{document=**} {
       allow read, write: if false;

@@ -7,6 +7,7 @@ import {
   collection, doc, getDocs, addDoc, updateDoc, deleteDoc, serverTimestamp, query, where
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { currentSession, getDisplayName } from "./auth.js";
+import { logActivity } from "./activity-log.js";
 
 const expensesCol = collection(db, "expenses");
 
@@ -51,6 +52,7 @@ export async function addExpense({ costType, category, amount, date, paymentMeth
     createdByName: who.name,
     createdAt: serverTimestamp(),
   });
+  logActivity({ module: "expenses", action: "create", summary: `新增支出「${category || "未分類"}」$${amount}` });
 }
 
 export async function updateExpense(id, { costType, category, amount, date, paymentMethod, note, receiptUrl }) {
@@ -63,8 +65,10 @@ export async function updateExpense(id, { costType, category, amount, date, paym
     note: note || "",
     receiptUrl: receiptUrl || "",
   });
+  logActivity({ module: "expenses", action: "update", summary: `編輯支出「${category || "未分類"}」$${amount}` });
 }
 
-export async function deleteExpense(id) {
+export async function deleteExpense(id, category = "", amount = null) {
   await deleteDoc(doc(db, "expenses", id));
+  logActivity({ module: "expenses", action: "delete", summary: `刪除支出「${category || "未分類"}」${amount !== null ? `$${amount}` : ""}` });
 }
