@@ -1,9 +1,11 @@
 // ============================================================
 // 操作紀錄頁面：誰、什麼時候、對哪筆資料做了什麼
-// 只有超級管理員/管理員看得到；用「載入更多」分頁往回翻，不限制
-// 只能看最近一批。
+// 只有超級管理員/管理員看得到。
+// 分頁籤依項目分類；預設用「載入更多」往回翻，也可以切到日期
+// 區間篩選，直接查某段特定期間發生的事。
 // ============================================================
-import { listActivityLogPage, MODULE_LABELS } from "./activity-log.js";
+import { listActivityLogPage, listActivityLogByDateRange, MODULE_LABELS } from "./activity-log.js";
+import { renderDateRangePicker } from "./date-range-ui.js";
 import { toJSDate } from "./utils.js";
 
 const ACTION_LABELS = {
@@ -17,49 +19,82 @@ function actionBadgeClass(action) {
   return "warn";
 }
 
+const TABS = [
+  { id: "all", label: "全部" },
+  ...Object.entries(MODULE_LABELS).map(([id, label]) => ({ id, label })),
+];
+
 export async function renderActivityLogPage(container) {
   let logs = [];
   let lastDoc = null;
   let hasMore = true;
   let loadingMore = false;
   let searchText = "";
-  let filterModule = "all";
+  let activeTab = "all";
+  let dateMode = false; // false = 載入更多模式；true = 日期區間模式
+  let currentRange = null;
 
   container.innerHTML = `
     <div class="page-header"><h2>操作紀錄</h2></div>
-    <div class="card" style="margin-bottom:16px;">
-      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-        <input type="text" id="search-input" placeholder="搜尋操作內容/人員" style="flex:1;min-width:160px;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;" />
-        <select id="filter-module" style="padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;">
-          <option value="all">全部項目</option>
-          ${Object.entries(MODULE_LABELS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}
-        </select>
-      </div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+      <input type="text" id="search-input" placeholder="搜尋操作內容/人員" style="flex:1;min-width:160px;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;" />
+      <button class="btn btn-secondary" id="btn-toggle-date" style="padding:9px 14px;font-size:13px;">依日期篩選</button>
     </div>
-    <div class="hint" style="margin-bottom:8px;">搜尋/篩選只會比對「已經載入」的紀錄，資料多的話可以先點「載入更多」把想找的期間都載進來再搜尋。</div>
+    <div id="date-range-area" style="display:none;margin-bottom:10px;"></div>
+    <div class="settings-tabs" id="log-tabs"></div>
+    <div class="hint" id="log-hint" style="margin-bottom:8px;"></div>
     <div id="log-list"></div>
     <div style="text-align:center;margin-top:14px;">
       <button class="btn btn-secondary" id="btn-load-more">載入更多</button>
     </div>
   `;
 
+  const tabsEl = container.querySelector("#log-tabs");
+  const listEl = container.querySelector("#log-list");
+  const hintEl = container.querySelector("#log-hint");
+  const loadMoreBtn = container.querySelector("#btn-load-more");
+  const dateAreaEl = container.querySelector("#date-range-area");
+
+  function renderTabs() {
+    tabsEl.innerHTML = TABS.map((t) => `<button class="settings-tab-btn ${t.id === activeTab ? "active" : ""}" data-tab="${t.id}">${t.label}</button>`).join("");
+    tabsEl.querySelectorAll("[data-tab]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        activeTab = btn.getAttribute("data-tab");
+        renderTabs();
+        renderList();
+      });
+    });
+  }
+  renderTabs();
+
   container.querySelector("#search-input").addEventListener("input", (e) => {
     searchText = e.target.value.trim().toLowerCase();
     renderList();
   });
-  container.querySelector("#filter-module").addEventListener("change", (e) => {
-    filterModule = e.target.value;
-    renderList();
+  container.querySelector("#btn-load-more").addEventListener("click", () => loadMorePage());
+  container.querySelector("#btn-toggle-date").addEventListener("click", () => {
+    dateMode = !dateMode;
+    if (dateMode) {
+      dateAreaEl.style.display = "block";
+      loadMoreBtn.style.display = "none";
+      const { getRange } = renderDateRangePicker(dateAreaEl, (range) => { currentRange = range; loadByDateRange(); });
+      currentRange = getRange();
+      loadByDateRange();
+    } else {
+      dateAreaEl.style.display = "none";
+      dateAreaEl.innerHTML = "";
+      logs = [];
+      lastDoc = null;
+      hasMore = true;
+      loadMorePage();
+    }
   });
-  container.querySelector("#btn-load-more").addEventListener("click", () => loadPage());
 
-  const listEl = container.querySelector("#log-list");
-  await loadPage();
+  await loadMorePage();
 
-  async function loadPage() {
+  async function loadMorePage() {
     if (loadingMore || !hasMore) return;
     loadingMore = true;
-    const loadMoreBtn = container.querySelector("#btn-load-more");
     loadMoreBtn.disabled = true;
     loadMoreBtn.textContent = "載入中…";
     if (logs.length === 0) listEl.innerHTML = `<div class="card" style="color:var(--text-muted);">載入中…</div>`;
@@ -68,6 +103,7 @@ export async function renderActivityLogPage(container) {
       logs = logs.concat(list);
       lastDoc = newLastDoc;
       hasMore = more;
+      hintEl.textContent = "搜尋/分頁籤只會比對「已經載入」的紀錄，資料多的話可以先點「載入更多」把想找的範圍都載進來再搜尋。";
       renderList();
     } catch (err) {
       listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${err.message}</div>`;
@@ -75,13 +111,25 @@ export async function renderActivityLogPage(container) {
       loadingMore = false;
       loadMoreBtn.disabled = false;
       loadMoreBtn.textContent = "載入更多";
-      loadMoreBtn.style.display = hasMore ? "inline-flex" : "none";
+      loadMoreBtn.style.display = dateMode ? "none" : (hasMore ? "inline-flex" : "none");
+    }
+  }
+
+  async function loadByDateRange() {
+    if (!currentRange) return;
+    listEl.innerHTML = `<div class="card" style="color:var(--text-muted);">載入中…</div>`;
+    try {
+      logs = await listActivityLogByDateRange(currentRange.start, currentRange.end);
+      hintEl.textContent = `顯示 ${currentRange.start} ～ ${currentRange.end} 這段期間的所有紀錄，共 ${logs.length} 筆。`;
+      renderList();
+    } catch (err) {
+      listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${err.message}</div>`;
     }
   }
 
   function renderList() {
     let filtered = logs;
-    if (filterModule !== "all") filtered = filtered.filter((l) => l.module === filterModule);
+    if (activeTab !== "all") filtered = filtered.filter((l) => l.module === activeTab);
     if (searchText) {
       filtered = filtered.filter((l) =>
         (l.summary || "").toLowerCase().includes(searchText) ||

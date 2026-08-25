@@ -6,7 +6,7 @@
 // ============================================================
 import { db } from "./firebase-config.js";
 import {
-  collection, addDoc, getDocs, query, orderBy, limit as fbLimit, startAfter, serverTimestamp
+  collection, addDoc, getDocs, query, where, orderBy, limit as fbLimit, startAfter, serverTimestamp, Timestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { currentSession, getDisplayName } from "./auth.js";
 
@@ -52,4 +52,23 @@ export async function listActivityLogPage({ pageSize = 100, startAfterDoc = null
   let lastDoc = null;
   snap.forEach((d) => { list.push({ id: d.id, ...d.data() }); lastDoc = d; });
   return { list, lastDoc, hasMore: snap.size === pageSize };
+}
+
+/**
+ * 依日期區間查詢操作紀錄（一次撈出整段期間，不分頁），
+ * 用來回答「我要找某段特定時間發生的事」這種查詢方式。
+ */
+export async function listActivityLogByDateRange(startDateStr, endDateStr) {
+  const start = new Date(`${startDateStr}T00:00:00`);
+  const end = new Date(`${endDateStr}T23:59:59.999`);
+  const q = query(
+    logCol,
+    where("createdAt", ">=", Timestamp.fromDate(start)),
+    where("createdAt", "<=", Timestamp.fromDate(end)),
+    orderBy("createdAt", "desc")
+  );
+  const snap = await getDocs(q);
+  const list = [];
+  snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
+  return list;
 }
