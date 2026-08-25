@@ -44,7 +44,7 @@ const MODULES = [
   { id: "contacts",  label: "客戶與廠商",     icon: "🙋", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
   { id: "reports",   label: "統計報表",       icon: "📊", group: "分析", roles: ["superadmin","admin","viewer"] },
   { id: "profit",    label: "利潤總覽",       icon: "💰", group: "分析", roles: ["superadmin","admin","viewer"] },
-  { id: "activity",  label: "操作紀錄",       icon: "📜", group: "分析", roles: ["superadmin","admin"] },
+  { id: "activity",  label: "操作紀錄",       icon: "📜", group: "分析", roles: ["superadmin"] },
   { id: "expenses",  label: "支出管理",       icon: "💸", group: "分析", roles: ["superadmin","admin","viewer"] },
   { id: "cloudinary", label: "Cloudinary",   icon: "☁️", group: "超級管理員", roles: ["superadmin"] },
   { id: "categories", label: "分類管理",       icon: "🏷️", group: "超級管理員", roles: ["superadmin"] },

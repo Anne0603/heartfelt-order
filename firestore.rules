@@ -151,7 +151,7 @@ service cloud.firestore {
 
     // ---------- 操作紀錄（誰、什麼時候、做了什麼；不可修改/刪除，保持稽核紀錄完整性） ----------
     match /activityLog/{logId} {
-      allow read: if hasRole(['superadmin', 'admin']);
+      allow read: if isSuperadmin();
       allow create: if hasRole(['superadmin', 'admin', 'order_staff']);
       allow update, delete: if false;
     }
