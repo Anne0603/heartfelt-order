@@ -82,35 +82,50 @@ export async function renderItemsPage(container, initialFilter = null) {
         <button class="pill-toggle-btn ${statusTab === "archived" ? "active" : ""}" data-status="archived">已停用</button>
       </div>
       <div class="card" style="margin-bottom:16px;">
-        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-          <input type="text" id="search-input" placeholder="搜尋名稱" style="flex:1;min-width:160px;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;" />
-          <select id="filter-type" style="padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;">
-            <option value="all">全部類型</option>
-            <option value="self_made">自製商品</option>
-            <option value="resale">現貨商品</option>
-            <option value="packaging">包材</option>
-          </select>
-          <select id="filter-category" style="padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;">
-            <option value="all">全部分類</option>
-            ${categories.map((c) => `<option value="${c.name}">${c.name}</option>`).join("")}
-          </select>
+        <input type="text" id="search-input" placeholder="搜尋名稱" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;" />
+        <div style="display:flex;gap:10px;">
+          <button type="button" id="filter-type-btn" class="picker-trigger" style="flex:1;text-align:left;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;background:#fff;font-size:15px;cursor:pointer;color:var(--text-primary);">全部類型</button>
+          <button type="button" id="filter-category-btn" class="picker-trigger" style="flex:1;text-align:left;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;background:#fff;font-size:15px;cursor:pointer;color:var(--text-primary);">全部分類</button>
         </div>
       </div>
       <div id="items-list"></div>
     `;
 
-    container.querySelector("#filter-type").value = filterType;
+    const TYPE_OPTIONS = [
+      { id: "all", name: "全部類型" },
+      { id: "self_made", name: "自製商品" },
+      { id: "resale", name: "現貨商品" },
+      { id: "packaging", name: "包材" },
+    ];
+    function updateTypeBtnLabel() {
+      container.querySelector("#filter-type-btn").textContent = TYPE_OPTIONS.find((t) => t.id === filterType)?.name || "全部類型";
+    }
+    function updateCategoryBtnLabel() {
+      container.querySelector("#filter-category-btn").textContent = filterCategory === "all" ? "全部分類" : filterCategory;
+    }
+    updateTypeBtnLabel();
+    updateCategoryBtnLabel();
+
     container.querySelector("#search-input").addEventListener("input", (e) => {
       searchText = e.target.value.trim().toLowerCase();
       renderList();
     });
-    container.querySelector("#filter-type").addEventListener("change", (e) => {
-      filterType = e.target.value;
-      renderList();
+    container.querySelector("#filter-type-btn").addEventListener("click", () => {
+      openSearchPicker({
+        title: "選擇類型",
+        items: TYPE_OPTIONS,
+        renderLabel: (t) => t.name,
+        onSelect: (t) => { filterType = t.id; updateTypeBtnLabel(); renderList(); },
+      });
     });
-    container.querySelector("#filter-category").addEventListener("change", (e) => {
-      filterCategory = e.target.value;
-      renderList();
+    container.querySelector("#filter-category-btn").addEventListener("click", () => {
+      openSearchPicker({
+        title: "選擇分類",
+        items: [{ id: "all", name: "全部分類" }, ...categories],
+        renderLabel: (c) => c.name,
+        emptyText: "尚未建立任何分類",
+        onSelect: (c) => { filterCategory = c.id === "all" ? "all" : c.name; updateCategoryBtnLabel(); renderList(); },
+      });
     });
     container.querySelector("#status-toggle").addEventListener("click", (e) => {
       const btn = e.target.closest("[data-status]");
@@ -125,9 +140,9 @@ export async function renderItemsPage(container, initialFilter = null) {
 
     if (canWrite()) {
       setFab([
-        { icon: "➕", label: "新增項目", onClick: () => openItemModal() },
-        { icon: "🛒", label: "採購登記", onClick: () => openPurchaseModal() },
-        { icon: "📋", label: "盤點", onClick: () => openStocktakeModal() },
+        { icon: "add", label: "新增項目", onClick: () => openItemModal() },
+        { icon: "cart", label: "採購登記", onClick: () => openPurchaseModal() },
+        { icon: "clipboard", label: "盤點", onClick: () => openStocktakeModal() },
       ]);
     }
 

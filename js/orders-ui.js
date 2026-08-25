@@ -12,7 +12,7 @@ import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js";
 import { listContacts, createContact } from "./contacts.js";
 import { printOrderSlip } from "./print-slip.js";
 import { exportOrders } from "./export-xlsx.js";
-import { setFab } from "./fab-ui.js";
+import { setFab, clearFab } from "./fab-ui.js";
 import { openSearchPicker } from "./picker-ui.js";
 import { openModal, confirmDialog } from "./modal-ui.js";
 
@@ -49,63 +49,66 @@ export async function renderOrdersPage(container, initialFilter = null) {
   let filterDateStart = "";
   let filterDateEnd = "";
 
-  container.innerHTML = `
-    <div class="page-header">
-      <h2>訂單管理</h2>
-      <button class="btn btn-secondary" id="btn-export-orders" style="padding:8px 14px;font-size:13px;">匯出</button>
-    </div>
-    <div class="card" style="margin-bottom:16px;">
-      <input type="text" id="search-input" placeholder="搜尋訂單編號/客戶/電話" value="${initialFilter?.search || ""}" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;" />
-      <select id="filter-status" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;">
-        <option value="all">全部狀態</option>
-        <option value="pending">待處理</option>
-        <option value="preparing">備貨中</option>
-        <option value="shipped">已出貨</option>
-        <option value="done">已完成</option>
-      </select>
-      <select id="filter-quick" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;">
-        <option value="all">不特別篩選</option>
-        <option value="today">今天應出貨</option>
-        <option value="overdue">已逾期未出貨</option>
-        <option value="unpaid_done">已完成但未收款</option>
-      </select>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <input type="date" id="filter-date-start" style="flex:1;min-width:0;padding:9px 8px;border:1px solid var(--paper-line);border-radius:8px;font-size:14px;" />
-        <span class="hint">～</span>
-        <input type="date" id="filter-date-end" style="flex:1;min-width:0;padding:9px 8px;border:1px solid var(--paper-line);border-radius:8px;font-size:14px;" />
+  function renderListView() {
+    container.innerHTML = `
+      <div class="page-header">
+        <h2>訂單管理</h2>
+        <button class="btn btn-secondary" id="btn-export-orders" style="padding:8px 14px;font-size:13px;">匯出</button>
       </div>
-    </div>
-    <div id="orders-list"></div>
-  `;
+      <div class="card" style="margin-bottom:16px;">
+        <input type="text" id="search-input" placeholder="搜尋訂單編號/客戶/電話" value="${searchText}" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;" />
+        <select id="filter-status" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;">
+          <option value="all">全部狀態</option>
+          <option value="pending">待處理</option>
+          <option value="preparing">備貨中</option>
+          <option value="shipped">已出貨</option>
+          <option value="done">已完成</option>
+        </select>
+        <select id="filter-quick" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;">
+          <option value="all">不特別篩選</option>
+          <option value="today">今天應出貨</option>
+          <option value="overdue">已逾期未出貨</option>
+          <option value="unpaid_done">已完成但未收款</option>
+        </select>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="date" id="filter-date-start" value="${filterDateStart}" style="flex:1;min-width:0;padding:9px 8px;border:1px solid var(--paper-line);border-radius:8px;font-size:14px;" />
+          <span class="hint">～</span>
+          <input type="date" id="filter-date-end" value="${filterDateEnd}" style="flex:1;min-width:0;padding:9px 8px;border:1px solid var(--paper-line);border-radius:8px;font-size:14px;" />
+        </div>
+      </div>
+      <div id="orders-list"></div>
+    `;
 
-  container.querySelector("#filter-status").value = filterShipStatus;
-  container.querySelector("#filter-quick").value = filterQuick;
-  container.querySelector("#search-input").addEventListener("input", (e) => {
-    searchText = e.target.value.trim().toLowerCase();
+    container.querySelector("#filter-status").value = filterShipStatus;
+    container.querySelector("#filter-quick").value = filterQuick;
+    container.querySelector("#search-input").addEventListener("input", (e) => {
+      searchText = e.target.value.trim().toLowerCase();
+      renderList();
+    });
+    container.querySelector("#filter-status").addEventListener("change", (e) => {
+      filterShipStatus = e.target.value;
+      renderList();
+    });
+    container.querySelector("#filter-quick").addEventListener("change", (e) => {
+      filterQuick = e.target.value;
+      renderList();
+    });
+    container.querySelector("#filter-date-start").addEventListener("change", (e) => {
+      filterDateStart = e.target.value;
+      renderList();
+    });
+    container.querySelector("#filter-date-end").addEventListener("change", (e) => {
+      filterDateEnd = e.target.value;
+      renderList();
+    });
+    if (canWrite()) {
+      setFab([{ icon: "add", label: "新增訂單", onClick: () => renderOrderFormPage() }]);
+    }
+    container.querySelector("#btn-export-orders").addEventListener("click", () => {
+      openExportModal();
+    });
     renderList();
-  });
-  container.querySelector("#filter-status").addEventListener("change", (e) => {
-    filterShipStatus = e.target.value;
-    renderList();
-  });
-  container.querySelector("#filter-quick").addEventListener("change", (e) => {
-    filterQuick = e.target.value;
-    renderList();
-  });
-  container.querySelector("#filter-date-start").addEventListener("change", (e) => {
-    filterDateStart = e.target.value;
-    renderList();
-  });
-  container.querySelector("#filter-date-end").addEventListener("change", (e) => {
-    filterDateEnd = e.target.value;
-    renderList();
-  });
-  if (canWrite()) {
-    setFab([{ icon: "➕", label: "新增訂單", onClick: () => openOrderModal() }]);
   }
-  container.querySelector("#btn-export-orders").addEventListener("click", () => {
-    openExportModal();
-  });
 
   function openExportModal() {
     const overlay = openModal(`
@@ -232,7 +235,8 @@ export async function renderOrdersPage(container, initialFilter = null) {
   const PICKUP_METHODS = ["自取", "宅配", "郵寄", "超商取貨", "其他"];
   const ORDER_CHANNELS = ["LINE", "IG", "FB", "現場", "其他"];
 
-  function openOrderModal(order = null) {
+  function renderOrderFormPage(order = null) {
+    clearFab();
     const isEdit = !!order;
     const activeProducts = allItems.filter((i) => ORDERABLE_TYPES.includes(i.type) && i.status !== "archived");
     const customerContacts = contacts.filter((c) => c.roles?.includes("customer"));
@@ -241,67 +245,78 @@ export async function renderOrdersPage(container, initialFilter = null) {
       : [{ productId: "", productName: "", qty: 1, unitPrice: 0 }];
     let selectedContact = isEdit ? contacts.find((c) => c.id === order.contactId) || null : null;
 
-    const overlay = openModal(`
-      <h3 style="margin-bottom:16px;">${isEdit ? "編輯訂單" : "新增訂單"}</h3>
+    function backToList() {
+      renderListView();
+    }
 
-      <div class="field"><label>客戶</label>
-        <div style="display:flex;gap:8px;">
-          <button type="button" id="o-contact-btn" class="picker-trigger">${selectedContact ? selectedContact.name : "點選客戶（選填）"}</button>
-          <button class="btn btn-secondary" id="o-new-contact" type="button" style="padding:8px 12px;flex-shrink:0;">新增客戶</button>
+    container.innerHTML = `
+      <div class="page-header">
+        <button class="btn btn-secondary" id="o-back" style="padding:8px 12px;">← 返回訂單列表</button>
+      </div>
+      <h2 style="margin-bottom:16px;">${isEdit ? "編輯訂單" : "新增訂單"}</h2>
+
+      <div class="card">
+        <div class="field"><label>客戶</label>
+          <div style="display:flex;gap:8px;">
+            <button type="button" id="o-contact-btn" class="picker-trigger">${selectedContact ? selectedContact.name : "點選客戶（選填）"}</button>
+            <button class="btn btn-secondary" id="o-new-contact" type="button" style="padding:8px 12px;flex-shrink:0;">新增客戶</button>
+          </div>
+        </div>
+        <div class="field"><label>訂購管道（選填）</label>
+          <select id="o-channel">
+            <option value="">不指定</option>
+            ${ORDER_CHANNELS.map((c) => `<option value="${c}" ${order?.orderChannel === c ? "selected" : ""}>${c}</option>`).join("")}
+          </select>
+          <input type="text" id="o-channel-custom" placeholder="請輸入訂購管道" style="display:${order?.orderChannel && !ORDER_CHANNELS.includes(order.orderChannel) ? "block" : "none"};margin-top:6px;" value="${order?.orderChannel && !ORDER_CHANNELS.includes(order.orderChannel) ? order.orderChannel : ""}" />
+        </div>
+        <div class="field"><label>訂購日期</label><input type="date" id="o-date" value="${order?.orderDate || new Date().toISOString().slice(0,10)}" /></div>
+
+        <label style="display:block;font-size:14.5px;font-weight:600;color:var(--ink);margin:14px 0 6px;">商品品項</label>
+        <div style="display:flex;gap:6px;padding:0 2px;margin-bottom:4px;">
+          <div style="flex:2;font-size:12px;color:var(--text-muted);">商品</div>
+          <div style="width:70px;font-size:12px;color:var(--text-muted);">數量</div>
+          <div style="width:80px;font-size:12px;color:var(--text-muted);">單價</div>
+        </div>
+        <div id="o-lineitems"></div>
+        <button class="btn btn-secondary" id="o-add-line" type="button" style="margin:8px 0 14px;">+ 新增品項</button>
+
+        <div class="field"><label>運費（選填）</label><input type="number" id="o-shipping" value="${order?.shippingFee || 0}" /></div>
+        <div class="field"><label>取貨方式</label>
+          <select id="o-pickup">
+            <option value="">請選擇</option>
+            ${PICKUP_METHODS.map((m) => `<option value="${m}" ${order?.pickupMethod === m ? "selected" : ""}>${m}</option>`).join("")}
+          </select>
+        </div>
+        <div class="field"><label>預計出貨/取貨日期</label><input type="date" id="o-expected" value="${order?.expectedDate || ""}" /></div>
+        <div class="field"><label>備註（選填）</label><input type="text" id="o-note" value="${order?.note || ""}" /></div>
+
+        <div id="o-total-preview" style="text-align:right;font-size:15px;font-weight:700;margin:10px 0;"></div>
+
+        <div style="display:flex;justify-content:flex-end;">
+          <button class="btn btn-primary" id="o-save">儲存</button>
         </div>
       </div>
-      <div class="field"><label>訂購管道（選填）</label>
-        <select id="o-channel">
-          <option value="">不指定</option>
-          ${ORDER_CHANNELS.map((c) => `<option value="${c}" ${order?.orderChannel === c ? "selected" : ""}>${c}</option>`).join("")}
-        </select>
-        <input type="text" id="o-channel-custom" placeholder="請輸入訂購管道" style="display:${order?.orderChannel && !ORDER_CHANNELS.includes(order.orderChannel) ? "block" : "none"};margin-top:6px;" value="${order?.orderChannel && !ORDER_CHANNELS.includes(order.orderChannel) ? order.orderChannel : ""}" />
-      </div>
-      <div class="field"><label>訂購日期</label><input type="date" id="o-date" value="${order?.orderDate || new Date().toISOString().slice(0,10)}" /></div>
+    `;
 
-      <label style="display:block;font-size:14.5px;font-weight:600;color:var(--ink);margin:14px 0 6px;">商品品項</label>
-      <div style="display:flex;gap:6px;padding:0 2px;margin-bottom:4px;">
-        <div style="flex:2;font-size:12px;color:var(--text-muted);">商品</div>
-        <div style="width:70px;font-size:12px;color:var(--text-muted);">數量</div>
-        <div style="width:80px;font-size:12px;color:var(--text-muted);">單價</div>
-      </div>
-      <div id="o-lineitems"></div>
-      <button class="btn btn-secondary" id="o-add-line" type="button" style="margin:8px 0 14px;">+ 新增品項</button>
-
-      <div class="field"><label>運費（選填）</label><input type="number" id="o-shipping" value="${order?.shippingFee || 0}" /></div>
-      <div class="field"><label>取貨方式</label>
-        <select id="o-pickup">
-          <option value="">請選擇</option>
-          ${PICKUP_METHODS.map((m) => `<option value="${m}" ${order?.pickupMethod === m ? "selected" : ""}>${m}</option>`).join("")}
-        </select>
-      </div>
-      <div class="field"><label>預計出貨/取貨日期</label><input type="date" id="o-expected" value="${order?.expectedDate || ""}" /></div>
-      <div class="field"><label>備註（選填）</label><input type="text" id="o-note" value="${order?.note || ""}" /></div>
-
-      <div id="o-total-preview" style="text-align:right;font-size:15px;font-weight:700;margin:10px 0;"></div>
-
-      <div style="display:flex;justify-content:flex-end;">
-        <button class="btn btn-primary" id="o-save">儲存</button>
-      </div>
-    `, 640);
+    container.querySelector("#o-back").addEventListener("click", backToList);
 
     // picker-trigger 樣式跟 .field input 對齊
-    overlay.querySelectorAll(".picker-trigger").forEach((el) => {
+    container.querySelectorAll(".picker-trigger").forEach((el) => {
       el.style.cssText = "flex:1;text-align:left;padding:10px 12px;border:1px solid var(--paper-line);border-radius:8px;background:#fff;font-size:15px;cursor:pointer;color:var(--text-primary);";
     });
 
-    overlay.querySelector("#o-channel").addEventListener("change", (e) => {
-      overlay.querySelector("#o-channel-custom").style.display = e.target.value === "其他" ? "block" : "none";
+    container.querySelector("#o-channel").addEventListener("change", (e) => {
+      container.querySelector("#o-channel-custom").style.display = e.target.value === "其他" ? "block" : "none";
     });
 
     function updateTotalPreview() {
       const itemsTotal = lineItems.reduce((s, li) => s + (Number(li.qty) || 0) * (Number(li.unitPrice) || 0), 0);
-      const shipping = Number(overlay.querySelector("#o-shipping").value || 0);
-      overlay.querySelector("#o-total-preview").textContent = `總金額：$${(itemsTotal + shipping).toFixed(0)}`;
+      const shipping = Number(container.querySelector("#o-shipping").value || 0);
+      container.querySelector("#o-total-preview").textContent = `總金額：$${(itemsTotal + shipping).toFixed(0)}`;
     }
 
     function renderLineItems() {
-      const wrap = overlay.querySelector("#o-lineitems");
+      const wrap = container.querySelector("#o-lineitems");
       wrap.innerHTML = lineItems.map((li, idx) => `
         <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;flex-wrap:wrap;" data-line="${idx}">
           <button type="button" class="l-product-btn picker-trigger" style="flex:2;text-align:left;padding:8px 10px;border:1px solid var(--paper-line);border-radius:8px;background:#fff;font-size:14px;cursor:pointer;">${li.productName || "點選商品"}</button>
@@ -338,14 +353,14 @@ export async function renderOrdersPage(container, initialFilter = null) {
     }
     renderLineItems();
     updateTotalPreview();
-    overlay.querySelector("#o-shipping").addEventListener("input", updateTotalPreview);
+    container.querySelector("#o-shipping").addEventListener("input", updateTotalPreview);
 
-    overlay.querySelector("#o-add-line").addEventListener("click", () => {
+    container.querySelector("#o-add-line").addEventListener("click", () => {
       lineItems.push({ productId: "", productName: "", qty: 1, unitPrice: 0 });
       renderLineItems();
     });
 
-    overlay.querySelector("#o-contact-btn").addEventListener("click", () => {
+    container.querySelector("#o-contact-btn").addEventListener("click", () => {
       openSearchPicker({
         title: "選擇客戶",
         items: customerContacts,
@@ -354,43 +369,43 @@ export async function renderOrdersPage(container, initialFilter = null) {
         emptyText: "還沒有任何客戶",
         onSelect: (c) => {
           selectedContact = c;
-          overlay.querySelector("#o-contact-btn").textContent = c.name;
+          container.querySelector("#o-contact-btn").textContent = c.name;
         },
       });
     });
 
-    overlay.querySelector("#o-new-contact").addEventListener("click", () => {
+    container.querySelector("#o-new-contact").addEventListener("click", () => {
       openQuickContactModal((newContact) => {
         contacts.push(newContact);
         selectedContact = newContact;
-        overlay.querySelector("#o-contact-btn").textContent = newContact.name;
+        container.querySelector("#o-contact-btn").textContent = newContact.name;
       });
     });
 
-    overlay.querySelector("#o-save").addEventListener("click", async (e) => {
+    container.querySelector("#o-save").addEventListener("click", async (e) => {
       const btn = e.currentTarget;
       const validLines = lineItems.filter((li) => li.productId && Number(li.qty) > 0);
       if (validLines.length === 0) { showToast("請至少選一個商品品項", "error"); return; }
-      const expectedDate = overlay.querySelector("#o-expected").value;
+      const expectedDate = container.querySelector("#o-expected").value;
       if (!expectedDate) { showToast("請選擇預計出貨/取貨日期", "error"); return; }
-      const pickupMethod = overlay.querySelector("#o-pickup").value;
+      const pickupMethod = container.querySelector("#o-pickup").value;
       if (!pickupMethod) { showToast("請選擇取貨方式", "error"); return; }
 
-      const channelSel = overlay.querySelector("#o-channel").value;
-      const orderChannel = channelSel === "其他" ? overlay.querySelector("#o-channel-custom").value : channelSel;
+      const channelSel = container.querySelector("#o-channel").value;
+      const orderChannel = channelSel === "其他" ? container.querySelector("#o-channel-custom").value : channelSel;
 
       const data = {
-        orderDate: overlay.querySelector("#o-date").value,
+        orderDate: container.querySelector("#o-date").value,
         orderChannel,
         contactId: selectedContact?.id || null,
         contactName: selectedContact?.name || "",
         contactPhone: selectedContact?.phone || "",
         contactAddress: selectedContact?.address || "",
         lineItems: validLines,
-        shippingFee: overlay.querySelector("#o-shipping").value,
+        shippingFee: container.querySelector("#o-shipping").value,
         pickupMethod,
         expectedDate,
-        note: overlay.querySelector("#o-note").value,
+        note: container.querySelector("#o-note").value,
       };
 
       btn.disabled = true;
@@ -398,7 +413,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
         if (isEdit) await updateOrderBeforeShip(order.id, data, itemsById);
         else await createOrder(data, itemsById);
         showToast("已儲存", "success");
-        overlay.remove();
+        backToList();
         await reload();
       } catch (err) {
         showToast("失敗：" + err.message, "error");
@@ -539,14 +554,14 @@ export async function renderOrdersPage(container, initialFilter = null) {
     if (order.voided) return; // 作廢的訂單不給任何操作按鈕
 
     if (canWrite() && order.shipStatus === "pending") {
-      addActionButton("編輯訂單", "btn-secondary", () => { overlay.remove(); openOrderModal(order); });
+      addActionButton("編輯訂單", "btn-secondary", () => { overlay.remove(); renderOrderFormPage(order); });
       addActionButton("開始備貨", "btn-secondary", async () => {
         try { await markPreparing(order.id); showToast("已標記備貨中", "success"); overlay.remove(); await reload(); }
         catch (err) { msgEl.textContent = "失敗：" + err.message; }
       });
     }
     if (canWrite() && order.shipStatus === "preparing") {
-      addActionButton("編輯訂單", "btn-secondary", () => { overlay.remove(); openOrderModal(order); });
+      addActionButton("編輯訂單", "btn-secondary", () => { overlay.remove(); renderOrderFormPage(order); });
       addActionButton("標記已出貨", "btn-primary", async (e) => {
         e.currentTarget.disabled = true;
         try {
@@ -604,8 +619,9 @@ export async function renderOrdersPage(container, initialFilter = null) {
     }
   }
 
+  renderListView();
   await reload();
   if (initialFilter?.openNew && canWrite()) {
-    openOrderModal();
+    renderOrderFormPage();
   }
 }

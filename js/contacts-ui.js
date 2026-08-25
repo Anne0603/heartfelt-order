@@ -62,7 +62,7 @@ export async function renderContactsPage(container) {
     renderList();
   });
   if (canWrite()) {
-    setFab([{ icon: "➕", label: "新增聯絡人", onClick: () => openContactModal() }]);
+    setFab([{ icon: "add", label: "新增聯絡人", onClick: () => openContactModal() }]);
   }
   container.querySelector("#btn-export-contacts").addEventListener("click", () => {
     openExportModal();

@@ -81,7 +81,7 @@ export async function renderExpensesPage(container, initialFilter = null) {
     renderList();
   });
   if (canWrite()) {
-    setFab([{ icon: "➕", label: "新增支出", onClick: () => openExpenseModal(null, reload) }]);
+    setFab([{ icon: "add", label: "新增支出", onClick: () => openExpenseModal(null, reload) }]);
   }
 
   function updateCategoryFilterOptions() {
