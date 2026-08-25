@@ -280,6 +280,14 @@ export async function renderContactsPage(container) {
       if (!name) { showToast("請輸入名稱", "error"); return; }
       if (selectedRoles.length === 0) { showToast("類型至少要選一個", "error"); return; }
 
+      if (!isEdit) {
+        const dup = contacts.find((c) => c.status !== "archived" && (c.name || "").trim().toLowerCase() === name.toLowerCase());
+        if (dup) {
+          const proceed = await confirmDialog(`已經有一筆叫「${dup.name}」的聯絡人了，確定要繼續新增嗎？`, { confirmLabel: "繼續新增" });
+          if (!proceed) return;
+        }
+      }
+
       const data = {
         name,
         roles: selectedRoles,

@@ -353,6 +353,15 @@ btnNotifBell.addEventListener("click", (e) => {
 });
 document.addEventListener("click", () => notifDropdown.classList.remove("show"));
 
+// ---------- 離線提示：斷網時顯示橫幅，避免操作靜默失敗使用者不知道 ----------
+const offlineBanner = document.getElementById("offline-banner");
+function updateOnlineStatus() {
+  offlineBanner.style.display = navigator.onLine ? "none" : "block";
+}
+window.addEventListener("online", updateOnlineStatus);
+window.addEventListener("offline", updateOnlineStatus);
+updateOnlineStatus();
+
 watchAuthState({
   onSignedOut: () => showLoginScreen(),
   onActive: (user, member) => showApp(user, member),

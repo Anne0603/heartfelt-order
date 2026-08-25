@@ -622,6 +622,14 @@ export async function renderItemsPage(container, initialFilter = null) {
         showToast("請輸入售價", "error"); return;
       }
 
+      if (!isEdit) {
+        const dup = items.find((i) => i.status !== "archived" && (i.name || "").trim().toLowerCase() === name.toLowerCase());
+        if (dup) {
+          const proceed = await confirmDialog(`已經有一筆叫「${dup.name}」的項目了（${TYPE_LABELS[dup.type]}），確定要繼續新增嗎？`, { confirmLabel: "繼續新增" });
+          if (!proceed) return;
+        }
+      }
+
       const data = {
         name,
         category: overlay.querySelector("#m-category").value,

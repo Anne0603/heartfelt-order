@@ -36,6 +36,9 @@
   <!-- ============ 主應用框架 ============ -->
   <div class="app-shell" id="app-shell">
 
+    <!-- 離線提示：斷網時顯示，避免使用者不知道操作可能存不進去 -->
+    <div id="offline-banner" style="display:none;">⚠️ 目前離線中，資料可能無法儲存，請檢查網路連線</div>
+
     <!-- 常駐上方 Bar：不管手機電腦都顯示 -->
     <div class="app-topbar">
       <button class="mobile-menu-btn" id="btn-menu-toggle" aria-label="開啟選單">☰</button>
