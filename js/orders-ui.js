@@ -605,4 +605,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
   }
 
   await reload();
+  if (initialFilter?.openNew && canWrite()) {
+    openOrderModal();
+  }
 }

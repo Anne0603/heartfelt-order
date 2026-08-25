@@ -8,7 +8,7 @@ import { lowStockItems } from "./items.js";
 import { listOrders } from "./orders.js";
 
 const QUICK_ACTIONS = [
-  { id: "orders",    label: "新增訂單",     icon: "📝", roles: ["superadmin","admin","order_staff"] },
+  { id: "orders",    label: "新增訂單",     icon: "📝", roles: ["superadmin","admin","order_staff"], filter: "openNew" },
   { id: "items",     label: "商品與庫存",   icon: "📦", roles: ["superadmin","admin","order_staff","viewer"] },
   { id: "orders",    label: "訂單列表",     icon: "🔍", roles: ["superadmin","admin","order_staff","viewer"] },
   { id: "orders",    label: "今日出貨",     icon: "🚚", roles: ["superadmin","admin","order_staff","viewer"], filter: "today" },
@@ -57,7 +57,10 @@ export async function renderHomePage(container, navigateTo) {
     btn.addEventListener("click", () => {
       const id = btn.getAttribute("data-goto");
       const filter = btn.getAttribute("data-filter");
-      navigateTo(id, filter === "today" ? { quick: "today" } : null);
+      let filterObj = null;
+      if (filter === "today") filterObj = { quick: "today" };
+      else if (filter === "openNew") filterObj = { openNew: true };
+      navigateTo(id, filterObj);
     });
   });
 
