@@ -1,8 +1,9 @@
 // ============================================================
 // 操作紀錄頁面：誰、什麼時候、對哪筆資料做了什麼
-// 只有超級管理員/管理員看得到
+// 只有超級管理員/管理員看得到；用「載入更多」分頁往回翻，不限制
+// 只能看最近一批。
 // ============================================================
-import { listActivityLog, MODULE_LABELS } from "./activity-log.js";
+import { listActivityLogPage, MODULE_LABELS } from "./activity-log.js";
 import { toJSDate } from "./utils.js";
 
 const ACTION_LABELS = {
@@ -18,6 +19,9 @@ function actionBadgeClass(action) {
 
 export async function renderActivityLogPage(container) {
   let logs = [];
+  let lastDoc = null;
+  let hasMore = true;
+  let loadingMore = false;
   let searchText = "";
   let filterModule = "all";
 
@@ -32,8 +36,11 @@ export async function renderActivityLogPage(container) {
         </select>
       </div>
     </div>
+    <div class="hint" style="margin-bottom:8px;">搜尋/篩選只會比對「已經載入」的紀錄，資料多的話可以先點「載入更多」把想找的期間都載進來再搜尋。</div>
     <div id="log-list"></div>
-    <div class="hint" style="text-align:center;margin-top:10px;">只顯示最近 100 筆</div>
+    <div style="text-align:center;margin-top:14px;">
+      <button class="btn btn-secondary" id="btn-load-more">載入更多</button>
+    </div>
   `;
 
   container.querySelector("#search-input").addEventListener("input", (e) => {
@@ -44,14 +51,32 @@ export async function renderActivityLogPage(container) {
     filterModule = e.target.value;
     renderList();
   });
+  container.querySelector("#btn-load-more").addEventListener("click", () => loadPage());
 
   const listEl = container.querySelector("#log-list");
-  listEl.innerHTML = `<div class="card" style="color:var(--text-muted);">載入中…</div>`;
-  try {
-    logs = await listActivityLog(100);
-    renderList();
-  } catch (err) {
-    listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${err.message}</div>`;
+  await loadPage();
+
+  async function loadPage() {
+    if (loadingMore || !hasMore) return;
+    loadingMore = true;
+    const loadMoreBtn = container.querySelector("#btn-load-more");
+    loadMoreBtn.disabled = true;
+    loadMoreBtn.textContent = "載入中…";
+    if (logs.length === 0) listEl.innerHTML = `<div class="card" style="color:var(--text-muted);">載入中…</div>`;
+    try {
+      const { list, lastDoc: newLastDoc, hasMore: more } = await listActivityLogPage({ pageSize: 100, startAfterDoc: lastDoc });
+      logs = logs.concat(list);
+      lastDoc = newLastDoc;
+      hasMore = more;
+      renderList();
+    } catch (err) {
+      listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${err.message}</div>`;
+    } finally {
+      loadingMore = false;
+      loadMoreBtn.disabled = false;
+      loadMoreBtn.textContent = "載入更多";
+      loadMoreBtn.style.display = hasMore ? "inline-flex" : "none";
+    }
   }
 
   function renderList() {

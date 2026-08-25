@@ -6,7 +6,7 @@
 // ============================================================
 import { db } from "./firebase-config.js";
 import {
-  collection, addDoc, getDocs, query, orderBy, limit as fbLimit, serverTimestamp
+  collection, addDoc, getDocs, query, orderBy, limit as fbLimit, startAfter, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { currentSession, getDisplayName } from "./auth.js";
 
@@ -39,10 +39,17 @@ export function logActivity({ module, action, summary }) {
   });
 }
 
-export async function listActivityLog(max = 100) {
-  const q = query(logCol, orderBy("createdAt", "desc"), fbLimit(max));
+/**
+ * 分頁載入操作紀錄，可以一直往回翻，不會被卡在只看得到最近一批。
+ * 傳入上一批最後一筆的原始 doc snapshot 當作 startAfterDoc，就能接著往回讀。
+ */
+export async function listActivityLogPage({ pageSize = 100, startAfterDoc = null } = {}) {
+  const q = startAfterDoc
+    ? query(logCol, orderBy("createdAt", "desc"), startAfter(startAfterDoc), fbLimit(pageSize))
+    : query(logCol, orderBy("createdAt", "desc"), fbLimit(pageSize));
   const snap = await getDocs(q);
   const list = [];
-  snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
-  return list;
+  let lastDoc = null;
+  snap.forEach((d) => { list.push({ id: d.id, ...d.data() }); lastDoc = d; });
+  return { list, lastDoc, hasMore: snap.size === pageSize };
 }
