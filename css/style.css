@@ -266,6 +266,8 @@ input[type="number"]::-webkit-inner-spin-button {
   font-family: var(--font-body);
 }
 .notif-item:hover { background: var(--paper); }
+.notif-item .icon-svg { margin-right: 6px; }
+.notif-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; }
 .notif-empty { padding: 14px 10px; font-size: 13.5px; color: var(--text-muted); text-align: center; }
 
 /* ---------- 下方主體：側邊欄 + 內容 ---------- */
@@ -597,6 +599,10 @@ table.simple-table tr:last-child td { border-bottom: none; }
 .fab-icon-svg { display: flex; align-items: center; justify-content: center; }
 .fab-icon-svg svg { width: 22px; height: 22px; display: block; }
 .fab-sub-btn .fab-icon-svg svg { width: 19px; height: 19px; }
+
+/* ---------- 共用小圖示（取代表情符號） ---------- */
+.icon-svg { display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; }
+.icon-svg svg { width: var(--icon-size, 17px); height: var(--icon-size, 17px); display: block; }
 
 /* ---------- 標頭小圖示按鈕（次要工具功能，例如匯出） ---------- */
 .icon-btn {

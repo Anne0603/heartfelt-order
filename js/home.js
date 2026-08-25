@@ -6,14 +6,15 @@
 import { currentSession } from "./auth.js";
 import { lowStockItems } from "./items.js";
 import { listOrders } from "./orders.js";
+import { iconHtml } from "./icons.js";
 
 const QUICK_ACTIONS = [
-  { id: "orders",    label: "新增訂單",     icon: "📝", roles: ["superadmin","admin","order_staff"], filter: "openNew" },
-  { id: "items",     label: "商品與庫存",   icon: "📦", roles: ["superadmin","admin","order_staff","viewer"] },
-  { id: "orders",    label: "訂單列表",     icon: "🔍", roles: ["superadmin","admin","order_staff","viewer"] },
-  { id: "orders",    label: "今日出貨",     icon: "🚚", roles: ["superadmin","admin","order_staff","viewer"], filter: "today" },
-  { id: "contacts",  label: "客戶與廠商",   icon: "📇", roles: ["superadmin","admin","order_staff","viewer"] },
-  { id: "profit",    label: "利潤總覽",     icon: "💰", roles: ["superadmin","admin","viewer"] },
+  { id: "orders",    label: "新增訂單",     icon: "pencil", roles: ["superadmin","admin","order_staff"], filter: "openNew" },
+  { id: "items",     label: "商品與庫存",   icon: "box", roles: ["superadmin","admin","order_staff","viewer"] },
+  { id: "orders",    label: "訂單列表",     icon: "search", roles: ["superadmin","admin","order_staff","viewer"] },
+  { id: "orders",    label: "今日出貨",     icon: "truck", roles: ["superadmin","admin","order_staff","viewer"], filter: "today" },
+  { id: "contacts",  label: "客戶與廠商",   icon: "idcard", roles: ["superadmin","admin","order_staff","viewer"] },
+  { id: "profit",    label: "利潤總覽",     icon: "coin", roles: ["superadmin","admin","viewer"] },
 ];
 
 export async function renderHomePage(container, navigateTo) {
@@ -49,7 +50,7 @@ export async function renderHomePage(container, navigateTo) {
   const actionsEl = container.querySelector("#quick-actions");
   actionsEl.innerHTML = QUICK_ACTIONS.filter((a) => a.roles.includes(role)).map((a) => `
     <button class="card" data-goto="${a.id}" data-filter="${a.filter || ""}" style="cursor:pointer;border:none;text-align:center;padding:18px 8px;font-family:var(--font-body);">
-      <div style="font-size:26px;margin-bottom:6px;">${a.icon}</div>
+      <div style="margin-bottom:6px;color:var(--gold-deep);">${iconHtml(a.icon, "--icon-size:26px;")}</div>
       <div style="font-size:13.5px;font-weight:600;color:var(--ink);">${a.label}</div>
     </button>
   `).join("");

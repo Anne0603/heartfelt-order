@@ -37,18 +37,18 @@
   <div class="app-shell" id="app-shell">
 
     <!-- 離線提示：斷網時顯示，避免使用者不知道操作可能存不進去 -->
-    <div id="offline-banner" style="display:none;">⚠️ 目前離線中，資料可能無法儲存，請檢查網路連線</div>
+    <div id="offline-banner" style="display:none;"><span class="icon-svg" style="--icon-size:14px;vertical-align:-2px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 2.5 20h19L12 3.5Z"/><line x1="12" y1="9.5" x2="12" y2="14"/><circle cx="12" cy="17" r="0.9" fill="currentColor" stroke="none"/></svg></span> 目前離線中，資料可能無法儲存，請檢查網路連線</div>
 
     <!-- 常駐上方 Bar：不管手機電腦都顯示 -->
     <div class="app-topbar">
-      <button class="mobile-menu-btn" id="btn-menu-toggle" aria-label="開啟選單">☰</button>
+      <button class="mobile-menu-btn" id="btn-menu-toggle" aria-label="開啟選單"><span class="icon-svg" style="--icon-size:19px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg></span></button>
       <button class="topbar-brand" id="btn-topbar-home" aria-label="回首頁">
         <div class="brand-seal" id="topbar-brand-seal">心</div>
         <span class="name" id="topbar-greeting">心意</span>
       </button>
       <div style="flex:1;"></div>
       <div class="notif-bell-wrap">
-        <button class="mobile-menu-btn" id="btn-notif-bell" aria-label="通知">🔔<span id="notif-badge" class="notif-badge-dot"></span></button>
+        <button class="mobile-menu-btn" id="btn-notif-bell" aria-label="通知"><span class="icon-svg" style="--icon-size:19px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10a6 6 0 0 1 12 0c0 4.5 1.5 6 2 6.5H4c.5-.5 2-2 2-6.5Z"/><path d="M9.5 19.5a2.5 2.5 0 0 0 5 0"/></svg></span><span id="notif-badge" class="notif-badge-dot"></span></button>
         <div class="notif-dropdown" id="notif-dropdown"></div>
       </div>
     </div>
@@ -67,8 +67,8 @@
               <div class="role" id="user-chip-role"></div>
             </div>
           </button>
-          <button class="btn-logout" id="btn-refresh-desktop" title="重新整理" style="margin-top:8px;">⟳ <span class="btn-logout-label">重新整理</span></button>
-          <button class="btn-logout" id="btn-logout" title="登出">⏻ <span class="btn-logout-label">登出</span></button>
+          <button class="btn-logout" id="btn-refresh-desktop" title="重新整理" style="margin-top:8px;"><span class="icon-svg" style="--icon-size:15px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11A8 8 0 1 0 18.5 15.5"/><polyline points="20 5 20 11 14 11"/></svg></span> <span class="btn-logout-label">重新整理</span></button>
+          <button class="btn-logout" id="btn-logout" title="登出"><span class="icon-svg" style="--icon-size:15px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="3.5" x2="12" y2="11"/><path d="M7 5.5a7.5 7.5 0 1 0 10 0"/></svg></span> <span class="btn-logout-label">登出</span></button>
         </div>
       </aside>
 

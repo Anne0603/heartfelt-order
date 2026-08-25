@@ -9,6 +9,7 @@ import { listCategories } from "./categories.js";
 import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js";
 import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js";
 import { setFab } from "./fab-ui.js";
+import { iconHtml } from "./icons.js";
 
 function canWrite() {
   return ["superadmin", "admin"].includes(currentSession.member?.role);
@@ -190,7 +191,7 @@ export async function renderExpensesPage(container, initialFilter = null) {
         <div id="ee-photo-box" style="width:88px;height:88px;border-radius:12px;border:1.5px dashed var(--paper-line);background:#fff;margin:0 auto;display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;flex-direction:column;">
           ${exp?.receiptUrl
             ? `<img src="${exp.receiptUrl}" style="width:100%;height:100%;object-fit:cover;">`
-            : `<div style="font-size:22px;">🧾</div><div style="font-size:10px;color:var(--text-muted);margin-top:4px;">收據照片</div>`
+            : `<div style="color:var(--text-muted);">${iconHtml("receipt", "--icon-size:26px;")}</div><div style="font-size:10px;color:var(--text-muted);margin-top:4px;">收據照片</div>`
           }
         </div>
         ${exp?.receiptUrl ? `
@@ -252,7 +253,7 @@ export async function renderExpensesPage(container, initialFilter = null) {
         photoBox.innerHTML = `<img src="${uploadedReceiptUrl}" style="width:100%;height:100%;object-fit:cover;">`;
       } catch (err) {
         showToast("照片上傳失敗：" + err.message, "error");
-        photoBox.innerHTML = `<div style="font-size:22px;">🧾</div><div style="font-size:10px;color:var(--text-muted);margin-top:4px;">收據照片</div>`;
+        photoBox.innerHTML = `<div style="color:var(--text-muted);">${iconHtml("receipt", "--icon-size:26px;")}</div><div style="font-size:10px;color:var(--text-muted);margin-top:4px;">收據照片</div>`;
       }
     });
 

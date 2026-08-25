@@ -18,6 +18,7 @@ import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js";
 import { openSearchPicker } from "./picker-ui.js";
 import { exportItems } from "./export-xlsx.js";
 import { setFab } from "./fab-ui.js";
+import { iconHtml } from "./icons.js";
 
 const TYPE_HINTS = {
   self_made: "自己現做的東西，客戶可訂購。不追蹤庫存量，成本 = 配方裡每一項包材的成本加總（原料/人工每月算在「利潤總覽」）。",
@@ -496,7 +497,7 @@ export async function renderItemsPage(container, initialFilter = null) {
         <div id="photo-box" style="width:112px;height:112px;border-radius:14px;border:1.5px dashed var(--paper-line);background:#fff;margin:0 auto;display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;flex-direction:column;">
           ${item?.photoUrl
             ? `<img src="${item.photoUrl}" style="width:100%;height:100%;object-fit:cover;">`
-            : `<div style="font-size:28px;">📷</div><div style="font-size:11px;color:var(--text-muted);margin-top:4px;">點擊上傳</div>`
+            : `<div style="color:var(--text-muted);">${iconHtml("camera", "--icon-size:28px;")}</div><div style="font-size:11px;color:var(--text-muted);margin-top:4px;">點擊上傳</div>`
           }
         </div>
         ${item?.photoUrl ? `
@@ -623,7 +624,7 @@ export async function renderItemsPage(container, initialFilter = null) {
         photoBox.innerHTML = `<img src="${uploadedPhotoUrl}" style="width:100%;height:100%;object-fit:cover;">`;
       } catch (err) {
         showToast("照片上傳失敗：" + err.message, "error");
-        photoBox.innerHTML = `<div style="font-size:28px;">📷</div><div style="font-size:11px;color:var(--text-muted);margin-top:4px;">點擊上傳</div>`;
+        photoBox.innerHTML = `<div style="color:var(--text-muted);">${iconHtml("camera", "--icon-size:28px;")}</div><div style="font-size:11px;color:var(--text-muted);margin-top:4px;">點擊上傳</div>`;
       }
     });
 

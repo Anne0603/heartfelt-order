@@ -2,6 +2,7 @@
 // 主程式：登入流程 + 側邊導覽 + 簡易路由
 // ============================================================
 import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName } from "./auth.js";
+import { iconHtml } from "./icons.js";
 import { openProfileModal } from "./profile-ui.js";
 import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, getPendingCount } from "./settings.js";
 import { renderHomePage } from "./home.js";
@@ -38,19 +39,19 @@ async function loadAndApplyBrandLogo() {
 loadAndApplyBrandLogo();
 
 const MODULES = [
-  { id: "home",      label: "首頁",           icon: "🏠", group: "", roles: ["superadmin","admin","order_staff","viewer"] },
-  { id: "orders",    label: "訂單管理",       icon: "📋", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
-  { id: "items",     label: "商品與庫存",     icon: "📦", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
-  { id: "contacts",  label: "客戶與廠商",     icon: "🙋", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
-  { id: "reports",   label: "統計報表",       icon: "📊", group: "分析", roles: ["superadmin","admin","viewer"] },
-  { id: "profit",    label: "利潤總覽",       icon: "💰", group: "分析", roles: ["superadmin","admin","viewer"] },
-  { id: "expenses",  label: "支出管理",       icon: "💸", group: "分析", roles: ["superadmin","admin","viewer"] },
-  { id: "cloudinary", label: "Cloudinary",   icon: "☁️", group: "超級管理員", roles: ["superadmin"] },
-  { id: "categories", label: "分類管理",       icon: "🏷️", group: "超級管理員", roles: ["superadmin"] },
-  { id: "units",      label: "單位管理",       icon: "📏", group: "超級管理員", roles: ["superadmin"] },
-  { id: "activity",  label: "操作紀錄",       icon: "📜", group: "超級管理員", roles: ["superadmin"] },
-  { id: "pending",    label: "待審核申請",     icon: "🕓", group: "超級管理員", roles: ["superadmin"] },
-  { id: "members",    label: "成員",         icon: "👥", group: "超級管理員", roles: ["superadmin"] },
+  { id: "home",      label: "首頁",           icon: "house", group: "", roles: ["superadmin","admin","order_staff","viewer"] },
+  { id: "orders",    label: "訂單管理",       icon: "clipboard", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
+  { id: "items",     label: "商品與庫存",     icon: "box", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
+  { id: "contacts",  label: "客戶與廠商",     icon: "idcard", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
+  { id: "reports",   label: "統計報表",       icon: "chart", group: "分析", roles: ["superadmin","admin","viewer"] },
+  { id: "profit",    label: "利潤總覽",       icon: "coin", group: "分析", roles: ["superadmin","admin","viewer"] },
+  { id: "expenses",  label: "支出管理",       icon: "cash", group: "分析", roles: ["superadmin","admin","viewer"] },
+  { id: "cloudinary", label: "Cloudinary",   icon: "cloud", group: "超級管理員", roles: ["superadmin"] },
+  { id: "categories", label: "分類管理",       icon: "tag", group: "超級管理員", roles: ["superadmin"] },
+  { id: "units",      label: "單位管理",       icon: "ruler", group: "超級管理員", roles: ["superadmin"] },
+  { id: "activity",  label: "操作紀錄",       icon: "scroll", group: "超級管理員", roles: ["superadmin"] },
+  { id: "pending",    label: "待審核申請",     icon: "clock", group: "超級管理員", roles: ["superadmin"] },
+  { id: "members",    label: "成員",         icon: "users", group: "超級管理員", roles: ["superadmin"] },
 ];
 
 const loginScreen = document.getElementById("login-screen");
@@ -154,7 +155,7 @@ function renderNav() {
       ${group ? `<div class="nav-label">${group}</div>` : ""}
       ${mods.filter((m) => m.group === group).map((m) => `
         <div class="nav-item ${m.id === currentModule ? "active" : ""}" data-module="${m.id}">
-          <span class="nav-icon">${m.icon}</span><span>${m.label}</span>
+          <span class="nav-icon">${iconHtml(m.icon)}</span><span>${m.label}</span>
         </div>
       `).join("")}
     </div>
@@ -329,11 +330,11 @@ async function refreshNotifBell() {
       return;
     }
     const items = [];
-    if (overdueCount > 0) items.push({ label: `🔴 ${overdueCount} 張訂單已逾期未出貨`, target: "orders", filter: { quick: "overdue" } });
-    if (todayCount > 0) items.push({ label: `🟡 ${todayCount} 張訂單今天應出貨`, target: "orders", filter: { quick: "today" } });
-    if (unpaidDoneCount > 0) items.push({ label: `💰 ${unpaidDoneCount} 張已完成但未收款`, target: "orders", filter: { quick: "unpaid_done" } });
-    if (low.length > 0) items.push({ label: `📦 ${low.length} 項庫存偏低`, target: "items", filter: null });
-    if (pendingCount > 0) items.push({ label: `🕓 ${pendingCount} 筆待審核申請`, target: "pending", filter: null });
+    if (overdueCount > 0) items.push({ label: `<span class="notif-dot" style="background:var(--rose);"></span>${overdueCount} 張訂單已逾期未出貨`, target: "orders", filter: { quick: "overdue" } });
+    if (todayCount > 0) items.push({ label: `<span class="notif-dot" style="background:var(--gold-deep);"></span>${todayCount} 張訂單今天應出貨`, target: "orders", filter: { quick: "today" } });
+    if (unpaidDoneCount > 0) items.push({ label: `${iconHtml("coin")}${unpaidDoneCount} 張已完成但未收款`, target: "orders", filter: { quick: "unpaid_done" } });
+    if (low.length > 0) items.push({ label: `${iconHtml("box")}${low.length} 項庫存偏低`, target: "items", filter: null });
+    if (pendingCount > 0) items.push({ label: `${iconHtml("clock")}${pendingCount} 筆待審核申請`, target: "pending", filter: null });
 
     notifDropdown.innerHTML = items.map((it, idx) => `<button class="notif-item" data-notif-idx="${idx}">${it.label}</button>`).join("");
     notifDropdown.querySelectorAll("[data-notif-idx]").forEach((btn) => {

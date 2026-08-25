@@ -9,6 +9,7 @@ import { listOrders, getPaymentStatus } from "./orders.js";
 import { listCategories } from "./categories.js";
 import { exportContacts } from "./export-xlsx.js";
 import { setFab } from "./fab-ui.js";
+import { iconHtml } from "./icons.js";
 
 const ROLE_LABELS = { customer: "客戶", supplier: "廠商" };
 
@@ -150,8 +151,8 @@ export async function renderContactsPage(container) {
                 ${(c.roles || []).map((r) => `<span class="seal-badge ok"><span class="dot"></span>${ROLE_LABELS[r]}</span>`).join("")}
                 ${isArchived ? `<span class="seal-badge muted"><span class="dot"></span>已停用</span>` : ""}
               </div>
-              ${c.phone ? `<div class="hint" style="margin-top:6px;">📞 ${c.phone}</div>` : ""}
-              ${c.address ? `<div class="hint">📍 ${c.address}</div>` : ""}
+              ${c.phone ? `<div class="hint" style="margin-top:6px;">${iconHtml("phone", "--icon-size:13px;")} ${c.phone}</div>` : ""}
+              ${c.address ? `<div class="hint">${iconHtml("pin", "--icon-size:13px;")} ${c.address}</div>` : ""}
               ${c.roles?.includes("customer") && c.orderChannel ? `<div class="hint">訂購管道：${c.orderChannel}</div>` : ""}
               ${c.roles?.includes("supplier") && c.supplyCategory ? `<div class="hint">供應類別：${c.supplyCategory}</div>` : ""}
             </div>
