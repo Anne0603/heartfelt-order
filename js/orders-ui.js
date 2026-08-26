@@ -553,6 +553,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
           ${order.orderChannel ? `<div><div class="hint">訂購管道</div><div style="font-size:14px;color:var(--ink);">${order.orderChannel}</div></div>` : ""}
           ${order.pickupMethod ? `<div><div class="hint">取貨方式</div><div style="font-size:14px;color:var(--ink);">${order.pickupMethod}</div></div>` : ""}
           ${order.expectedDate ? `<div><div class="hint">預計出貨/取貨</div><div style="font-size:14px;color:var(--ink);">${order.expectedDate}</div></div>` : ""}
+          ${order.createdByName ? `<div><div class="hint">建立人</div><div style="font-size:14px;color:var(--ink);">${order.createdByName}</div></div>` : ""}
         </div>
         ${order.note ? `<div class="hint" style="margin-top:10px;">備註：${order.note}</div>` : ""}
         ${order.shippedByName ? `<div class="hint" style="margin-top:6px;">出貨紀錄：${order.shippedByName}</div>` : ""}
