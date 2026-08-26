@@ -250,10 +250,10 @@ export async function renderOrdersPage(container, initialFilter = null) {
     }
 
     container.innerHTML = `
-      <div class="page-header">
-        <button class="btn btn-secondary" id="o-back" style="padding:8px 12px;">← 返回訂單列表</button>
+      <div class="page-header" style="justify-content:flex-start;gap:14px;">
+        <button class="btn btn-secondary" id="o-back" style="padding:8px 12px;flex-shrink:0;">← 返回訂單列表</button>
+        <h2 style="margin:0;">${isEdit ? "編輯訂單" : "新增訂單"}</h2>
       </div>
-      <h2 style="margin-bottom:16px;">${isEdit ? "編輯訂單" : "新增訂單"}</h2>
 
       <div class="card">
         <div class="field"><label>客戶</label>
