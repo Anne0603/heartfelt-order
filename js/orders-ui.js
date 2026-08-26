@@ -1,21 +1,21 @@
 // ============================================================
 // 訂單管理頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-8";
-import { currentSession } from "./auth.js?v=20260826-8";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-9";
+import { currentSession } from "./auth.js?v=20260826-9";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, getPaymentStatus,
   markShipped, voidOrder,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel, normalizeShipStatus,
-} from "./orders.js?v=20260826-8";
-import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-8";
-import { listContacts, createContact } from "./contacts.js?v=20260826-8";
-import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-8";
-import { exportOrders } from "./export-xlsx.js?v=20260826-8";
-import { setFab, clearFab } from "./fab-ui.js?v=20260826-8";
-import { openSearchPicker } from "./picker-ui.js?v=20260826-8";
-import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-8";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-8";
+} from "./orders.js?v=20260826-9";
+import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-9";
+import { listContacts, createContact } from "./contacts.js?v=20260826-9";
+import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-9";
+import { exportOrders } from "./export-xlsx.js?v=20260826-9";
+import { setFab, clearFab } from "./fab-ui.js?v=20260826-9";
+import { openSearchPicker } from "./picker-ui.js?v=20260826-9";
+import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-9";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-9";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
@@ -55,10 +55,13 @@ export async function renderOrdersPage(container, initialFilter = null) {
 
   function renderListView() {
     container.innerHTML = `
-      ${pageNavHtml("訂單管理", `<button class="btn btn-secondary" id="btn-export-orders" style="padding:7px 12px;font-size:13px;">匯出</button>`)}
-      <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
-        <button class="btn btn-secondary" id="btn-toggle-select" style="padding:7px 12px;font-size:13px;">${selectMode ? "取消批次選取" : "批次選取（列印/收款）"}</button>
-      </div>
+      ${pageNavHtml("訂單管理", `
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-secondary" id="btn-toggle-select" style="padding:7px 10px;font-size:13px;">${selectMode ? "取消批次" : "批次"}</button>
+          <button class="btn btn-secondary" id="btn-export-orders" style="padding:7px 10px;font-size:13px;">匯出</button>
+        </div>
+      `)}
+      <div id="batch-action-bar"></div>
       <div class="card" style="margin-bottom:16px;">
         <input type="text" id="search-input" placeholder="搜尋訂單編號/客戶/電話" value="${searchText}" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;" />
         <select id="filter-status" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;">
@@ -105,6 +108,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
       renderList();
     });
     updateFab();
+    updateBatchActionBar();
     container.querySelector("#btn-export-orders").addEventListener("click", () => {
       openExportModal();
     });
@@ -117,38 +121,80 @@ export async function renderOrdersPage(container, initialFilter = null) {
   }
 
   function updateFab() {
-    if (selectMode) {
-      if (selectedIds.size > 0) {
-        setFab([
-          { icon: "receipt", label: `列印已選 ${selectedIds.size} 張`, onClick: () => {
-            const chosen = orders.filter((o) => selectedIds.has(o.id));
-            if (chosen.length === 0) { showToast("請先勾選訂單", "error"); return; }
-            printShippingList(chosen);
-          }},
-          { icon: "coin", label: `批次登記整筆收款（${selectedIds.size} 張）`, onClick: async () => {
-            const chosen = orders.filter((o) => selectedIds.has(o.id) && getPaymentStatus(o) !== "paid");
-            if (chosen.length === 0) { showToast("勾選的訂單都已經收款了", "error"); return; }
-            if (!await confirmDialog(`確定要把這 ${chosen.length} 張訂單都標記成「整筆已收款」嗎？（各自的總金額）`, { confirmLabel: "確定批次收款" })) return;
-            try {
-              for (const o of chosen) {
-                await updateAmountReceived(o.id, o.totalAmount);
-              }
-              showToast(`已批次登記 ${chosen.length} 張訂單的收款`, "success");
-              selectMode = false;
-              selectedIds.clear();
-              await reload();
-              renderListView();
-            } catch (err) {
-              showToast("批次收款失敗：" + err.message, "error");
-            }
-          }},
-        ]);
-      } else {
-        clearFab();
-      }
-    } else if (canWrite()) {
+    if (!selectMode && canWrite()) {
       setFab([{ icon: "add", label: "新增訂單", onClick: () => renderOrderFormPage() }]);
+    } else {
+      clearFab();
     }
+  }
+
+  // 批次動作用清楚可見的按鈕列，不用藏在浮動按鈕裡讓人猜
+  function updateBatchActionBar() {
+    const bar = container.querySelector("#batch-action-bar");
+    if (!bar) return;
+    if (!selectMode || selectedIds.size === 0) {
+      bar.innerHTML = "";
+      return;
+    }
+    bar.innerHTML = `
+      <div class="card" style="margin-bottom:16px;padding:14px;">
+        <div class="hint" style="margin-bottom:10px;">已選 ${selectedIds.size} 張訂單</div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-secondary" id="btn-batch-print" style="flex:1;">列印出貨清單</button>
+          <button class="btn btn-primary" id="btn-batch-pay" style="flex:1;">批次登記收款</button>
+        </div>
+      </div>
+    `;
+    bar.querySelector("#btn-batch-print").addEventListener("click", () => {
+      const chosen = orders.filter((o) => selectedIds.has(o.id));
+      if (chosen.length === 0) { showToast("請先勾選訂單", "error"); return; }
+      printShippingList(chosen);
+    });
+    bar.querySelector("#btn-batch-pay").addEventListener("click", () => {
+      const chosen = orders.filter((o) => selectedIds.has(o.id) && getPaymentStatus(o) !== "paid");
+      if (chosen.length === 0) { showToast("勾選的訂單都已經收款了", "error"); return; }
+      openBatchPaymentReviewModal(chosen);
+    });
+  }
+
+  // 批次收款是重要動作，先列出名單讓人看一眼確認清單正確，再要求手動輸入確認才會真的執行（雙重保險）
+  function openBatchPaymentReviewModal(chosen) {
+    const total = chosen.reduce((s, o) => s + o.totalAmount, 0);
+    const overlay = openModal(`
+      <h3 style="margin-bottom:4px;">批次登記收款 · 確認清單</h3>
+      <div class="hint" style="margin-bottom:14px;">以下 ${chosen.length} 張訂單將標記為「整筆已收款」，請確認名單無誤：</div>
+      <table class="simple-table" style="margin-bottom:14px;">
+        ${chosen.map((o) => `<tr><td>${o.orderNumber}<div class="hint">${o.contactName || "（未指定）"}</div></td><td style="text-align:right;font-family:var(--font-mono);">$${o.totalAmount}</td></tr>`).join("")}
+        <tr style="font-weight:700;"><td>合計</td><td style="text-align:right;font-family:var(--font-mono);">$${total}</td></tr>
+      </table>
+      <div class="field"><label>確定無誤的話，請輸入「確認」兩個字</label><input type="text" id="bp-confirm-text" placeholder="確認" /></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button class="btn btn-secondary" id="bp-cancel">取消</button>
+        <button class="btn btn-primary" id="bp-confirm">批次登記收款</button>
+      </div>
+    `, 440);
+
+    overlay.querySelector("#bp-cancel").addEventListener("click", () => overlay.remove());
+    overlay.querySelector("#bp-confirm").addEventListener("click", async (e) => {
+      const btn = e.currentTarget;
+      const text = overlay.querySelector("#bp-confirm-text").value.trim();
+      if (text !== "確認") { showToast("請輸入「確認」兩個字才能執行", "error"); return; }
+      btn.disabled = true;
+      try {
+        for (const o of chosen) {
+          await updateAmountReceived(o.id, o.totalAmount);
+        }
+        showToast(`已批次登記 ${chosen.length} 張訂單的收款`, "success");
+        overlay.remove();
+        selectMode = false;
+        selectedIds.clear();
+        await reload();
+        renderListView();
+      } catch (err) {
+        showToast("批次收款失敗：" + err.message, "error");
+        btn.disabled = false;
+      }
+    });
   }
 
   function openExportModal() {
@@ -276,7 +322,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
           else selectedIds.add(orderId);
           const cb = card.querySelector(`[data-select-cb="${orderId}"]`);
           if (cb) cb.checked = selectedIds.has(orderId);
-          updateFab();
+          updateBatchActionBar();
         } else {
           renderOrderDetailPage(orderId);
         }
@@ -585,6 +631,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
         </div>
         ${order.note ? `<div class="hint" style="margin-top:10px;">備註：${order.note}</div>` : ""}
         ${order.shippedByName ? `<div class="hint" style="margin-top:6px;">出貨紀錄：${order.shippedByName}</div>` : ""}
+        ${order.receivedByName ? `<div class="hint" style="margin-top:6px;">收款登記人：${order.receivedByName}</div>` : ""}
       </div>
 
       <div class="card" style="margin-bottom:16px;">
