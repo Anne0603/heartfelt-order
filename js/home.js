@@ -3,10 +3,10 @@
 // 第一層：今天要做的事（全部角色，不含金額）
 // 第二層：快速操作按鈕（依角色顯示）
 // ============================================================
-import { currentSession } from "./auth.js?v=20260826-4";
-import { lowStockItems } from "./items.js?v=20260826-4";
-import { listOrders, normalizeShipStatus } from "./orders.js?v=20260826-4";
-import { iconHtml } from "./icons.js?v=20260826-4";
+import { currentSession } from "./auth.js?v=20260826-5";
+import { lowStockItems } from "./items.js?v=20260826-5";
+import { listOrders, normalizeShipStatus } from "./orders.js?v=20260826-5";
+import { iconHtml } from "./icons.js?v=20260826-5";
 
 const QUICK_ACTIONS = [
   { id: "orders",    label: "新增訂單",     icon: "pencil", roles: ["superadmin","admin","order_staff"], filter: "openNew" },
@@ -75,8 +75,8 @@ export async function renderHomePage(container, navigateTo) {
     const active = orders.filter((o) => !o.voided);
     const today = new Date().toISOString().slice(0, 10);
     container.querySelector("#pending-count").textContent = active.filter((o) => normalizeShipStatus(o.shipStatus) === "pending").length;
-    container.querySelector("#today-ship-count").textContent = active.filter((o) => o.expectedDate === today && !["shipped","done"].includes(o.shipStatus)).length;
-    container.querySelector("#overdue-count").textContent = active.filter((o) => o.expectedDate && o.expectedDate < today && !["shipped","done"].includes(o.shipStatus)).length;
+    container.querySelector("#today-ship-count").textContent = active.filter((o) => o.expectedDate === today && normalizeShipStatus(o.shipStatus) !== "shipped").length;
+    container.querySelector("#overdue-count").textContent = active.filter((o) => o.expectedDate && o.expectedDate < today && normalizeShipStatus(o.shipStatus) !== "shipped").length;
   } catch (err) {
     container.querySelector("#pending-count").textContent = "—";
     container.querySelector("#today-ship-count").textContent = "—";

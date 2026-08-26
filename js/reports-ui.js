@@ -1,11 +1,11 @@
 // ============================================================
 // 統計報表：分成「總覽」「銷售分析」「客戶分析」「出貨趨勢」四個分頁籤
 // ============================================================
-import { listOrders, getPaymentStatus } from "./orders.js?v=20260826-4";
-import { listItems, buildItemsIndex } from "./items.js?v=20260826-4";
-import { renderDateRangePicker } from "./date-range-ui.js?v=20260826-4";
-import { linkifyErrorMessage } from "./utils.js?v=20260826-4";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-4";
+import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260826-5";
+import { listItems, buildItemsIndex } from "./items.js?v=20260826-5";
+import { renderDateRangePicker } from "./date-range-ui.js?v=20260826-5";
+import { linkifyErrorMessage } from "./utils.js?v=20260826-5";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-5";
 
 function barRow(label, value, maxValue, formatValue) {
   const pct = maxValue > 0 ? Math.max(4, (value / maxValue) * 100) : 0;
@@ -149,7 +149,7 @@ export async function renderReportsPage(container) {
 
     // 出貨量趨勢
     const shipStats = new Map();
-    inRange.filter((o) => ["shipped", "done"].includes(o.shipStatus)).forEach((o) => {
+    inRange.filter((o) => normalizeShipStatus(o.shipStatus) === "shipped").forEach((o) => {
       shipStats.set(o.orderDate, (shipStats.get(o.orderDate) || 0) + 1);
     });
     const shipDates = [...shipStats.entries()].sort((a, b) => a[0].localeCompare(b[0]));

@@ -1,21 +1,21 @@
 // ============================================================
 // 訂單管理頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-4";
-import { currentSession } from "./auth.js?v=20260826-4";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-5";
+import { currentSession } from "./auth.js?v=20260826-5";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, getPaymentStatus,
-  markShipped, markDone, voidOrder,
+  markShipped, voidOrder,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel, normalizeShipStatus,
-} from "./orders.js?v=20260826-4";
-import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-4";
-import { listContacts, createContact } from "./contacts.js?v=20260826-4";
-import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-4";
-import { exportOrders } from "./export-xlsx.js?v=20260826-4";
-import { setFab, clearFab } from "./fab-ui.js?v=20260826-4";
-import { openSearchPicker } from "./picker-ui.js?v=20260826-4";
-import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-4";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-4";
+} from "./orders.js?v=20260826-5";
+import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-5";
+import { listContacts, createContact } from "./contacts.js?v=20260826-5";
+import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-5";
+import { exportOrders } from "./export-xlsx.js?v=20260826-5";
+import { setFab, clearFab } from "./fab-ui.js?v=20260826-5";
+import { openSearchPicker } from "./picker-ui.js?v=20260826-5";
+import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-5";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-5";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
@@ -28,7 +28,6 @@ function canVoid() {
 }
 
 function shipBadgeClass(status) {
-  if (status === "done") return "ok";
   if (status === "shipped") return "ok";
   return "warn";
 }
@@ -45,7 +44,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
   let contacts = [];
   let searchText = (initialFilter?.search || "").toLowerCase();
   let filterShipStatus = initialFilter?.shipStatus || "all";
-  let filterQuick = initialFilter?.quick || "all"; // 'all' | 'today' | 'overdue' | 'unpaid_done'
+  let filterQuick = initialFilter?.quick || "all"; // 'all' | 'today' | 'overdue' | 'unpaid_shipped'
   let filterDateStart = "";
   let filterDateEnd = "";
   let selectMode = false;
@@ -63,13 +62,12 @@ export async function renderOrdersPage(container, initialFilter = null) {
           <option value="all">全部狀態</option>
           <option value="pending">待處理</option>
           <option value="shipped">已出貨</option>
-          <option value="done">已完成</option>
         </select>
         <select id="filter-quick" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;">
           <option value="all">不特別篩選</option>
           <option value="today">今天應出貨</option>
           <option value="overdue">已逾期未出貨</option>
-          <option value="unpaid_done">已完成但未收款</option>
+          <option value="unpaid_shipped">已出貨但未收款</option>
         </select>
         <div style="display:flex;gap:8px;align-items:center;">
           <input type="date" id="filter-date-start" value="${filterDateStart}" style="flex:1;min-width:0;padding:9px 8px;border:1px solid var(--paper-line);border-radius:8px;font-size:14px;" />
@@ -139,7 +137,6 @@ export async function renderOrdersPage(container, initialFilter = null) {
           <option value="all">全部狀態</option>
           <option value="pending">待處理</option>
           <option value="shipped">已出貨</option>
-          <option value="done">已完成</option>
         </select>
       </div>
       <div class="field"><label>訂購日期區間（選填）</label>
@@ -175,13 +172,13 @@ export async function renderOrdersPage(container, initialFilter = null) {
   function getFilteredOrders() {
     const today = new Date().toISOString().slice(0, 10);
     let filtered = orders;
-    if (filterShipStatus !== "all") filtered = filtered.filter((o) => o.shipStatus === filterShipStatus);
+    if (filterShipStatus !== "all") filtered = filtered.filter((o) => normalizeShipStatus(o.shipStatus) === filterShipStatus);
     if (filterQuick === "today") {
-      filtered = filtered.filter((o) => !o.voided && o.expectedDate === today && !["shipped", "done"].includes(o.shipStatus));
+      filtered = filtered.filter((o) => !o.voided && o.expectedDate === today && normalizeShipStatus(o.shipStatus) !== "shipped");
     } else if (filterQuick === "overdue") {
-      filtered = filtered.filter((o) => !o.voided && o.expectedDate && o.expectedDate < today && !["shipped", "done"].includes(o.shipStatus));
-    } else if (filterQuick === "unpaid_done") {
-      filtered = filtered.filter((o) => !o.voided && o.shipStatus === "done" && getPaymentStatus(o) !== "paid");
+      filtered = filtered.filter((o) => !o.voided && o.expectedDate && o.expectedDate < today && normalizeShipStatus(o.shipStatus) !== "shipped");
+    } else if (filterQuick === "unpaid_shipped") {
+      filtered = filtered.filter((o) => !o.voided && normalizeShipStatus(o.shipStatus) === "shipped" && getPaymentStatus(o) !== "paid");
     }
     if (filterDateStart) filtered = filtered.filter((o) => o.orderDate >= filterDateStart);
     if (filterDateEnd) filtered = filtered.filter((o) => o.orderDate <= filterDateEnd);
@@ -595,18 +592,26 @@ export async function renderOrdersPage(container, initialFilter = null) {
 
   // ---------- 登記收款 ----------
   function openReceivePaymentModal(order, onSaved) {
+    const isFullyPaid = (order.amountReceived || 0) >= order.totalAmount;
     const overlay = openModal(`
       <h3 style="margin-bottom:4px;">登記收款</h3>
       <div class="hint" style="margin-bottom:16px;">${order.orderNumber} · 總金額 $${order.totalAmount}</div>
+
+      ${isFullyPaid ? `
+        <div class="seal-badge ok" style="margin-bottom:16px;"><span class="dot"></span>已整筆收款</div>
+      ` : `
+        <button class="btn btn-primary" id="rp-full" style="width:100%;padding:12px;margin-bottom:18px;">整筆已收款 $${order.totalAmount}</button>
+      `}
+
+      <div class="hint" style="margin-bottom:8px;">如果只收到部分金額（例如訂金），才需要手動輸入：</div>
       <div class="field"><label>目前已收金額</label><input type="number" id="rp-amount" value="${order.amountReceived || 0}" /></div>
       <div class="hint" style="margin-bottom:16px;">填入「目前總共收到多少錢」，不是這次新增的金額。例如原本收了 500，這次客人又付了 300，這裡就填 800。</div>
       <div style="display:flex;justify-content:flex-end;">
-        <button class="btn btn-primary" id="rp-save">儲存</button>
+        <button class="btn btn-secondary" id="rp-save">儲存部分金額</button>
       </div>
     `, 380);
-    overlay.querySelector("#rp-save").addEventListener("click", async (e) => {
-      const btn = e.currentTarget;
-      const amount = overlay.querySelector("#rp-amount").value;
+
+    async function saveAmount(amount, btn) {
       btn.disabled = true;
       try {
         await updateAmountReceived(order.id, amount);
@@ -617,7 +622,10 @@ export async function renderOrdersPage(container, initialFilter = null) {
         showToast("失敗：" + err.message, "error");
         btn.disabled = false;
       }
-    });
+    }
+
+    overlay.querySelector("#rp-full")?.addEventListener("click", (e) => saveAmount(order.totalAmount, e.currentTarget));
+    overlay.querySelector("#rp-save").addEventListener("click", (e) => saveAmount(overlay.querySelector("#rp-amount").value, e.currentTarget));
   }
 
   // ---------- 動作按鈕：依優先度分組（主要流程 / 常用工具 / 危險區） ----------
@@ -635,12 +643,12 @@ export async function renderOrdersPage(container, initialFilter = null) {
       return;
     }
 
-    const primaryBtns = [];
+    const shipBtns = [];
     const utilityBtns = [];
     const normalizedStatus = normalizeShipStatus(order.shipStatus);
 
     if (canWrite() && normalizedStatus === "pending") {
-      primaryBtns.push({ label: "標記已出貨", cls: "btn-primary", handler: async (e) => {
+      shipBtns.push({ label: "標記已出貨", cls: "btn-primary", handler: async (e) => {
         e.currentTarget.disabled = true;
         try {
           await markShipped(order.id, itemsById);
@@ -654,30 +662,21 @@ export async function renderOrdersPage(container, initialFilter = null) {
       }});
       utilityBtns.push({ label: "編輯訂單", cls: "btn-secondary", handler: () => renderOrderFormPage(order) });
     }
-    if (canWrite() && normalizedStatus === "shipped") {
-      primaryBtns.push({ label: "標記已完成", cls: "btn-primary", handler: async (e) => {
-        e.currentTarget.disabled = true;
-        try {
-          await markDone(order.id);
-          showToast("已標記完成", "success");
-          await reload();
-          renderOrderDetailPage(order.id);
-        } catch (err) {
-          msgEl.textContent = "失敗：" + err.message;
-          e.currentTarget.disabled = false;
-        }
-      }});
-    }
     if (canWrite()) {
-      utilityBtns.push({ label: "登記收款", cls: "btn-secondary", handler: () => {
+      shipBtns.push({ label: "登記收款", cls: "btn-secondary", handler: () => {
         openReceivePaymentModal(order, async () => { await reload(); renderOrderDetailPage(order.id); });
       }});
     }
     utilityBtns.push({ label: "列印出貨單", cls: "btn-secondary", handler: () => printOrderSlip(order) });
 
+    function buttonRowHtml(id, btns) {
+      if (btns.length === 0) return "";
+      return `<div id="${id}" style="display:flex;gap:8px;margin-bottom:10px;"></div>`;
+    }
+
     actionsCard.innerHTML = `
-      ${primaryBtns.length ? `<div id="d-primary" style="display:flex;flex-direction:column;gap:8px;margin-bottom:${utilityBtns.length ? "14px" : "0"};"></div>` : ""}
-      ${utilityBtns.length ? `<div id="d-utility" style="display:flex;gap:8px;flex-wrap:wrap;"></div>` : ""}
+      ${buttonRowHtml("d-ship-row", shipBtns)}
+      ${buttonRowHtml("d-utility-row", utilityBtns)}
       <div id="d-msg-slot"></div>
       ${canVoid() ? `
         <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--paper-line);">
@@ -687,21 +686,21 @@ export async function renderOrdersPage(container, initialFilter = null) {
     `;
     actionsCard.querySelector("#d-msg-slot").appendChild(msgEl);
 
-    const primaryEl = actionsCard.querySelector("#d-primary");
-    primaryBtns.forEach((a) => {
+    const shipEl = actionsCard.querySelector("#d-ship-row");
+    shipBtns.forEach((a) => {
       const btn = document.createElement("button");
       btn.className = `btn ${a.cls}`;
-      btn.style.cssText = "width:100%;padding:11px;";
+      btn.style.cssText = "flex:1;padding:11px;";
       btn.textContent = a.label;
       btn.addEventListener("click", a.handler);
-      primaryEl?.appendChild(btn);
+      shipEl?.appendChild(btn);
     });
 
-    const utilityEl = actionsCard.querySelector("#d-utility");
+    const utilityEl = actionsCard.querySelector("#d-utility-row");
     utilityBtns.forEach((a) => {
       const btn = document.createElement("button");
       btn.className = `btn ${a.cls}`;
-      btn.style.cssText = "padding:8px 14px;font-size:13px;flex:1;min-width:120px;";
+      btn.style.cssText = "flex:1;padding:9px;font-size:13.5px;";
       btn.textContent = a.label;
       btn.addEventListener("click", a.handler);
       utilityEl?.appendChild(btn);
@@ -709,7 +708,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
 
     if (canVoid()) {
       actionsCard.querySelector("#d-void").addEventListener("click", async (e) => {
-        const willRestoreStock = ["shipped", "done"].includes(order.shipStatus);
+        const willRestoreStock = normalizeShipStatus(order.shipStatus) === "shipped";
         if (!await confirmDialog(willRestoreStock ? "這張訂單已出貨，作廢後會自動還原庫存，確定嗎？" : "確定要作廢這張訂單嗎？", { confirmLabel: "作廢", danger: true })) return;
         e.currentTarget.disabled = true;
         try {

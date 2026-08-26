@@ -3,8 +3,8 @@
 //
 // 訂單編號格式：YYYYMMDD + 當天流水號3碼，例如 20260818001
 //
-// 出貨狀態：pending（待處理）→ shipped（已出貨）→ done（已完成）
-// 收款狀態：unpaid（未收款）→ deposit（已收訂金）→ paid（已付清）
+// 出貨狀態：pending（待處理）→ shipped（已出貨，視為終點狀態）
+// 收款狀態：unpaid（未收款）→ deposit（已收訂金）→ paid（已付清），跟出貨狀態分開獨立追蹤
 // voided：作廢（任何出貨狀態都能作廢；如果已經出貨過，作廢時會自動把
 //         當初出貨扣掉的庫存還原）
 //
@@ -12,31 +12,28 @@
 // lineItems[].unitCost，之後商品成本再怎麼調整，都不會動到這張訂單
 // 已經算好的毛利。
 // ============================================================
-import { db } from "./firebase-config.js?v=20260826-4";
+import { db } from "./firebase-config.js?v=20260826-5";
 import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc,
   serverTimestamp, runTransaction, query, orderBy as fbOrderBy
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { currentSession, getDisplayName } from "./auth.js?v=20260826-4";
-import { addUsage, listUsagesByOrder, voidRecord, calcItemCost } from "./items.js?v=20260826-4";
-import { logActivity } from "./activity-log.js?v=20260826-4";
+import { currentSession, getDisplayName } from "./auth.js?v=20260826-5";
+import { addUsage, listUsagesByOrder, voidRecord, calcItemCost } from "./items.js?v=20260826-5";
+import { logActivity } from "./activity-log.js?v=20260826-5";
 
 const ordersCol = collection(db, "orders");
 
-export const SHIP_STATUS_LABELS = { pending: "待處理", shipped: "已出貨", done: "已完成" };
+export const SHIP_STATUS_LABELS = { pending: "待處理", shipped: "已出貨" };
 export const PAYMENT_STATUS_LABELS = { unpaid: "未收款", deposit: "已收訂金", paid: "已付清" };
 
 /**
- * 安全取得出貨狀態的中文顯示。舊資料如果剛好停在已經拿掉的狀態
- * （例如以前的「備貨中」），就當作「待處理」顯示，不會出現英文字。
- */
-/**
- * 把出貨狀態正規化成三段裡的其中一種。任何不是「已出貨」「已完成」的值
- * （包含舊資料可能停留的「備貨中」），都當作「待處理」處理——不只是
- * 顯示文字，連可以按哪些操作按鈕的判斷也要用這個，兩邊才會一致。
+ * 把出貨狀態正規化成兩段裡的其中一種。任何不是「已出貨」的值
+ * （包含舊資料可能停留的「備貨中」「已完成」），都當作「待處理」/
+ * 「已出貨」處理——不只是顯示文字，連可以按哪些操作按鈕的判斷也要用
+ * 這個，兩邊才會一致。
  */
 export function normalizeShipStatus(status) {
-  return ["shipped", "done"].includes(status) ? status : "pending";
+  return status === "shipped" || status === "done" ? "shipped" : "pending";
 }
 
 export function getShipStatusLabel(status) {
@@ -179,14 +176,6 @@ export async function updateAmountReceived(orderId, amount) {
   logActivity({ module: "orders", action: "status", summary: `訂單 ${order?.orderNumber || orderId} 更新收款為 $${amount}` });
 }
 
-export async function markDone(orderId) {
-  const order = await getOrder(orderId);
-  if (!order) throw new Error("找不到訂單");
-  if (order.shipStatus !== "shipped") throw new Error("要先出貨才能標記完成");
-  await updateDoc(doc(db, "orders", orderId), { shipStatus: "done", updatedAt: serverTimestamp() });
-  logActivity({ module: "orders", action: "status", summary: `訂單 ${order.orderNumber} 標記已完成` });
-}
-
 /**
  * 標記已出貨：自動依每個品項連結的庫存項目扣庫存，並記錄「誰、何時」。
  * itemsById：Map(itemId -> item)，需含 recipe（自製商品的包材配方）
@@ -196,7 +185,7 @@ export async function markShipped(orderId, itemsById) {
   const order = await getOrder(orderId);
   if (!order) throw new Error("找不到訂單");
   if (order.voided) throw new Error("這張訂單已作廢");
-  if (["shipped", "done"].includes(order.shipStatus)) throw new Error("這張訂單已經出貨過了");
+  if (normalizeShipStatus(order.shipStatus) === "shipped") throw new Error("這張訂單已經出貨過了");
 
   for (const li of order.lineItems) {
     const item = itemsById.get(li.productId);
@@ -239,7 +228,7 @@ export async function voidOrder(orderId) {
   if (!order) throw new Error("找不到訂單");
   if (order.voided) throw new Error("已經是作廢狀態");
 
-  if (["shipped", "done"].includes(order.shipStatus)) {
+  if (normalizeShipStatus(order.shipStatus) === "shipped") {
     const usages = await listUsagesByOrder(orderId);
     for (const u of usages) {
       await voidRecord("usage", u.id); // 逐筆作廢，會自動把庫存還原

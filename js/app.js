@@ -1,24 +1,24 @@
 // ============================================================
 // 主程式：登入流程 + 側邊導覽 + 簡易路由
 // ============================================================
-import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName } from "./auth.js?v=20260826-4";
-import { iconHtml } from "./icons.js?v=20260826-4";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-4";
-import { openProfileModal } from "./profile-ui.js?v=20260826-4";
-import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, getPendingCount } from "./settings.js?v=20260826-4";
-import { renderHomePage } from "./home.js?v=20260826-4";
-import { renderItemsPage } from "./items-ui.js?v=20260826-4";
-import { clearFab } from "./fab-ui.js?v=20260826-4";
-import { renderContactsPage } from "./contacts-ui.js?v=20260826-4";
-import { renderOrdersPage } from "./orders-ui.js?v=20260826-4";
-import { renderReportsPage } from "./reports-ui.js?v=20260826-4";
-import { renderProfitPage } from "./profit-ui.js?v=20260826-4";
-import { renderActivityLogPage } from "./activity-log-ui.js?v=20260826-4";
-import { renderExpensesPage } from "./expenses-ui.js?v=20260826-4";
-import { lowStockItems } from "./items.js?v=20260826-4";
-import { listOrders, getPaymentStatus } from "./orders.js?v=20260826-4";
-import { showToast } from "./utils.js?v=20260826-4";
-import { db } from "./firebase-config.js?v=20260826-4";
+import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName } from "./auth.js?v=20260826-5";
+import { iconHtml } from "./icons.js?v=20260826-5";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-5";
+import { openProfileModal } from "./profile-ui.js?v=20260826-5";
+import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, getPendingCount } from "./settings.js?v=20260826-5";
+import { renderHomePage } from "./home.js?v=20260826-5";
+import { renderItemsPage } from "./items-ui.js?v=20260826-5";
+import { clearFab } from "./fab-ui.js?v=20260826-5";
+import { renderContactsPage } from "./contacts-ui.js?v=20260826-5";
+import { renderOrdersPage } from "./orders-ui.js?v=20260826-5";
+import { renderReportsPage } from "./reports-ui.js?v=20260826-5";
+import { renderProfitPage } from "./profit-ui.js?v=20260826-5";
+import { renderActivityLogPage } from "./activity-log-ui.js?v=20260826-5";
+import { renderExpensesPage } from "./expenses-ui.js?v=20260826-5";
+import { lowStockItems } from "./items.js?v=20260826-5";
+import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260826-5";
+import { showToast } from "./utils.js?v=20260826-5";
+import { db } from "./firebase-config.js?v=20260826-5";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 // ---------- 品牌圖案：統一套用在登入頁 / 側邊欄 / 每個人的頭像位置 ----------
@@ -328,19 +328,19 @@ async function refreshNotifBell() {
       pendingCount = await getPendingCount();
     }
 
-    let overdueCount = 0, todayCount = 0, unpaidDoneCount = 0;
+    let overdueCount = 0, todayCount = 0, unpaidShippedCount = 0;
     try {
       const orders = await listOrders();
       const active = orders.filter((o) => !o.voided);
       const today = new Date().toISOString().slice(0, 10);
-      overdueCount = active.filter((o) => o.expectedDate && o.expectedDate < today && !["shipped", "done"].includes(o.shipStatus)).length;
-      todayCount = active.filter((o) => o.expectedDate === today && !["shipped", "done"].includes(o.shipStatus)).length;
-      unpaidDoneCount = active.filter((o) => o.shipStatus === "done" && getPaymentStatus(o) !== "paid").length;
+      overdueCount = active.filter((o) => o.expectedDate && o.expectedDate < today && normalizeShipStatus(o.shipStatus) !== "shipped").length;
+      todayCount = active.filter((o) => o.expectedDate === today && normalizeShipStatus(o.shipStatus) !== "shipped").length;
+      unpaidShippedCount = active.filter((o) => normalizeShipStatus(o.shipStatus) === "shipped" && getPaymentStatus(o) !== "paid").length;
     } catch (err) {
       // 訂單載入失敗不影響其他通知照常顯示
     }
 
-    const total = low.length + pendingCount + overdueCount + todayCount + unpaidDoneCount;
+    const total = low.length + pendingCount + overdueCount + todayCount + unpaidShippedCount;
     if (total > 0) {
       notifBadge.textContent = total;
       notifBadge.style.display = "flex";
@@ -355,7 +355,7 @@ async function refreshNotifBell() {
     const items = [];
     if (overdueCount > 0) items.push({ label: `<span class="notif-dot" style="background:var(--rose);"></span>${overdueCount} 張訂單已逾期未出貨`, target: "orders", filter: { quick: "overdue" } });
     if (todayCount > 0) items.push({ label: `<span class="notif-dot" style="background:var(--gold-deep);"></span>${todayCount} 張訂單今天應出貨`, target: "orders", filter: { quick: "today" } });
-    if (unpaidDoneCount > 0) items.push({ label: `${iconHtml("coin")}${unpaidDoneCount} 張已完成但未收款`, target: "orders", filter: { quick: "unpaid_done" } });
+    if (unpaidShippedCount > 0) items.push({ label: `${iconHtml("coin")}${unpaidShippedCount} 張已出貨但未收款`, target: "orders", filter: { quick: "unpaid_shipped" } });
     if (low.length > 0) items.push({ label: `${iconHtml("box")}${low.length} 項庫存偏低`, target: "items", filter: null });
     if (pendingCount > 0) items.push({ label: `${iconHtml("clock")}${pendingCount} 筆待審核申請`, target: "pending", filter: null });
 
