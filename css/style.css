@@ -111,22 +111,20 @@ input[type="number"]::-webkit-inner-spin-button {
   height: 58px;
   margin: 0 auto 20px;
   border-radius: 50%;
-  background: var(--rose);
-  color: #fff;
+  background: var(--paper);
+  border: 1px solid var(--paper-line);
+  color: var(--ink);
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: var(--font-display);
   font-size: 25px;
   font-weight: 900;
-  transform: rotate(-6deg);
-  box-shadow: 0 4px 10px rgba(168,67,58,0.35);
+  box-shadow: 0 4px 10px rgba(30,35,48,0.12);
   overflow: hidden;
 }
 .login-seal:has(img) {
-  transform: none;
   box-shadow: 0 4px 10px rgba(30,35,48,0.18);
-  background: var(--paper);
 }
 .login-card h1 {
   font-size: 25px;
