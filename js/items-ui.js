@@ -1,8 +1,8 @@
 // ============================================================
 // 商品與庫存頁面 UI（合併版）
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-5";
-import { currentSession } from "./auth.js?v=20260826-5";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-6";
+import { currentSession } from "./auth.js?v=20260826-6";
 import {
   listItems, createItem, updateItem, setItemArchived,
   addPurchaseBatch, stocktakeAdjust,
@@ -10,16 +10,16 @@ import {
   voidRecord, permanentlyDelete,
   computeStock, computeAvgCost, calcItemCost, buildItemsIndex,
   TYPE_LABELS, ORDERABLE_TYPES, STOCK_TRACKED_TYPES,
-} from "./items.js?v=20260826-5";
-import { listCategories } from "./categories.js?v=20260826-5";
-import { listUnits } from "./units.js?v=20260826-5";
-import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js?v=20260826-5";
-import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260826-5";
-import { openSearchPicker } from "./picker-ui.js?v=20260826-5";
-import { exportItems } from "./export-xlsx.js?v=20260826-5";
-import { setFab } from "./fab-ui.js?v=20260826-5";
-import { iconHtml } from "./icons.js?v=20260826-5";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-5";
+} from "./items.js?v=20260826-6";
+import { listCategories } from "./categories.js?v=20260826-6";
+import { listUnits } from "./units.js?v=20260826-6";
+import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js?v=20260826-6";
+import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260826-6";
+import { openSearchPicker } from "./picker-ui.js?v=20260826-6";
+import { exportItems } from "./export-xlsx.js?v=20260826-6";
+import { setFab } from "./fab-ui.js?v=20260826-6";
+import { iconHtml } from "./icons.js?v=20260826-6";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-6";
 
 const TYPE_HINTS = {
   self_made: "自己現做的東西，客戶可訂購。不追蹤庫存量，成本 = 配方裡每一項包材的成本加總（原料/人工每月算在「利潤總覽」）。",
@@ -29,6 +29,12 @@ const TYPE_HINTS = {
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
+}
+// 毛利比成本更敏感，管理員日常操作(出貨/上架)時不會直接看到，
+// 但報表頁面（利潤總覽/統計報表）本來就有自己的角色限制，管理員
+// 主動去看報表還是看得到，這裡只限制「順手就會看到」的畫面。
+function canSeeProfit() {
+  return ["superadmin", "viewer"].includes(currentSession.member?.role);
 }
 function canWrite() {
   return ["superadmin", "admin", "order_staff"].includes(currentSession.member?.role);
@@ -196,14 +202,14 @@ export async function renderItemsPage(container, initialFilter = null) {
             <div style="text-align:right;">
               ${ORDERABLE_TYPES.includes(item.type) ? `<div style="font-family:var(--font-mono);font-size:18px;font-weight:700;color:var(--ink);">$${item.price}</div>` : ""}
               ${STOCK_TRACKED_TYPES.includes(item.type) ? `<div style="font-family:var(--font-mono);font-size:${ORDERABLE_TYPES.includes(item.type) ? "12px" : "18px"};font-weight:700;color:${isLow ? "var(--rose)" : "var(--ink)"};">庫存 ${stock} ${item.unit || "個"}</div>` : ""}
-              ${canSeeCost() && calc ? `<div style="font-size:12px;color:${calc.profit >= 0 ? "var(--jade)" : "var(--rose)"};">毛利 $${calc.profit.toFixed(1)}${calc.isFullCost ? "" : "*"}</div>` : ""}
+              ${canSeeProfit() && calc ? `<div style="font-size:12px;color:${calc.profit >= 0 ? "var(--jade)" : "var(--rose)"};">毛利 $${calc.profit.toFixed(1)}${calc.isFullCost ? "" : "*"}</div>` : ""}
             </div>
           </div>
           ${isLow ? `<div class="seal-badge bad" style="margin-top:8px;"><span class="dot"></span>低於庫存門檻(${item.lowStockThreshold})</div>` : ""}
         </div>
       `;
     }).join("");
-    if (statusTab === "active" && items.some((i) => i.type === "self_made") && canSeeCost()) {
+    if (statusTab === "active" && items.some((i) => i.type === "self_made") && canSeeProfit()) {
       listEl.insertAdjacentHTML("beforeend", `<div class="hint" style="text-align:center;margin-top:6px;">* 自製商品的毛利未扣原料/人工，那些算在「利潤總覽」</div>`);
     }
 
@@ -298,7 +304,7 @@ export async function renderItemsPage(container, initialFilter = null) {
           ${ORDERABLE_TYPES.includes(item.type) ? `<div><div class="hint">售價</div><div style="font-family:var(--font-mono);font-size:17px;font-weight:700;">$${item.price}</div></div>` : ""}
           ${isTracked ? `<div><div class="hint">庫存</div><div style="font-family:var(--font-mono);font-size:17px;font-weight:700;">${computeStock(item)} ${item.unit || "個"}</div></div>` : ""}
           ${isTracked ? `<div><div class="hint">均價</div><div style="font-family:var(--font-mono);font-size:17px;font-weight:700;">$${computeAvgCost(item).toFixed(2)}</div></div>` : ""}
-          ${canSeeCost() && calc ? `<div><div class="hint">毛利</div><div style="font-family:var(--font-mono);font-size:17px;font-weight:700;color:${calc.profit>=0?"var(--jade)":"var(--rose)"};">$${calc.profit.toFixed(1)}</div></div>` : ""}
+          ${canSeeProfit() && calc ? `<div><div class="hint">毛利</div><div style="font-family:var(--font-mono);font-size:17px;font-weight:700;color:${calc.profit>=0?"var(--jade)":"var(--rose)"};">$${calc.profit.toFixed(1)}</div></div>` : ""}
         </div>
         ${canWriteType(item.type) ? `
           <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--paper-line);">

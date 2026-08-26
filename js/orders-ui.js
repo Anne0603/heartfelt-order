@@ -1,24 +1,27 @@
 // ============================================================
 // 訂單管理頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-5";
-import { currentSession } from "./auth.js?v=20260826-5";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-6";
+import { currentSession } from "./auth.js?v=20260826-6";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, getPaymentStatus,
   markShipped, voidOrder,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel, normalizeShipStatus,
-} from "./orders.js?v=20260826-5";
-import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-5";
-import { listContacts, createContact } from "./contacts.js?v=20260826-5";
-import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-5";
-import { exportOrders } from "./export-xlsx.js?v=20260826-5";
-import { setFab, clearFab } from "./fab-ui.js?v=20260826-5";
-import { openSearchPicker } from "./picker-ui.js?v=20260826-5";
-import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-5";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-5";
+} from "./orders.js?v=20260826-6";
+import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-6";
+import { listContacts, createContact } from "./contacts.js?v=20260826-6";
+import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-6";
+import { exportOrders } from "./export-xlsx.js?v=20260826-6";
+import { setFab, clearFab } from "./fab-ui.js?v=20260826-6";
+import { openSearchPicker } from "./picker-ui.js?v=20260826-6";
+import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-6";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-6";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
+}
+function canSeeProfit() {
+  return ["superadmin", "viewer"].includes(currentSession.member?.role);
 }
 function canWrite() {
   return ["superadmin", "admin", "order_staff"].includes(currentSession.member?.role);
@@ -54,7 +57,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
     container.innerHTML = `
       ${pageNavHtml("訂單管理", `<button class="btn btn-secondary" id="btn-export-orders" style="padding:7px 12px;font-size:13px;">匯出</button>`)}
       <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
-        <button class="btn btn-secondary" id="btn-toggle-select" style="padding:7px 12px;font-size:13px;">${selectMode ? "取消批次列印" : "批次列印出貨清單"}</button>
+        <button class="btn btn-secondary" id="btn-toggle-select" style="padding:7px 12px;font-size:13px;">${selectMode ? "取消批次選取" : "批次選取（列印/收款）"}</button>
       </div>
       <div class="card" style="margin-bottom:16px;">
         <input type="text" id="search-input" placeholder="搜尋訂單編號/客戶/電話" value="${searchText}" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;" />
@@ -116,11 +119,30 @@ export async function renderOrdersPage(container, initialFilter = null) {
   function updateFab() {
     if (selectMode) {
       if (selectedIds.size > 0) {
-        setFab([{ icon: "receipt", label: `列印已選 ${selectedIds.size} 張`, onClick: () => {
-          const chosen = orders.filter((o) => selectedIds.has(o.id));
-          if (chosen.length === 0) { showToast("請先勾選訂單", "error"); return; }
-          printShippingList(chosen);
-        }}]);
+        setFab([
+          { icon: "receipt", label: `列印已選 ${selectedIds.size} 張`, onClick: () => {
+            const chosen = orders.filter((o) => selectedIds.has(o.id));
+            if (chosen.length === 0) { showToast("請先勾選訂單", "error"); return; }
+            printShippingList(chosen);
+          }},
+          { icon: "coin", label: `批次登記整筆收款（${selectedIds.size} 張）`, onClick: async () => {
+            const chosen = orders.filter((o) => selectedIds.has(o.id) && getPaymentStatus(o) !== "paid");
+            if (chosen.length === 0) { showToast("勾選的訂單都已經收款了", "error"); return; }
+            if (!await confirmDialog(`確定要把這 ${chosen.length} 張訂單都標記成「整筆已收款」嗎？（各自的總金額）`, { confirmLabel: "確定批次收款" })) return;
+            try {
+              for (const o of chosen) {
+                await updateAmountReceived(o.id, o.totalAmount);
+              }
+              showToast(`已批次登記 ${chosen.length} 張訂單的收款`, "success");
+              selectMode = false;
+              selectedIds.clear();
+              await reload();
+              renderListView();
+            } catch (err) {
+              showToast("批次收款失敗：" + err.message, "error");
+            }
+          }},
+        ]);
       } else {
         clearFab();
       }
@@ -235,7 +257,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:4px;">
               <div style="font-size:13.5px;color:var(--text-muted);">${o.contactName || "（未指定客戶）"} · ${o.orderDate}${o.expectedDate ? " · 預計 " + o.expectedDate : ""}</div>
-              ${canSeeCost() ? `<div style="font-size:12px;color:${profit>=0?"var(--jade)":"var(--rose)"};white-space:nowrap;">毛利 $${profit.toFixed(0)}</div>` : ""}
+              ${canSeeProfit() ? `<div style="font-size:12px;color:${profit>=0?"var(--jade)":"var(--rose)"};white-space:nowrap;">毛利 $${profit.toFixed(0)}</div>` : ""}
             </div>
             <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
               <span class="seal-badge ${shipBadgeClass(o.shipStatus)}"><span class="dot"></span>${getShipStatusLabel(o.shipStatus)}</span>
@@ -579,7 +601,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
           ${ledgerLine("總金額", `$${order.totalAmount}`, { style: "margin-top:4px;", valueStyle: "font-weight:700;font-size:16px;" })}
           ${ledgerLine("已收", `$${received}`)}
           ${outstanding > 0 ? ledgerLine("尚欠", `$${outstanding}`, { valueStyle: "color:var(--rose);font-weight:700;" }) : ""}
-          ${canSeeCost() ? ledgerLine("毛利", `$${profit.toFixed(0)}`, { style: "margin-top:4px;", valueStyle: `color:${profit>=0?"var(--jade)":"var(--rose)"};font-weight:700;` }) : ""}
+          ${canSeeProfit() ? ledgerLine("毛利", `$${profit.toFixed(0)}`, { style: "margin-top:4px;", valueStyle: `color:${profit>=0?"var(--jade)":"var(--rose)"};font-weight:700;` }) : ""}
         </div>
       </div>
 
@@ -592,10 +614,17 @@ export async function renderOrdersPage(container, initialFilter = null) {
 
   // ---------- 登記收款 ----------
   function openReceivePaymentModal(order, onSaved) {
-    const isFullyPaid = (order.amountReceived || 0) >= order.totalAmount;
+    const received = order.amountReceived || 0;
+    const isFullyPaid = received >= order.totalAmount;
+    const outstanding = order.totalAmount - received;
     const overlay = openModal(`
       <h3 style="margin-bottom:4px;">登記收款</h3>
-      <div class="hint" style="margin-bottom:16px;">${order.orderNumber} · 總金額 $${order.totalAmount}</div>
+      <div class="hint" style="margin-bottom:14px;">${order.orderNumber} · 總金額 $${order.totalAmount}</div>
+
+      <div style="display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid var(--paper-line);border-bottom:1px solid var(--paper-line);margin-bottom:16px;">
+        <span class="hint">目前已收</span>
+        <span style="font-family:var(--font-mono);font-weight:700;">$${received}${outstanding > 0 ? ` <span style="color:var(--rose);font-weight:400;">（尚欠 $${outstanding}）</span>` : ""}</span>
+      </div>
 
       ${isFullyPaid ? `
         <div class="seal-badge ok" style="margin-bottom:16px;"><span class="dot"></span>已整筆收款</div>
@@ -603,11 +632,9 @@ export async function renderOrdersPage(container, initialFilter = null) {
         <button class="btn btn-primary" id="rp-full" style="width:100%;padding:12px;margin-bottom:18px;">整筆已收款 $${order.totalAmount}</button>
       `}
 
-      <div class="hint" style="margin-bottom:8px;">如果只收到部分金額（例如訂金），才需要手動輸入：</div>
-      <div class="field"><label>目前已收金額</label><input type="number" id="rp-amount" value="${order.amountReceived || 0}" /></div>
-      <div class="hint" style="margin-bottom:16px;">填入「目前總共收到多少錢」，不是這次新增的金額。例如原本收了 500，這次客人又付了 300，這裡就填 800。</div>
+      <div class="field"><label>只收到部分金額？填目前總共收到多少</label><input type="number" id="rp-amount" value="${received}" /></div>
       <div style="display:flex;justify-content:flex-end;">
-        <button class="btn btn-secondary" id="rp-save">儲存部分金額</button>
+        <button class="btn btn-secondary" id="rp-save">儲存</button>
       </div>
     `, 380);
 
@@ -663,7 +690,8 @@ export async function renderOrdersPage(container, initialFilter = null) {
       utilityBtns.push({ label: "編輯訂單", cls: "btn-secondary", handler: () => renderOrderFormPage(order) });
     }
     if (canWrite()) {
-      shipBtns.push({ label: "登記收款", cls: "btn-secondary", handler: () => {
+      const isFullyPaid = getPaymentStatus(order) === "paid";
+      shipBtns.push({ label: isFullyPaid ? "已收款 ✓" : "登記收款", cls: isFullyPaid ? "btn-success" : "btn-secondary", handler: () => {
         openReceivePaymentModal(order, async () => { await reload(); renderOrderDetailPage(order.id); });
       }});
     }
