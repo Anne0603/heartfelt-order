@@ -6,7 +6,7 @@ import { currentSession } from "./auth.js";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, getPaymentStatus,
   markShipped, markDone, voidOrder,
-  SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS,
+  SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel,
 } from "./orders.js";
 import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js";
 import { listContacts, createContact } from "./contacts.js";
@@ -209,7 +209,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
             ${canSeeCost() ? `<div style="font-size:12px;color:${profit>=0?"var(--jade)":"var(--rose)"};white-space:nowrap;">毛利 $${profit.toFixed(0)}</div>` : ""}
           </div>
           <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
-            <span class="seal-badge ${shipBadgeClass(o.shipStatus)}"><span class="dot"></span>${SHIP_STATUS_LABELS[o.shipStatus]}</span>
+            <span class="seal-badge ${shipBadgeClass(o.shipStatus)}"><span class="dot"></span>${getShipStatusLabel(o.shipStatus)}</span>
             <span class="seal-badge ${paymentBadgeClass(getPaymentStatus(o))}"><span class="dot"></span>${PAYMENT_STATUS_LABELS[getPaymentStatus(o)]}</span>
           </div>
         </div>
@@ -501,7 +501,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
       ${pageNavHtml(order.orderNumber)}
 
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
-        <span class="seal-badge ${shipBadgeClass(order.shipStatus)}"><span class="dot"></span>${SHIP_STATUS_LABELS[order.shipStatus]}</span>
+        <span class="seal-badge ${shipBadgeClass(order.shipStatus)}"><span class="dot"></span>${getShipStatusLabel(order.shipStatus)}</span>
         <span class="seal-badge ${paymentBadgeClass(payStatus)}"><span class="dot"></span>${PAYMENT_STATUS_LABELS[payStatus]}</span>
         ${order.voided ? `<span class="seal-badge bad"><span class="dot"></span>已作廢</span>` : ""}
       </div>

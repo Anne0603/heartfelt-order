@@ -26,6 +26,14 @@ const ordersCol = collection(db, "orders");
 export const SHIP_STATUS_LABELS = { pending: "待處理", shipped: "已出貨", done: "已完成" };
 export const PAYMENT_STATUS_LABELS = { unpaid: "未收款", deposit: "已收訂金", paid: "已付清" };
 
+/**
+ * 安全取得出貨狀態的中文顯示。舊資料如果剛好停在已經拿掉的狀態
+ * （例如以前的「備貨中」），就當作「待處理」顯示，不會出現英文字。
+ */
+export function getShipStatusLabel(status) {
+  return SHIP_STATUS_LABELS[status] || SHIP_STATUS_LABELS.pending;
+}
+
 /** 收款狀態直接從「實收金額」算出來，不再手動選，永遠準確 */
 export function getPaymentStatus(order) {
   const received = order.amountReceived || 0;
