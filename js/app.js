@@ -23,18 +23,39 @@ import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase
 
 // ---------- 品牌圖案：統一套用在登入頁 / 側邊欄 / 每個人的頭像位置 ----------
 let brandLogoUrl = null;
+const BRAND_LOGO_CACHE_KEY = "heartfelt-brand-logo-url";
+
+function applyBrandLogoToDom(url) {
+  document.querySelectorAll(".login-seal, .brand-seal, .user-avatar").forEach((el) => {
+    el.innerHTML = `<img src="${url}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+  });
+}
 
 async function loadAndApplyBrandLogo() {
+  // 先用上次記住的圖案立即顯示，不用等資料庫回應才換圖，避免每次打開都閃一下
+  try {
+    const cached = localStorage.getItem(BRAND_LOGO_CACHE_KEY);
+    if (cached) {
+      brandLogoUrl = cached;
+      applyBrandLogoToDom(cached);
+    }
+  } catch (err) {
+    // localStorage 不可用（例如無痕模式限制）就跳過，不影響後續正常流程
+  }
+
   try {
     const snap = await getDoc(doc(db, "publicSettings", "brand"));
-    brandLogoUrl = snap.exists() ? (snap.data().logoUrl || null) : null;
+    const fresh = snap.exists() ? (snap.data().logoUrl || null) : null;
+    if (fresh && fresh !== brandLogoUrl) {
+      brandLogoUrl = fresh;
+      applyBrandLogoToDom(fresh);
+    }
+    try {
+      if (fresh) localStorage.setItem(BRAND_LOGO_CACHE_KEY, fresh);
+      else localStorage.removeItem(BRAND_LOGO_CACHE_KEY);
+    } catch (err) { /* 忽略 */ }
   } catch (err) {
-    brandLogoUrl = null;
-  }
-  if (brandLogoUrl) {
-    document.querySelectorAll(".login-seal, .brand-seal, .user-avatar").forEach((el) => {
-      el.innerHTML = `<img src="${brandLogoUrl}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
-    });
+    // 抓不到最新的就先用快取顯示的，不用特別處理
   }
 }
 loadAndApplyBrandLogo();
@@ -293,9 +314,8 @@ btnOpenProfile.addEventListener("click", () => {
     brandLogoUrl,
     onBrandUpdated: (url) => {
       brandLogoUrl = url;
-      document.querySelectorAll(".login-seal, .brand-seal, .user-avatar").forEach((el) => {
-        el.innerHTML = `<img src="${url}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
-      });
+      applyBrandLogoToDom(url);
+      try { localStorage.setItem(BRAND_LOGO_CACHE_KEY, url); } catch (err) { /* 忽略 */ }
     },
   });
 });
