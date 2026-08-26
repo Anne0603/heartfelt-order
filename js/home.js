@@ -3,10 +3,10 @@
 // 第一層：今天要做的事（全部角色，不含金額）
 // 第二層：快速操作按鈕（依角色顯示）
 // ============================================================
-import { currentSession } from "./auth.js?v=20260826-7";
-import { lowStockItems } from "./items.js?v=20260826-7";
-import { listOrders, normalizeShipStatus } from "./orders.js?v=20260826-7";
-import { iconHtml } from "./icons.js?v=20260826-7";
+import { currentSession } from "./auth.js?v=20260826-8";
+import { lowStockItems } from "./items.js?v=20260826-8";
+import { listOrders, normalizeShipStatus } from "./orders.js?v=20260826-8";
+import { iconHtml } from "./icons.js?v=20260826-8";
 
 const QUICK_ACTIONS = [
   { id: "orders",    label: "新增訂單",     icon: "pencil", roles: ["superadmin","admin","order_staff"], filter: "openNew" },
@@ -25,22 +25,22 @@ export async function renderHomePage(container, navigateTo) {
     <div id="home-stats" style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:20px;">
       <div class="card" style="padding:16px;cursor:pointer;position:relative;" id="pending-card">
         <div class="hint">待處理訂單</div>
-        <div style="font-family:var(--font-mono);font-size:26px;font-weight:700;color:var(--ink);" id="pending-count">…</div>
+        <div class="stat-loading" style="font-family:var(--font-mono);font-size:26px;font-weight:700;color:var(--ink);" id="pending-count">載入中</div>
         <span style="position:absolute;top:14px;right:14px;color:var(--text-muted);">→</span>
       </div>
       <div class="card" style="padding:16px;cursor:pointer;position:relative;" id="today-ship-card">
         <div class="hint">今日應出貨</div>
-        <div style="font-family:var(--font-mono);font-size:26px;font-weight:700;color:var(--ink);" id="today-ship-count">…</div>
+        <div class="stat-loading" style="font-family:var(--font-mono);font-size:26px;font-weight:700;color:var(--ink);" id="today-ship-count">載入中</div>
         <span style="position:absolute;top:14px;right:14px;color:var(--text-muted);">→</span>
       </div>
       <div class="card" style="padding:16px;cursor:pointer;position:relative;" id="overdue-card">
         <div class="hint">已逾期未出貨</div>
-        <div style="font-family:var(--font-mono);font-size:26px;font-weight:700;color:var(--rose);" id="overdue-count">…</div>
+        <div class="stat-loading" style="font-family:var(--font-mono);font-size:26px;font-weight:700;color:var(--rose);" id="overdue-count">載入中</div>
         <span style="position:absolute;top:14px;right:14px;color:var(--text-muted);">→</span>
       </div>
       <div class="card" style="padding:16px;cursor:pointer;position:relative;" id="low-stock-card">
         <div class="hint">低庫存項目</div>
-        <div style="font-family:var(--font-mono);font-size:26px;font-weight:700;color:var(--ink);" id="low-stock-count">載入中…</div>
+        <div class="stat-loading" style="font-family:var(--font-mono);font-size:26px;font-weight:700;color:var(--ink);" id="low-stock-count">載入中</div>
         <span style="position:absolute;top:14px;right:14px;color:var(--text-muted);">→</span>
       </div>
     </div>
@@ -74,21 +74,30 @@ export async function renderHomePage(container, navigateTo) {
     const orders = await listOrders();
     const active = orders.filter((o) => !o.voided);
     const today = new Date().toISOString().slice(0, 10);
-    container.querySelector("#pending-count").textContent = active.filter((o) => normalizeShipStatus(o.shipStatus) === "pending").length;
-    container.querySelector("#today-ship-count").textContent = active.filter((o) => o.expectedDate === today && normalizeShipStatus(o.shipStatus) !== "shipped").length;
-    container.querySelector("#overdue-count").textContent = active.filter((o) => o.expectedDate && o.expectedDate < today && normalizeShipStatus(o.shipStatus) !== "shipped").length;
+    const pendingEl = container.querySelector("#pending-count");
+    const todayEl = container.querySelector("#today-ship-count");
+    const overdueEl = container.querySelector("#overdue-count");
+    [pendingEl, todayEl, overdueEl].forEach((el) => el.classList.remove("stat-loading"));
+    pendingEl.textContent = active.filter((o) => normalizeShipStatus(o.shipStatus) === "pending").length;
+    todayEl.textContent = active.filter((o) => o.expectedDate === today && normalizeShipStatus(o.shipStatus) !== "shipped").length;
+    overdueEl.textContent = active.filter((o) => o.expectedDate && o.expectedDate < today && normalizeShipStatus(o.shipStatus) !== "shipped").length;
   } catch (err) {
-    container.querySelector("#pending-count").textContent = "—";
-    container.querySelector("#today-ship-count").textContent = "—";
-    container.querySelector("#overdue-count").textContent = "—";
+    ["#pending-count", "#today-ship-count", "#overdue-count"].forEach((sel) => {
+      const el = container.querySelector(sel);
+      el.classList.remove("stat-loading");
+      el.textContent = "—";
+    });
   }
 
   try {
     const low = await lowStockItems();
     const countEl = container.querySelector("#low-stock-count");
+    countEl.classList.remove("stat-loading");
     countEl.textContent = low.length;
     countEl.style.color = low.length > 0 ? "var(--rose)" : "var(--ink)";
   } catch (err) {
-    container.querySelector("#low-stock-count").textContent = "—";
+    const countEl = container.querySelector("#low-stock-count");
+    countEl.classList.remove("stat-loading");
+    countEl.textContent = "—";
   }
 }

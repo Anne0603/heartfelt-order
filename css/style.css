@@ -768,6 +768,16 @@ table.simple-table tr:last-child td { border-bottom: none; }
   pointer-events: none;
 }
 
+/* ---------- 數字載入中的閃動效果，明確表示「正在讀取」而不是卡住 ---------- */
+.stat-loading {
+  animation: statPulse 1.1s ease-in-out infinite;
+  color: var(--text-muted) !important;
+}
+@keyframes statPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
 .toast {
   position: fixed;
   bottom: 24px;
