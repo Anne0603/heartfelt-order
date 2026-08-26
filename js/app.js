@@ -1,24 +1,24 @@
 // ============================================================
 // 主程式：登入流程 + 側邊導覽 + 簡易路由
 // ============================================================
-import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName } from "./auth.js?v=20260826-9";
-import { iconHtml } from "./icons.js?v=20260826-9";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-9";
-import { openProfileModal } from "./profile-ui.js?v=20260826-9";
-import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, getPendingCount } from "./settings.js?v=20260826-9";
-import { renderHomePage } from "./home.js?v=20260826-9";
-import { renderItemsPage } from "./items-ui.js?v=20260826-9";
-import { clearFab } from "./fab-ui.js?v=20260826-9";
-import { renderContactsPage } from "./contacts-ui.js?v=20260826-9";
-import { renderOrdersPage } from "./orders-ui.js?v=20260826-9";
-import { renderReportsPage } from "./reports-ui.js?v=20260826-9";
-import { renderProfitPage } from "./profit-ui.js?v=20260826-9";
-import { renderActivityLogPage } from "./activity-log-ui.js?v=20260826-9";
-import { renderExpensesPage } from "./expenses-ui.js?v=20260826-9";
-import { lowStockItems } from "./items.js?v=20260826-9";
-import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260826-9";
-import { showToast } from "./utils.js?v=20260826-9";
-import { db } from "./firebase-config.js?v=20260826-9";
+import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName } from "./auth.js?v=20260826-10";
+import { iconHtml } from "./icons.js?v=20260826-10";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-10";
+import { openProfileModal } from "./profile-ui.js?v=20260826-10";
+import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, getPendingCount } from "./settings.js?v=20260826-10";
+import { renderHomePage } from "./home.js?v=20260826-10";
+import { renderItemsPage } from "./items-ui.js?v=20260826-10";
+import { clearFab } from "./fab-ui.js?v=20260826-10";
+import { renderContactsPage } from "./contacts-ui.js?v=20260826-10";
+import { renderOrdersPage } from "./orders-ui.js?v=20260826-10";
+import { renderReportsPage } from "./reports-ui.js?v=20260826-10";
+import { renderProfitPage } from "./profit-ui.js?v=20260826-10";
+import { renderActivityLogPage } from "./activity-log-ui.js?v=20260826-10";
+import { renderExpensesPage } from "./expenses-ui.js?v=20260826-10";
+import { lowStockItems } from "./items.js?v=20260826-10";
+import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260826-10";
+import { showToast } from "./utils.js?v=20260826-10";
+import { db } from "./firebase-config.js?v=20260826-10";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 // ---------- 品牌圖案：統一套用在登入頁 / 側邊欄 / 每個人的頭像位置 ----------
