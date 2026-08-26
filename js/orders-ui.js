@@ -1,21 +1,21 @@
 // ============================================================
 // 訂單管理頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js";
-import { currentSession } from "./auth.js";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-2";
+import { currentSession } from "./auth.js?v=20260826-2";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, getPaymentStatus,
   markShipped, markDone, voidOrder,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel,
-} from "./orders.js";
-import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js";
-import { listContacts, createContact } from "./contacts.js";
-import { printOrderSlip } from "./print-slip.js";
-import { exportOrders } from "./export-xlsx.js";
-import { setFab, clearFab } from "./fab-ui.js";
-import { openSearchPicker } from "./picker-ui.js";
-import { openModal, confirmDialog } from "./modal-ui.js";
-import { pageNavHtml, wirePageNav } from "./page-nav.js";
+} from "./orders.js?v=20260826-2";
+import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-2";
+import { listContacts, createContact } from "./contacts.js?v=20260826-2";
+import { printOrderSlip } from "./print-slip.js?v=20260826-2";
+import { exportOrders } from "./export-xlsx.js?v=20260826-2";
+import { setFab, clearFab } from "./fab-ui.js?v=20260826-2";
+import { openSearchPicker } from "./picker-ui.js?v=20260826-2";
+import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-2";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-2";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
