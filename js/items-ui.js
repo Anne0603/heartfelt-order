@@ -284,12 +284,6 @@ export async function renderItemsPage(container, initialFilter = null) {
 
     container.innerHTML = `
       ${pageNavHtml(item.name)}
-      ${canWriteType(item.type) ? `
-        <div class="page-actions-row">
-          <button class="btn btn-secondary" id="btn-edit-item">編輯</button>
-          <button class="btn ${item.status === "archived" ? "btn-success" : "btn-secondary"}" id="btn-archive-item">${item.status === "archived" ? "恢復使用" : "停用"}</button>
-        </div>
-      ` : ""}
       ${item.status === "archived" ? `<div class="seal-badge muted" style="margin-bottom:12px;"><span class="dot"></span>已停用</div>` : ""}
 
       <div class="card" style="margin-bottom:16px;">
@@ -306,6 +300,12 @@ export async function renderItemsPage(container, initialFilter = null) {
           ${isTracked ? `<div><div class="hint">均價</div><div style="font-family:var(--font-mono);font-size:17px;font-weight:700;">$${computeAvgCost(item).toFixed(2)}</div></div>` : ""}
           ${canSeeCost() && calc ? `<div><div class="hint">毛利</div><div style="font-family:var(--font-mono);font-size:17px;font-weight:700;color:${calc.profit>=0?"var(--jade)":"var(--rose)"};">$${calc.profit.toFixed(1)}</div></div>` : ""}
         </div>
+        ${canWriteType(item.type) ? `
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--paper-line);">
+            <button class="btn btn-secondary" id="btn-edit-item" style="padding:7px 14px;font-size:13px;">編輯</button>
+            <button class="btn ${item.status === "archived" ? "btn-success" : "btn-secondary"}" id="btn-archive-item" style="padding:7px 14px;font-size:13px;">${item.status === "archived" ? "恢復使用" : "停用"}</button>
+          </div>
+        ` : ""}
       </div>
 
       ${canSeeCost() && calc ? `
