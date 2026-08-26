@@ -3,7 +3,7 @@
 //
 // 訂單編號格式：YYYYMMDD + 當天流水號3碼，例如 20260818001
 //
-// 出貨狀態：pending（待處理）→ preparing（備貨中）→ shipped（已出貨）→ done（已完成）
+// 出貨狀態：pending（待處理）→ shipped（已出貨）→ done（已完成）
 // 收款狀態：unpaid（未收款）→ deposit（已收訂金）→ paid（已付清）
 // voided：作廢（任何出貨狀態都能作廢；如果已經出貨過，作廢時會自動把
 //         當初出貨扣掉的庫存還原）
@@ -23,7 +23,7 @@ import { logActivity } from "./activity-log.js";
 
 const ordersCol = collection(db, "orders");
 
-export const SHIP_STATUS_LABELS = { pending: "待處理", preparing: "備貨中", shipped: "已出貨", done: "已完成" };
+export const SHIP_STATUS_LABELS = { pending: "待處理", shipped: "已出貨", done: "已完成" };
 export const PAYMENT_STATUS_LABELS = { unpaid: "未收款", deposit: "已收訂金", paid: "已付清" };
 
 /** 收款狀態直接從「實收金額」算出來，不再手動選，永遠準確 */
@@ -160,10 +160,6 @@ export async function updateAmountReceived(orderId, amount) {
   await updateDoc(doc(db, "orders", orderId), { amountReceived: Number(amount) || 0, updatedAt: serverTimestamp() });
   const order = await getOrder(orderId);
   logActivity({ module: "orders", action: "status", summary: `訂單 ${order?.orderNumber || orderId} 更新收款為 $${amount}` });
-}
-
-export async function markPreparing(orderId) {
-  await updateDoc(doc(db, "orders", orderId), { shipStatus: "preparing", updatedAt: serverTimestamp() });
 }
 
 export async function markDone(orderId) {

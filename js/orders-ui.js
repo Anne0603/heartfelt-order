@@ -5,7 +5,7 @@ import { showToast, linkifyErrorMessage } from "./utils.js";
 import { currentSession } from "./auth.js";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, getPaymentStatus,
-  markPreparing, markShipped, markDone, voidOrder,
+  markShipped, markDone, voidOrder,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS,
 } from "./orders.js";
 import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js";
@@ -30,7 +30,6 @@ function canVoid() {
 function shipBadgeClass(status) {
   if (status === "done") return "ok";
   if (status === "shipped") return "ok";
-  if (status === "preparing") return "warn";
   return "warn";
 }
 function paymentBadgeClass(status) {
@@ -58,7 +57,6 @@ export async function renderOrdersPage(container, initialFilter = null) {
         <select id="filter-status" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;">
           <option value="all">全部狀態</option>
           <option value="pending">待處理</option>
-          <option value="preparing">備貨中</option>
           <option value="shipped">已出貨</option>
           <option value="done">已完成</option>
         </select>
@@ -116,7 +114,6 @@ export async function renderOrdersPage(container, initialFilter = null) {
         <select id="exp-status">
           <option value="all">全部狀態</option>
           <option value="pending">待處理</option>
-          <option value="preparing">備貨中</option>
           <option value="shipped">已出貨</option>
           <option value="done">已完成</option>
         </select>
@@ -202,31 +199,25 @@ export async function renderOrdersPage(container, initialFilter = null) {
     listEl.innerHTML = filtered.map((o) => {
       const profit = o.lineItems.reduce((s, li) => s + (li.subtotal - li.unitCost * li.qty), 0);
       return `
-        <div class="card" style="margin-bottom:10px;${o.voided ? "opacity:0.5;" : ""}" data-order-row="${o.id}">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
-            <div>
-              <div style="font-weight:700;font-size:15px;color:var(--ink);font-family:var(--font-mono);">${o.orderNumber} ${o.voided ? `<span class="hint">(已作廢)</span>` : ""}</div>
-              <div style="font-size:14px;margin-top:2px;">${o.contactName || "（未指定客戶）"} · ${o.orderDate}</div>
-              ${o.expectedDate ? `<div class="hint">預計出貨/取貨：${o.expectedDate}</div>` : ""}
-            </div>
-            <div style="text-align:right;">
-              <div style="font-family:var(--font-mono);font-size:18px;font-weight:700;color:var(--ink);">$${o.totalAmount}</div>
-              ${canSeeCost() ? `<div style="font-size:12px;color:${profit>=0?"var(--jade)":"var(--rose)"};">毛利 $${profit.toFixed(0)}</div>` : ""}
-            </div>
+        <div class="card" style="margin-bottom:8px;padding:14px 16px;cursor:pointer;${o.voided ? "opacity:0.5;" : ""}" data-open="${o.id}">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;">
+            <div style="font-weight:700;font-size:14.5px;color:var(--ink);font-family:var(--font-mono);">${o.orderNumber}${o.voided ? `<span class="hint"> (已作廢)</span>` : ""}</div>
+            <div style="font-family:var(--font-mono);font-size:17px;font-weight:700;color:var(--ink);white-space:nowrap;">$${o.totalAmount}</div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:4px;">
+            <div style="font-size:13.5px;color:var(--text-muted);">${o.contactName || "（未指定客戶）"} · ${o.orderDate}${o.expectedDate ? " · 預計 " + o.expectedDate : ""}</div>
+            ${canSeeCost() ? `<div style="font-size:12px;color:${profit>=0?"var(--jade)":"var(--rose)"};white-space:nowrap;">毛利 $${profit.toFixed(0)}</div>` : ""}
           </div>
           <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
             <span class="seal-badge ${shipBadgeClass(o.shipStatus)}"><span class="dot"></span>${SHIP_STATUS_LABELS[o.shipStatus]}</span>
             <span class="seal-badge ${paymentBadgeClass(getPaymentStatus(o))}"><span class="dot"></span>${PAYMENT_STATUS_LABELS[getPaymentStatus(o)]}</span>
           </div>
-          <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="btn btn-secondary" data-detail="${o.id}" style="padding:7px 14px;font-size:13px;">查看/處理</button>
-          </div>
         </div>
       `;
     }).join("");
 
-    listEl.querySelectorAll("[data-detail]").forEach((btn) => {
-      btn.addEventListener("click", () => openDetailModal(btn.getAttribute("data-detail")));
+    listEl.querySelectorAll("[data-open]").forEach((card) => {
+      card.addEventListener("click", () => renderOrderDetailPage(card.getAttribute("data-open")));
     });
   }
 
@@ -495,20 +486,19 @@ export async function renderOrdersPage(container, initialFilter = null) {
   }
 
   // ---------- 查看 / 處理訂單 ----------
-  async function openDetailModal(orderId) {
+  function renderOrderDetailPage(orderId) {
     const order = orders.find((o) => o.id === orderId);
-    const overlay = openModal(renderDetailHtml(order), 600);
-    wireDetailEvents(overlay, order);
-  }
-
-  function renderDetailHtml(order) {
     const profit = order.lineItems.reduce((s, li) => s + (li.subtotal - li.unitCost * li.qty), 0);
     const received = order.amountReceived || 0;
     const outstanding = order.totalAmount - received;
     const payStatus = getPaymentStatus(order);
-    return `
-      <h3 style="margin-bottom:4px;font-family:var(--font-mono);">${order.orderNumber}</h3>
-      <div class="hint" style="margin-bottom:14px;">${order.contactName || "（未指定客戶）"} · ${order.orderDate}${order.orderChannel ? " · " + order.orderChannel : ""}</div>
+
+    function ledgerLine(label, value, opts = {}) {
+      return `<div style="display:flex;justify-content:space-between;padding:3px 0;${opts.style || ""}"><span class="hint">${label}</span><span style="font-family:var(--font-mono);${opts.valueStyle || ""}">${value}</span></div>`;
+    }
+
+    container.innerHTML = `
+      ${pageNavHtml(order.orderNumber)}
 
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
         <span class="seal-badge ${shipBadgeClass(order.shipStatus)}"><span class="dot"></span>${SHIP_STATUS_LABELS[order.shipStatus]}</span>
@@ -516,35 +506,42 @@ export async function renderOrdersPage(container, initialFilter = null) {
         ${order.voided ? `<span class="seal-badge bad"><span class="dot"></span>已作廢</span>` : ""}
       </div>
 
-      <table class="simple-table" style="margin-bottom:10px;">
-        <thead><tr><th>品項</th><th>數量</th><th>單價</th><th>小計</th></tr></thead>
-        <tbody>
-          ${order.lineItems.map((li) => `<tr><td>${li.productName}</td><td>${li.qty}</td><td>$${li.unitPrice}</td><td>$${li.subtotal}</td></tr>`).join("")}
-        </tbody>
-      </table>
-      <div style="text-align:right;font-size:14px;">
-        <div>商品小計：$${order.itemsTotal}</div>
-        <div>運費：$${order.shippingFee}</div>
-        <div style="font-weight:700;font-size:16px;margin-top:4px;">總金額：$${order.totalAmount}</div>
-        <div style="margin-top:6px;">已收：$${received}${outstanding > 0 ? `　<span style="color:var(--rose);">尚欠 $${outstanding}</span>` : ""}</div>
-        ${canSeeCost() ? `<div style="color:${profit>=0?"var(--jade)":"var(--rose)"};margin-top:4px;">毛利：$${profit.toFixed(0)}</div>` : ""}
-      </div>
-
-      ${order.pickupMethod || order.expectedDate ? `
-        <div class="hint" style="margin-top:10px;">
-          ${order.pickupMethod ? `取貨方式：${order.pickupMethod}　` : ""}
-          ${order.expectedDate ? `預計出貨/取貨：${order.expectedDate}` : ""}
+      <div class="card" style="margin-bottom:16px;">
+        <div class="hint">客戶</div>
+        <div style="font-size:15px;color:var(--ink);margin-bottom:10px;">${order.contactName || "（未指定客戶）"}${order.contactPhone ? " · " + order.contactPhone : ""}</div>
+        <div style="display:flex;gap:22px;flex-wrap:wrap;">
+          <div><div class="hint">訂購日期</div><div style="font-size:14px;color:var(--ink);">${order.orderDate}</div></div>
+          ${order.orderChannel ? `<div><div class="hint">訂購管道</div><div style="font-size:14px;color:var(--ink);">${order.orderChannel}</div></div>` : ""}
+          ${order.pickupMethod ? `<div><div class="hint">取貨方式</div><div style="font-size:14px;color:var(--ink);">${order.pickupMethod}</div></div>` : ""}
+          ${order.expectedDate ? `<div><div class="hint">預計出貨/取貨</div><div style="font-size:14px;color:var(--ink);">${order.expectedDate}</div></div>` : ""}
         </div>
-      ` : ""}
-      ${order.note ? `<div class="hint" style="margin-top:6px;">備註：${order.note}</div>` : ""}
-      ${order.shippedByName ? `<div class="hint" style="margin-top:6px;">出貨紀錄：${order.shippedByName}</div>` : ""}
-
-      <div id="detail-actions" style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;"></div>
-      <div id="detail-msg" class="hint" style="margin-top:8px;"></div>
-      <div style="margin-top:14px;">
-        <button class="btn btn-secondary" id="d-print">列印出貨單</button>
+        ${order.note ? `<div class="hint" style="margin-top:10px;">備註：${order.note}</div>` : ""}
+        ${order.shippedByName ? `<div class="hint" style="margin-top:6px;">出貨紀錄：${order.shippedByName}</div>` : ""}
       </div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <h3 style="font-size:15px;margin-bottom:10px;">品項明細</h3>
+        <table class="simple-table">
+          <thead><tr><th>品項</th><th style="text-align:right;">數量</th><th style="text-align:right;">單價</th><th style="text-align:right;">小計</th></tr></thead>
+          <tbody>
+            ${order.lineItems.map((li) => `<tr><td>${li.productName}</td><td style="text-align:right;">${li.qty}</td><td style="text-align:right;">$${li.unitPrice}</td><td style="text-align:right;font-family:var(--font-mono);">$${li.subtotal}</td></tr>`).join("")}
+          </tbody>
+        </table>
+        <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--paper-line);">
+          ${ledgerLine("商品小計", `$${order.itemsTotal}`)}
+          ${ledgerLine("運費", `$${order.shippingFee}`)}
+          ${ledgerLine("總金額", `$${order.totalAmount}`, { style: "margin-top:4px;", valueStyle: "font-weight:700;font-size:16px;" })}
+          ${ledgerLine("已收", `$${received}`)}
+          ${outstanding > 0 ? ledgerLine("尚欠", `$${outstanding}`, { valueStyle: "color:var(--rose);font-weight:700;" }) : ""}
+          ${canSeeCost() ? ledgerLine("毛利", `$${profit.toFixed(0)}`, { style: "margin-top:4px;", valueStyle: `color:${profit>=0?"var(--jade)":"var(--rose)"};font-weight:700;` }) : ""}
+        </div>
+      </div>
+
+      <div id="detail-actions-card" class="card"></div>
     `;
+
+    wirePageNav(container, () => renderListView());
+    renderOrderDetailActions(order);
   }
 
   // ---------- 登記收款 ----------
@@ -574,80 +571,102 @@ export async function renderOrdersPage(container, initialFilter = null) {
     });
   }
 
-  function wireDetailEvents(overlay, order) {
-    overlay.querySelector("#d-print").addEventListener("click", () => printOrderSlip(order));
-    const actionsEl = overlay.querySelector("#detail-actions");
-    const msgEl = overlay.querySelector("#detail-msg");
+  // ---------- 動作按鈕：依優先度分組（主要流程 / 常用工具 / 危險區） ----------
+  function renderOrderDetailActions(order) {
+    const actionsCard = container.querySelector("#detail-actions-card");
+    const msgEl = document.createElement("div");
+    msgEl.className = "hint";
+    msgEl.style.cssText = "color:var(--rose);margin-top:8px;";
 
-    function addActionButton(label, cls, handler) {
-      const btn = document.createElement("button");
-      btn.className = `btn ${cls}`;
-      btn.style.cssText = "padding:8px 14px;font-size:13px;";
-      btn.textContent = label;
-      btn.addEventListener("click", handler);
-      actionsEl.appendChild(btn);
+    if (order.voided) {
+      actionsCard.innerHTML = `
+        <button class="btn btn-secondary" id="d-print" style="width:100%;">列印出貨單</button>
+      `;
+      actionsCard.querySelector("#d-print").addEventListener("click", () => printOrderSlip(order));
+      return;
     }
 
-    if (order.voided) return; // 作廢的訂單不給任何操作按鈕
+    const primaryBtns = [];
+    const utilityBtns = [];
 
     if (canWrite() && order.shipStatus === "pending") {
-      addActionButton("編輯訂單", "btn-secondary", () => { overlay.remove(); renderOrderFormPage(order); });
-      addActionButton("開始備貨", "btn-secondary", async () => {
-        try { await markPreparing(order.id); showToast("已標記備貨中", "success"); overlay.remove(); await reload(); }
-        catch (err) { msgEl.textContent = "失敗：" + err.message; }
-      });
-    }
-    if (canWrite() && order.shipStatus === "preparing") {
-      addActionButton("編輯訂單", "btn-secondary", () => { overlay.remove(); renderOrderFormPage(order); });
-      addActionButton("標記已出貨", "btn-primary", async (e) => {
+      primaryBtns.push({ label: "標記已出貨", cls: "btn-primary", handler: async (e) => {
         e.currentTarget.disabled = true;
         try {
           await markShipped(order.id, itemsById);
           showToast("已出貨，庫存已自動扣除", "success");
-          overlay.remove();
           await reload();
+          renderOrderDetailPage(order.id);
         } catch (err) {
           msgEl.textContent = "失敗：" + err.message;
           e.currentTarget.disabled = false;
         }
-      });
-    }
-    if (canWrite() && order.shipStatus === "pending") {
-      // 待處理狀態也允許直接跳過備貨直接標記出貨
-      addActionButton("直接標記已出貨", "btn-primary", async (e) => {
-        e.currentTarget.disabled = true;
-        try {
-          await markShipped(order.id, itemsById);
-          showToast("已出貨，庫存已自動扣除", "success");
-          overlay.remove();
-          await reload();
-        } catch (err) {
-          msgEl.textContent = "失敗：" + err.message;
-          e.currentTarget.disabled = false;
-        }
-      });
+      }});
+      utilityBtns.push({ label: "編輯訂單", cls: "btn-secondary", handler: () => renderOrderFormPage(order) });
     }
     if (canWrite() && order.shipStatus === "shipped") {
-      addActionButton("標記已完成", "btn-primary", async () => {
-        try { await markDone(order.id); showToast("已標記完成", "success"); overlay.remove(); await reload(); }
-        catch (err) { msgEl.textContent = "失敗：" + err.message; }
-      });
+      primaryBtns.push({ label: "標記已完成", cls: "btn-primary", handler: async (e) => {
+        e.currentTarget.disabled = true;
+        try {
+          await markDone(order.id);
+          showToast("已標記完成", "success");
+          await reload();
+          renderOrderDetailPage(order.id);
+        } catch (err) {
+          msgEl.textContent = "失敗：" + err.message;
+          e.currentTarget.disabled = false;
+        }
+      }});
     }
     if (canWrite()) {
-      addActionButton("登記收款", "btn-secondary", () => {
-        openReceivePaymentModal(order, () => { overlay.remove(); reload(); });
-      });
+      utilityBtns.push({ label: "登記收款", cls: "btn-secondary", handler: () => {
+        openReceivePaymentModal(order, async () => { await reload(); renderOrderDetailPage(order.id); });
+      }});
     }
+    utilityBtns.push({ label: "列印出貨單", cls: "btn-secondary", handler: () => printOrderSlip(order) });
+
+    actionsCard.innerHTML = `
+      ${primaryBtns.length ? `<div id="d-primary" style="display:flex;flex-direction:column;gap:8px;margin-bottom:${utilityBtns.length ? "14px" : "0"};"></div>` : ""}
+      ${utilityBtns.length ? `<div id="d-utility" style="display:flex;gap:8px;flex-wrap:wrap;"></div>` : ""}
+      <div id="d-msg-slot"></div>
+      ${canVoid() ? `
+        <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--paper-line);">
+          <button class="btn btn-danger" id="d-void" style="width:100%;">作廢訂單</button>
+        </div>
+      ` : ""}
+    `;
+    actionsCard.querySelector("#d-msg-slot").appendChild(msgEl);
+
+    const primaryEl = actionsCard.querySelector("#d-primary");
+    primaryBtns.forEach((a) => {
+      const btn = document.createElement("button");
+      btn.className = `btn ${a.cls}`;
+      btn.style.cssText = "width:100%;padding:11px;";
+      btn.textContent = a.label;
+      btn.addEventListener("click", a.handler);
+      primaryEl?.appendChild(btn);
+    });
+
+    const utilityEl = actionsCard.querySelector("#d-utility");
+    utilityBtns.forEach((a) => {
+      const btn = document.createElement("button");
+      btn.className = `btn ${a.cls}`;
+      btn.style.cssText = "padding:8px 14px;font-size:13px;flex:1;min-width:120px;";
+      btn.textContent = a.label;
+      btn.addEventListener("click", a.handler);
+      utilityEl?.appendChild(btn);
+    });
+
     if (canVoid()) {
-      addActionButton("作廢訂單", "btn-danger", async (e) => {
+      actionsCard.querySelector("#d-void").addEventListener("click", async (e) => {
         const willRestoreStock = ["shipped", "done"].includes(order.shipStatus);
         if (!await confirmDialog(willRestoreStock ? "這張訂單已出貨，作廢後會自動還原庫存，確定嗎？" : "確定要作廢這張訂單嗎？", { confirmLabel: "作廢", danger: true })) return;
         e.currentTarget.disabled = true;
         try {
           await voidOrder(order.id);
           showToast("已作廢" + (willRestoreStock ? "，庫存已還原" : ""), "success");
-          overlay.remove();
           await reload();
+          renderOrderDetailPage(order.id);
         } catch (err) {
           msgEl.textContent = "失敗：" + err.message;
           e.currentTarget.disabled = false;

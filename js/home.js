@@ -74,7 +74,7 @@ export async function renderHomePage(container, navigateTo) {
     const orders = await listOrders();
     const active = orders.filter((o) => !o.voided);
     const today = new Date().toISOString().slice(0, 10);
-    container.querySelector("#pending-count").textContent = active.filter((o) => o.shipStatus === "pending" || o.shipStatus === "preparing").length;
+    container.querySelector("#pending-count").textContent = active.filter((o) => o.shipStatus === "pending").length;
     container.querySelector("#today-ship-count").textContent = active.filter((o) => o.expectedDate === today && !["shipped","done"].includes(o.shipStatus)).length;
     container.querySelector("#overdue-count").textContent = active.filter((o) => o.expectedDate && o.expectedDate < today && !["shipped","done"].includes(o.shipStatus)).length;
   } catch (err) {
