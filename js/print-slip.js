@@ -88,3 +88,70 @@ export function printOrderSlip(order) {
   win.document.write(html);
   win.document.close();
 }
+
+// ============================================================
+// 批次出貨清單：把好幾張訂單合併成一張清單列印，一列一張訂單，
+// 商品明細每一項獨立一行（不逗號擠在一起），左邊留空格方便打勾核對。
+// ============================================================
+export function printShippingList(ordersList) {
+  const win = window.open("", "_blank", "width=820,height=900");
+  if (!win) {
+    alertDialog("瀏覽器擋住了列印視窗，請允許彈出視窗後再試一次。");
+    return;
+  }
+
+  const rows = ordersList.map((order, idx) => {
+    const itemsHtml = order.lineItems.map((li) => `<div class="item-line">${li.productName} <b>x${li.qty}</b></div>`).join("");
+    return `
+      <tr>
+        <td class="check-col"><span class="checkbox"></span></td>
+        <td>${idx + 1}</td>
+        <td>
+          <div class="order-no">${order.orderNumber}</div>
+          <div class="sub2">${order.contactName || "（未指定）"}${order.contactPhone ? " · " + order.contactPhone : ""}</div>
+        </td>
+        <td>${itemsHtml}</td>
+        <td>${order.pickupMethod || ""}</td>
+      </tr>
+    `;
+  }).join("");
+
+  const html = `
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<title>今日出貨清單</title>
+<style>
+  body { font-family: -apple-system, "Noto Sans TC", sans-serif; padding: 24px; color: #23262E; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: #746F62; font-size: 13px; margin-bottom: 18px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 10px 8px; border-bottom: 1px solid #E3DDCC; font-size: 14px; text-align: left; vertical-align: top; }
+  th { font-size: 12px; color: #746F62; font-weight: 600; border-bottom: 2px solid #23262E; }
+  .check-col { width: 30px; }
+  .checkbox { display: inline-block; width: 16px; height: 16px; border: 1.5px solid #23262E; }
+  .order-no { font-family: "SFMono-Regular", monospace; font-weight: 700; }
+  .sub2 { font-size: 12.5px; color: #746F62; margin-top: 2px; }
+  .item-line { margin-bottom: 2px; }
+  .footer { margin-top: 20px; font-size: 11px; color: #9AA0B4; text-align: right; }
+  @media print { body { padding: 0; } tr { page-break-inside: avoid; } }
+</style>
+</head>
+<body>
+  <h1>心意 · 今日出貨清單</h1>
+  <div class="sub">共 ${ordersList.length} 張訂單　列印時間：${new Date().toLocaleString("zh-TW")}</div>
+  <table>
+    <thead><tr><th></th><th>#</th><th>訂單 / 客戶</th><th>商品明細</th><th>取貨方式</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <script>
+    window.onload = function() { setTimeout(function(){ window.print(); }, 200); };
+  </script>
+</body>
+</html>
+  `;
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+}

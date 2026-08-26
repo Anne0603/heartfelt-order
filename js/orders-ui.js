@@ -10,7 +10,7 @@ import {
 } from "./orders.js?v=20260826-2";
 import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-2";
 import { listContacts, createContact } from "./contacts.js?v=20260826-2";
-import { printOrderSlip } from "./print-slip.js?v=20260826-2";
+import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-2";
 import { exportOrders } from "./export-xlsx.js?v=20260826-2";
 import { setFab, clearFab } from "./fab-ui.js?v=20260826-2";
 import { openSearchPicker } from "./picker-ui.js?v=20260826-2";
@@ -48,10 +48,15 @@ export async function renderOrdersPage(container, initialFilter = null) {
   let filterQuick = initialFilter?.quick || "all"; // 'all' | 'today' | 'overdue' | 'unpaid_done'
   let filterDateStart = "";
   let filterDateEnd = "";
+  let selectMode = false;
+  let selectedIds = new Set();
 
   function renderListView() {
     container.innerHTML = `
       ${pageNavHtml("訂單管理", `<button class="btn btn-secondary" id="btn-export-orders" style="padding:7px 12px;font-size:13px;">匯出</button>`)}
+      <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+        <button class="btn btn-secondary" id="btn-toggle-select" style="padding:7px 12px;font-size:13px;">${selectMode ? "取消批次列印" : "批次列印出貨清單"}</button>
+      </div>
       <div class="card" style="margin-bottom:16px;">
         <input type="text" id="search-input" placeholder="搜尋訂單編號/客戶/電話" value="${searchText}" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;" />
         <select id="filter-status" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;">
@@ -98,13 +103,32 @@ export async function renderOrdersPage(container, initialFilter = null) {
       filterDateEnd = e.target.value;
       renderList();
     });
-    if (canWrite()) {
-      setFab([{ icon: "add", label: "新增訂單", onClick: () => renderOrderFormPage() }]);
-    }
+    updateFab();
     container.querySelector("#btn-export-orders").addEventListener("click", () => {
       openExportModal();
     });
+    container.querySelector("#btn-toggle-select").addEventListener("click", () => {
+      selectMode = !selectMode;
+      selectedIds.clear();
+      renderListView();
+    });
     renderList();
+  }
+
+  function updateFab() {
+    if (selectMode) {
+      if (selectedIds.size > 0) {
+        setFab([{ icon: "receipt", label: `列印已選 ${selectedIds.size} 張`, onClick: () => {
+          const chosen = orders.filter((o) => selectedIds.has(o.id));
+          if (chosen.length === 0) { showToast("請先勾選訂單", "error"); return; }
+          printShippingList(chosen);
+        }}]);
+      } else {
+        clearFab();
+      }
+    } else if (canWrite()) {
+      setFab([{ icon: "add", label: "新增訂單", onClick: () => renderOrderFormPage() }]);
+    }
   }
 
   function openExportModal() {
@@ -198,26 +222,41 @@ export async function renderOrdersPage(container, initialFilter = null) {
 
     listEl.innerHTML = filtered.map((o) => {
       const profit = o.lineItems.reduce((s, li) => s + (li.subtotal - li.unitCost * li.qty), 0);
+      const checked = selectedIds.has(o.id);
       return `
-        <div class="card" style="margin-bottom:8px;padding:14px 16px;cursor:pointer;${o.voided ? "opacity:0.5;" : ""}" data-open="${o.id}">
-          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;">
-            <div style="font-weight:700;font-size:14.5px;color:var(--ink);font-family:var(--font-mono);">${o.orderNumber}${o.voided ? `<span class="hint"> (已作廢)</span>` : ""}</div>
-            <div style="font-family:var(--font-mono);font-size:17px;font-weight:700;color:var(--ink);white-space:nowrap;">$${o.totalAmount}</div>
-          </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:4px;">
-            <div style="font-size:13.5px;color:var(--text-muted);">${o.contactName || "（未指定客戶）"} · ${o.orderDate}${o.expectedDate ? " · 預計 " + o.expectedDate : ""}</div>
-            ${canSeeCost() ? `<div style="font-size:12px;color:${profit>=0?"var(--jade)":"var(--rose)"};white-space:nowrap;">毛利 $${profit.toFixed(0)}</div>` : ""}
-          </div>
-          <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
-            <span class="seal-badge ${shipBadgeClass(o.shipStatus)}"><span class="dot"></span>${getShipStatusLabel(o.shipStatus)}</span>
-            <span class="seal-badge ${paymentBadgeClass(getPaymentStatus(o))}"><span class="dot"></span>${PAYMENT_STATUS_LABELS[getPaymentStatus(o)]}</span>
+        <div class="card" style="margin-bottom:8px;padding:14px 16px;cursor:pointer;display:flex;gap:10px;${o.voided ? "opacity:0.5;" : ""}" data-open="${o.id}">
+          ${selectMode ? `<div style="flex-shrink:0;padding-top:2px;"><span class="switch"><input type="checkbox" data-select-cb="${o.id}" ${checked ? "checked" : ""}><span class="switch-slider"></span></span></div>` : ""}
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;">
+              <div style="font-weight:700;font-size:14.5px;color:var(--ink);font-family:var(--font-mono);">${o.orderNumber}${o.voided ? `<span class="hint"> (已作廢)</span>` : ""}</div>
+              <div style="font-family:var(--font-mono);font-size:17px;font-weight:700;color:var(--ink);white-space:nowrap;">$${o.totalAmount}</div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:4px;">
+              <div style="font-size:13.5px;color:var(--text-muted);">${o.contactName || "（未指定客戶）"} · ${o.orderDate}${o.expectedDate ? " · 預計 " + o.expectedDate : ""}</div>
+              ${canSeeCost() ? `<div style="font-size:12px;color:${profit>=0?"var(--jade)":"var(--rose)"};white-space:nowrap;">毛利 $${profit.toFixed(0)}</div>` : ""}
+            </div>
+            <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
+              <span class="seal-badge ${shipBadgeClass(o.shipStatus)}"><span class="dot"></span>${getShipStatusLabel(o.shipStatus)}</span>
+              <span class="seal-badge ${paymentBadgeClass(getPaymentStatus(o))}"><span class="dot"></span>${PAYMENT_STATUS_LABELS[getPaymentStatus(o)]}</span>
+            </div>
           </div>
         </div>
       `;
     }).join("");
 
     listEl.querySelectorAll("[data-open]").forEach((card) => {
-      card.addEventListener("click", () => renderOrderDetailPage(card.getAttribute("data-open")));
+      card.addEventListener("click", (e) => {
+        const orderId = card.getAttribute("data-open");
+        if (selectMode) {
+          if (selectedIds.has(orderId)) selectedIds.delete(orderId);
+          else selectedIds.add(orderId);
+          const cb = card.querySelector(`[data-select-cb="${orderId}"]`);
+          if (cb) cb.checked = selectedIds.has(orderId);
+          updateFab();
+        } else {
+          renderOrderDetailPage(orderId);
+        }
+      });
     });
   }
 
