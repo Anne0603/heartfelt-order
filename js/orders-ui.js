@@ -258,34 +258,27 @@ export async function renderOrdersPage(container, initialFilter = null) {
       <div class="card">
         <div class="field"><label>客戶</label>
           <div style="display:flex;gap:8px;">
-            <button type="button" id="o-contact-btn" class="picker-trigger">${selectedContact ? selectedContact.name : "點選客戶（選填）"}</button>
+            <button type="button" id="o-contact-btn" class="picker-trigger" style="flex:1;">${selectedContact ? selectedContact.name : "點選客戶（選填）"}</button>
             <button class="btn btn-secondary" id="o-new-contact" type="button" style="padding:8px 12px;flex-shrink:0;">新增客戶</button>
           </div>
         </div>
         <div class="field"><label>訂購管道（選填）</label>
-          <select id="o-channel">
-            <option value="">不指定</option>
-            ${ORDER_CHANNELS.map((c) => `<option value="${c}" ${order?.orderChannel === c ? "selected" : ""}>${c}</option>`).join("")}
-          </select>
-          <input type="text" id="o-channel-custom" placeholder="請輸入訂購管道" style="display:${order?.orderChannel && !ORDER_CHANNELS.includes(order.orderChannel) ? "block" : "none"};margin-top:6px;" value="${order?.orderChannel && !ORDER_CHANNELS.includes(order.orderChannel) ? order.orderChannel : ""}" />
+          <button type="button" id="o-channel-btn" class="picker-trigger">${order?.orderChannel || "不指定"}</button>
         </div>
         <div class="field"><label>訂購日期</label><input type="date" id="o-date" value="${order?.orderDate || new Date().toISOString().slice(0,10)}" /></div>
 
         <label style="display:block;font-size:14.5px;font-weight:600;color:var(--ink);margin:14px 0 6px;">商品品項</label>
         <div style="display:flex;gap:6px;padding:0 2px;margin-bottom:4px;">
           <div style="flex:2;font-size:12px;color:var(--text-muted);">商品</div>
-          <div style="width:70px;font-size:12px;color:var(--text-muted);">數量</div>
-          <div style="width:80px;font-size:12px;color:var(--text-muted);">單價</div>
+          <div style="width:64px;flex-shrink:0;font-size:12px;color:var(--text-muted);">數量</div>
+          <div style="width:72px;flex-shrink:0;font-size:12px;color:var(--text-muted);">單價</div>
         </div>
         <div id="o-lineitems"></div>
         <button class="btn btn-secondary" id="o-add-line" type="button" style="margin:8px 0 14px;">+ 新增品項</button>
 
         <div class="field"><label>運費（選填）</label><input type="number" id="o-shipping" value="${order?.shippingFee || 0}" /></div>
         <div class="field"><label>取貨方式</label>
-          <select id="o-pickup">
-            <option value="">請選擇</option>
-            ${PICKUP_METHODS.map((m) => `<option value="${m}" ${order?.pickupMethod === m ? "selected" : ""}>${m}</option>`).join("")}
-          </select>
+          <button type="button" id="o-pickup-btn" class="picker-trigger">${order?.pickupMethod || "請選擇"}</button>
         </div>
         <div class="field"><label>預計出貨/取貨日期</label><input type="date" id="o-expected" value="${order?.expectedDate || ""}" /></div>
         <div class="field"><label>備註（選填）</label><input type="text" id="o-note" value="${order?.note || ""}" /></div>
@@ -301,12 +294,45 @@ export async function renderOrdersPage(container, initialFilter = null) {
     container.querySelector("#o-back").addEventListener("click", backToList);
 
     // picker-trigger 樣式跟 .field input 對齊
-    container.querySelectorAll(".picker-trigger").forEach((el) => {
-      el.style.cssText = "flex:1;text-align:left;padding:10px 12px;border:1px solid var(--paper-line);border-radius:8px;background:#fff;font-size:15px;cursor:pointer;color:var(--text-primary);";
+
+    let orderChannelValue = order?.orderChannel || "";
+    container.querySelector("#o-channel-btn").addEventListener("click", () => {
+      openSearchPicker({
+        title: "選擇訂購管道",
+        items: [{ id: "", name: "不指定" }, ...ORDER_CHANNELS.map((c) => ({ id: c, name: c }))],
+        renderLabel: (c) => c.name,
+        onSelect: (c) => {
+          if (c.id === "其他") {
+            openCustomTextModal("請輸入訂購管道", orderChannelValue && !ORDER_CHANNELS.includes(orderChannelValue) ? orderChannelValue : "", (val) => {
+              orderChannelValue = val;
+              container.querySelector("#o-channel-btn").textContent = val || "不指定";
+            });
+          } else {
+            orderChannelValue = c.id;
+            container.querySelector("#o-channel-btn").textContent = c.name;
+          }
+        },
+      });
     });
 
-    container.querySelector("#o-channel").addEventListener("change", (e) => {
-      container.querySelector("#o-channel-custom").style.display = e.target.value === "其他" ? "block" : "none";
+    let pickupMethodValue = order?.pickupMethod || "";
+    container.querySelector("#o-pickup-btn").addEventListener("click", () => {
+      openSearchPicker({
+        title: "選擇取貨方式",
+        items: PICKUP_METHODS.map((m) => ({ id: m, name: m })),
+        renderLabel: (m) => m.name,
+        onSelect: (m) => {
+          if (m.id === "其他") {
+            openCustomTextModal("請輸入取貨方式", pickupMethodValue && !PICKUP_METHODS.includes(pickupMethodValue) ? pickupMethodValue : "", (val) => {
+              pickupMethodValue = val;
+              container.querySelector("#o-pickup-btn").textContent = val || "請選擇";
+            });
+          } else {
+            pickupMethodValue = m.id;
+            container.querySelector("#o-pickup-btn").textContent = m.name;
+          }
+        },
+      });
     });
 
     function updateTotalPreview() {
@@ -319,7 +345,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
       const wrap = container.querySelector("#o-lineitems");
       wrap.innerHTML = lineItems.map((li, idx) => `
         <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;flex-wrap:wrap;" data-line="${idx}">
-          <button type="button" class="l-product-btn picker-trigger" style="flex:2;text-align:left;padding:8px 10px;border:1px solid var(--paper-line);border-radius:8px;background:#fff;font-size:14px;cursor:pointer;">${li.productName || "點選商品"}</button>
+          <button type="button" class="l-product-btn picker-trigger compact" style="flex:2;">${li.productName || "點選商品"}</button>
           <input type="number" class="l-qty" placeholder="數量" value="${li.qty}" style="width:70px;padding:8px;border:1px solid var(--paper-line);border-radius:8px;" />
           <input type="number" class="l-price" placeholder="單價" value="${li.unitPrice}" style="width:80px;padding:8px;border:1px solid var(--paper-line);border-radius:8px;" />
           ${lineItems.length > 1 ? `<button class="btn btn-danger l-remove" type="button" style="padding:6px 10px;font-size:12px;flex-shrink:0;">刪</button>` : ""}
@@ -388,11 +414,10 @@ export async function renderOrdersPage(container, initialFilter = null) {
       if (validLines.length === 0) { showToast("請至少選一個商品品項", "error"); return; }
       const expectedDate = container.querySelector("#o-expected").value;
       if (!expectedDate) { showToast("請選擇預計出貨/取貨日期", "error"); return; }
-      const pickupMethod = container.querySelector("#o-pickup").value;
-      if (!pickupMethod) { showToast("請選擇取貨方式", "error"); return; }
+      if (!pickupMethodValue) { showToast("請選擇取貨方式", "error"); return; }
 
-      const channelSel = container.querySelector("#o-channel").value;
-      const orderChannel = channelSel === "其他" ? container.querySelector("#o-channel-custom").value : channelSel;
+      const pickupMethod = pickupMethodValue;
+      const orderChannel = orderChannelValue;
 
       const data = {
         orderDate: container.querySelector("#o-date").value,
@@ -423,6 +448,22 @@ export async function renderOrdersPage(container, initialFilter = null) {
   }
 
   // ---------- 快速新增客戶（訂單表單內用） ----------
+  // ---------- 自訂文字輸入（訂購管道/取貨方式選「其他」時用） ----------
+  function openCustomTextModal(title, initialValue, onConfirm) {
+    const overlay = openModal(`
+      <h3 style="margin-bottom:16px;">${title}</h3>
+      <div class="field"><input type="text" id="ct-input" value="${initialValue}" /></div>
+      <div style="display:flex;justify-content:flex-end;">
+        <button class="btn btn-primary" id="ct-confirm">確定</button>
+      </div>
+    `, 360);
+    overlay.querySelector("#ct-confirm").addEventListener("click", () => {
+      const val = overlay.querySelector("#ct-input").value.trim();
+      overlay.remove();
+      onConfirm(val);
+    });
+  }
+
   function openQuickContactModal(onCreated) {
     const overlay = openModal(`
       <h3 style="margin-bottom:16px;">新增客戶</h3>

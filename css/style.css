@@ -63,7 +63,7 @@ a { color: inherit; }
 /* ---------- 捲軸 ---------- */
 /* 表單元素在 flex 排版裡一律不設最小寬度，避免撐爆容器、造成手機版跑版
    （select 的內建最小寬度常常比想像中寬，是最容易踩到這個坑的元素） */
-input, select, textarea {
+input, select, textarea, button {
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
@@ -686,7 +686,25 @@ table.simple-table tr:last-child td { border-bottom: none; }
 .switch input:checked + .switch-slider::before { transform: translateX(18px); }
 
 /* 可搜尋選擇按鈕（選客戶/商品/包材…）加上下拉箭頭提示，讓人看得出這是可以點的選擇欄位 */
-.picker-trigger { position: relative; padding-right: 28px !important; box-sizing: border-box; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.picker-trigger {
+  position: relative;
+  width: 100%;
+  text-align: left;
+  padding: 10px 28px 10px 12px !important;
+  border: 1px solid var(--paper-line);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 15px;
+  font-family: var(--font-body);
+  cursor: pointer;
+  color: var(--text-primary);
+  box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.picker-trigger.compact { padding: 8px 26px 8px 10px !important; font-size: 14px; }
 .picker-trigger::after {
   content: "▾";
   position: absolute;

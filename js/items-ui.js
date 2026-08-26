@@ -85,8 +85,8 @@ export async function renderItemsPage(container, initialFilter = null) {
       <div class="card" style="margin-bottom:16px;">
         <input type="text" id="search-input" placeholder="搜尋名稱" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;" />
         <div style="display:flex;gap:10px;">
-          <button type="button" id="filter-type-btn" class="picker-trigger" style="flex:1;text-align:left;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;background:#fff;font-size:15px;cursor:pointer;color:var(--text-primary);">全部類型</button>
-          <button type="button" id="filter-category-btn" class="picker-trigger" style="flex:1;text-align:left;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;background:#fff;font-size:15px;cursor:pointer;color:var(--text-primary);">全部分類</button>
+          <button type="button" id="filter-type-btn" class="picker-trigger" style="flex:1;">全部類型</button>
+          <button type="button" id="filter-category-btn" class="picker-trigger" style="flex:1;">全部分類</button>
         </div>
       </div>
       <div id="items-list"></div>
@@ -577,7 +577,7 @@ export async function renderItemsPage(container, initialFilter = null) {
         const comp = packagingItems.find((i) => i.id === r.itemId);
         return `
           <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;" data-rrow="${idx}">
-            <button type="button" class="r-item-btn picker-trigger" style="flex:2;padding:8px 10px;text-align:left;border:1px solid var(--paper-line);border-radius:8px;background:#fff;font-size:14px;cursor:pointer;">${comp ? comp.name : "點選包材"}</button>
+            <button type="button" class="r-item-btn picker-trigger compact" style="flex:2;">${comp ? comp.name : "點選包材"}</button>
             <input type="number" class="r-qty" placeholder="用量" value="${r.qty}" style="width:80px;padding:8px;border:1px solid var(--paper-line);border-radius:8px;" />
             ${recipeRows.length > 1 ? `<button class="btn btn-danger r-remove" type="button" style="padding:6px 10px;font-size:12px;">刪</button>` : ""}
           </div>
@@ -671,9 +671,6 @@ export async function renderItemsPage(container, initialFilter = null) {
       }
     });
 
-    overlay.querySelectorAll(".picker-trigger").forEach((el) => {
-      el.style.cssText = "width:100%;text-align:left;padding:10px 12px;border:1px solid var(--paper-line);border-radius:8px;background:#fff;font-size:15px;cursor:pointer;color:var(--text-primary);";
-    });
   }
 
   // ============================================================
@@ -704,7 +701,7 @@ export async function renderItemsPage(container, initialFilter = null) {
         const item = purchasable.find((i) => i.id === r.itemId);
         return `
           <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;flex-wrap:wrap;" data-row="${idx}">
-            <button type="button" class="row-item-btn picker-trigger" style="flex:2;padding:8px 10px;text-align:left;border:1px solid var(--paper-line);border-radius:8px;background:#fff;font-size:14px;cursor:pointer;">${item ? item.name : "選擇項目"}</button>
+            <button type="button" class="row-item-btn picker-trigger compact" style="flex:2;">${item ? item.name : "選擇項目"}</button>
             <input type="number" class="row-qty" placeholder="數量" value="${r.qty}" style="width:80px;padding:8px;border:1px solid var(--paper-line);border-radius:8px;" />
             <input type="number" class="row-amount" placeholder="金額" value="${r.amount}" style="width:90px;padding:8px;border:1px solid var(--paper-line);border-radius:8px;" />
             ${rows.length > 1 ? `<button class="btn btn-danger row-remove" style="padding:6px 10px;font-size:12px;">刪</button>` : ""}
@@ -779,9 +776,6 @@ export async function renderItemsPage(container, initialFilter = null) {
         <button class="btn btn-primary" id="s-submit">確認校正</button>
       </div>
     `);
-    overlay.querySelectorAll(".picker-trigger").forEach((el) => {
-      el.style.cssText = "width:100%;text-align:left;padding:10px 12px;border:1px solid var(--paper-line);border-radius:8px;background:#fff;font-size:15px;cursor:pointer;color:var(--text-primary);";
-    });
     overlay.querySelector("#s-item-btn").addEventListener("click", () => {
       openSearchPicker({
         title: "選擇項目",
