@@ -252,10 +252,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
     }
 
     container.innerHTML = `
-      <div class="page-header" style="justify-content:flex-start;gap:14px;">
-        <button class="btn btn-secondary" id="o-back" style="padding:8px 12px;flex-shrink:0;">← 返回訂單列表</button>
-        <h2 style="margin:0;">${isEdit ? "編輯訂單" : "新增訂單"}</h2>
-      </div>
+      ${pageNavHtml(isEdit ? "編輯訂單" : "新增訂單")}
 
       <div class="card">
         <div class="field"><label>客戶</label>
@@ -293,7 +290,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
       </div>
     `;
 
-    container.querySelector("#o-back").addEventListener("click", backToList);
+    wirePageNav(container, backToList);
 
     // picker-trigger 樣式跟 .field input 對齊
 

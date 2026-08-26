@@ -182,16 +182,13 @@ export async function renderProfitPage(container, navigateTo) {
     let searchText = "";
 
     container.innerHTML = `
-      <div class="page-header" style="justify-content:flex-start;gap:14px;margin-bottom:2px;">
-        <button class="btn btn-secondary" id="btn-back-to-summary" style="padding:8px 12px;flex-shrink:0;">← 返回利潤總覽</button>
-        <h2 style="margin:0;">${title}</h2>
-      </div>
-      <div class="hint" style="margin-bottom:14px;">${range.start} ～ ${range.end}</div>
+      ${pageNavHtml(title)}
+      <div class="hint" style="margin-bottom:14px;text-align:center;">${range.start} ～ ${range.end}</div>
       ${note ? `<div class="hint" style="margin-bottom:10px;">${note}</div>` : ""}
       <div class="settings-tabs" id="drill-tabs"></div>
       <div id="drill-content"></div>
     `;
-    container.querySelector("#btn-back-to-summary").addEventListener("click", () => {
+    wirePageNav(container, () => {
       renderSummaryShell(range);
       load(range);
     });

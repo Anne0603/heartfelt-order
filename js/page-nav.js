@@ -16,7 +16,7 @@ export function pageNavHtml(title) {
   `;
 }
 
-export function wirePageNav(container) {
+export function wirePageNav(container, onBack = null) {
   const btn = container.querySelector("#page-nav-back");
-  if (btn) btn.addEventListener("click", () => window.history.back());
+  if (btn) btn.addEventListener("click", () => (onBack ? onBack() : window.history.back()));
 }

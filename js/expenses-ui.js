@@ -148,7 +148,7 @@ export async function renderExpensesPage(container, initialFilter = null) {
           <div style="font-family:var(--font-mono);font-size:18px;font-weight:700;color:var(--rose);">$${exp.amount}</div>
         </div>
         ${canWrite() ? `
-          <div style="margin-top:10px;display:flex;gap:8px;">
+          <div style="margin-top:10px;display:flex;justify-content:flex-end;gap:8px;">
             <button class="btn btn-secondary" data-edit="${exp.id}" style="padding:7px 14px;font-size:13px;">編輯</button>
             <button class="btn btn-danger" data-del="${exp.id}" style="padding:7px 14px;font-size:13px;">刪除</button>
           </div>

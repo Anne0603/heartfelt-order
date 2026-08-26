@@ -286,17 +286,13 @@ export async function renderItemsPage(container, initialFilter = null) {
     const isTracked = STOCK_TRACKED_TYPES.includes(item.type);
 
     container.innerHTML = `
-      <div class="page-header">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <button class="btn btn-secondary" id="btn-back" style="padding:8px 12px;">← 返回列表</button>
+      ${pageNavHtml(item.name)}
+      ${canWriteType(item.type) ? `
+        <div class="page-actions-row">
+          <button class="btn btn-secondary" id="btn-edit-item">編輯</button>
+          <button class="btn ${item.status === "archived" ? "btn-success" : "btn-secondary"}" id="btn-archive-item">${item.status === "archived" ? "恢復使用" : "停用"}</button>
         </div>
-        ${canWriteType(item.type) ? `
-          <div style="display:flex;gap:8px;">
-            <button class="btn btn-secondary" id="btn-edit-item">編輯</button>
-            <button class="btn ${item.status === "archived" ? "btn-success" : "btn-secondary"}" id="btn-archive-item">${item.status === "archived" ? "恢復使用" : "停用"}</button>
-          </div>
-        ` : ""}
-      </div>
+      ` : ""}
       ${item.status === "archived" ? `<div class="seal-badge muted" style="margin-bottom:12px;"><span class="dot"></span>已停用</div>` : ""}
 
       <div class="card" style="margin-bottom:16px;">
@@ -332,7 +328,7 @@ export async function renderItemsPage(container, initialFilter = null) {
       ` : ""}
     `;
 
-    container.querySelector("#btn-back").addEventListener("click", renderListView);
+    wirePageNav(container, renderListView);
     container.querySelector("[data-preview]")?.addEventListener("click", () => openImageLightbox(item.photoUrl));
     if (canWriteType(item.type)) {
       container.querySelector("#btn-edit-item").addEventListener("click", () => openItemModal(item));

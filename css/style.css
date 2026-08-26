@@ -438,6 +438,7 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 .page-actions-row {
   display: flex;
+  justify-content: flex-end;
   gap: 10px;
   flex-wrap: wrap;
   margin-bottom: 16px;
