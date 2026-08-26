@@ -1,8 +1,8 @@
 // ============================================================
 // 商品與庫存頁面 UI（合併版）
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-6";
-import { currentSession } from "./auth.js?v=20260826-6";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-7";
+import { currentSession } from "./auth.js?v=20260826-7";
 import {
   listItems, createItem, updateItem, setItemArchived,
   addPurchaseBatch, stocktakeAdjust,
@@ -10,16 +10,16 @@ import {
   voidRecord, permanentlyDelete,
   computeStock, computeAvgCost, calcItemCost, buildItemsIndex,
   TYPE_LABELS, ORDERABLE_TYPES, STOCK_TRACKED_TYPES,
-} from "./items.js?v=20260826-6";
-import { listCategories } from "./categories.js?v=20260826-6";
-import { listUnits } from "./units.js?v=20260826-6";
-import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js?v=20260826-6";
-import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260826-6";
-import { openSearchPicker } from "./picker-ui.js?v=20260826-6";
-import { exportItems } from "./export-xlsx.js?v=20260826-6";
-import { setFab } from "./fab-ui.js?v=20260826-6";
-import { iconHtml } from "./icons.js?v=20260826-6";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-6";
+} from "./items.js?v=20260826-7";
+import { listCategories } from "./categories.js?v=20260826-7";
+import { listUnits } from "./units.js?v=20260826-7";
+import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js?v=20260826-7";
+import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260826-7";
+import { openSearchPicker } from "./picker-ui.js?v=20260826-7";
+import { exportItems } from "./export-xlsx.js?v=20260826-7";
+import { setFab } from "./fab-ui.js?v=20260826-7";
+import { iconHtml } from "./icons.js?v=20260826-7";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-7";
 
 const TYPE_HINTS = {
   self_made: "自己現做的東西，客戶可訂購。不追蹤庫存量，成本 = 配方裡每一項包材的成本加總（原料/人工每月算在「利潤總覽」）。",
@@ -55,7 +55,7 @@ function canDelete() {
 export async function renderItemsPage(container, initialFilter = null) {
   let items = [];
   let itemsById = new Map();
-  let categories = [];
+  let categoriesByType = { self_made: [], resale: [], packaging: [] };
   let units = [];
   let filterType = initialFilter?.type || "all";
   let filterCategory = "all";
@@ -63,12 +63,26 @@ export async function renderItemsPage(container, initialFilter = null) {
   let statusTab = "active"; // 'active' | 'archived'
 
   async function loadData() {
-    [items, categories, units] = await Promise.all([
+    const [itemsResult, selfMadeCats, resaleCats, packagingCats, unitsResult] = await Promise.all([
       listItems({ includeArchived: true }),
-      listCategories("items"),
+      listCategories("items_self_made"),
+      listCategories("items_resale"),
+      listCategories("items_packaging"),
       listUnits(),
     ]);
+    items = itemsResult;
+    categoriesByType = { self_made: selfMadeCats, resale: resaleCats, packaging: packagingCats };
+    units = unitsResult;
     itemsById = buildItemsIndex(items);
+  }
+
+  // 全部分類（三種類型合併，篩選用；依名稱排序、避免重複名稱重複列出）
+  function allCategoriesMerged() {
+    const seen = new Map();
+    [...categoriesByType.self_made, ...categoriesByType.resale, ...categoriesByType.packaging].forEach((c) => {
+      if (!seen.has(c.name)) seen.set(c.name, c);
+    });
+    return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
   }
 
   function unitOptions(selected) {
@@ -120,15 +134,22 @@ export async function renderItemsPage(container, initialFilter = null) {
         title: "選擇類型",
         items: TYPE_OPTIONS,
         renderLabel: (t) => t.name,
-        onSelect: (t) => { filterType = t.id; updateTypeBtnLabel(); renderList(); },
+        onSelect: (t) => {
+          filterType = t.id;
+          filterCategory = "all"; // 換類型後，分類篩選重置，避免留著不屬於新類型的分類
+          updateTypeBtnLabel();
+          updateCategoryBtnLabel();
+          renderList();
+        },
       });
     });
     container.querySelector("#filter-category-btn").addEventListener("click", () => {
+      const catList = filterType === "all" ? allCategoriesMerged() : categoriesByType[filterType] || [];
       openSearchPicker({
         title: "選擇分類",
-        items: [{ id: "all", name: "全部分類" }, ...categories],
+        items: [{ id: "all", name: "全部分類" }, ...catList],
         renderLabel: (c) => c.name,
-        emptyText: "尚未建立任何分類",
+        emptyText: "這個類型還沒有建立任何分類",
         onSelect: (c) => { filterCategory = c.id === "all" ? "all" : c.name; updateCategoryBtnLabel(); renderList(); },
       });
     });
@@ -252,7 +273,7 @@ export async function renderItemsPage(container, initialFilter = null) {
       <div class="field"><label>分類</label>
         <select id="exp-category">
           <option value="all">全部分類</option>
-          ${categories.map((c) => `<option value="${c.name}">${c.name}</option>`).join("")}
+          ${allCategoriesMerged().map((c) => `<option value="${c.name}">${c.name}</option>`).join("")}
         </select>
       </div>
       <div style="display:flex;justify-content:flex-end;">
@@ -262,6 +283,13 @@ export async function renderItemsPage(container, initialFilter = null) {
 
     overlay.querySelector("#exp-type").value = expType;
     overlay.querySelector("#exp-category").value = expCategory;
+
+    function refreshExpCategoryOptions(type) {
+      const catSelect = overlay.querySelector("#exp-category");
+      const list = type === "all" ? allCategoriesMerged() : (categoriesByType[type] || []);
+      catSelect.innerHTML = `<option value="all">全部分類</option>` + list.map((c) => `<option value="${c.name}">${c.name}</option>`).join("");
+    }
+    overlay.querySelector("#exp-type").addEventListener("change", (e) => refreshExpCategoryOptions(e.target.value));
 
     overlay.querySelector("#exp-confirm").addEventListener("click", () => {
       expStatus = overlay.querySelector("#exp-status").value;
@@ -526,9 +554,9 @@ export async function renderItemsPage(container, initialFilter = null) {
       <div class="field"><label>分類（選填）</label>
         <select id="m-category">
           <option value="">不分類</option>
-          ${categories.map((c) => `<option value="${c.name}" ${c.name === item?.category ? "selected" : ""}>${c.name}</option>`).join("")}
+          ${(categoriesByType[initialType] || []).map((c) => `<option value="${c.name}" ${c.name === item?.category ? "selected" : ""}>${c.name}</option>`).join("")}
         </select>
-        ${categories.length === 0 ? `<div class="hint">尚未建立任何分類，可以到「系統設定 → 分類管理」新增。</div>` : ""}
+        <div class="hint" id="m-category-empty-hint" style="display:${(categoriesByType[initialType] || []).length === 0 ? "block" : "none"};">這個類型還沒有建立任何分類，可以到「系統設定 → 分類管理」新增。</div>
       </div>
 
       <div class="field" id="m-price-field" style="display:${ORDERABLE_TYPES.includes(initialType) ? "block" : "none"};">
@@ -566,6 +594,9 @@ export async function renderItemsPage(container, initialFilter = null) {
       overlay.querySelector("#m-unit-field").style.display = STOCK_TRACKED_TYPES.includes(type) ? "block" : "none";
       overlay.querySelector("#m-threshold-field").style.display = STOCK_TRACKED_TYPES.includes(type) ? "block" : "none";
       overlay.querySelector("#m-type-hint").textContent = TYPE_HINTS[type];
+      const catList = categoriesByType[type] || [];
+      overlay.querySelector("#m-category").innerHTML = `<option value="">不分類</option>` + catList.map((c) => `<option value="${c.name}">${c.name}</option>`).join("");
+      overlay.querySelector("#m-category-empty-hint").style.display = catList.length === 0 ? "block" : "none";
     }
     if (!isEdit) {
       overlay.querySelector("#m-type").addEventListener("change", (e) => syncTypeFields(e.target.value));

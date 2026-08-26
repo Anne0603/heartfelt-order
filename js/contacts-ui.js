@@ -1,16 +1,27 @@
 // ============================================================
 // 客戶與廠商頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-6";
-import { currentSession } from "./auth.js?v=20260826-6";
-import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-6";
-import { listContacts, createContact, updateContact, setContactArchived } from "./contacts.js?v=20260826-6";
-import { listOrders, getPaymentStatus } from "./orders.js?v=20260826-6";
-import { listCategories } from "./categories.js?v=20260826-6";
-import { exportContacts } from "./export-xlsx.js?v=20260826-6";
-import { setFab } from "./fab-ui.js?v=20260826-6";
-import { iconHtml } from "./icons.js?v=20260826-6";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-6";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-7";
+import { currentSession } from "./auth.js?v=20260826-7";
+import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-7";
+import { listContacts, createContact, updateContact, setContactArchived } from "./contacts.js?v=20260826-7";
+import { listOrders, getPaymentStatus } from "./orders.js?v=20260826-7";
+import { listCategories } from "./categories.js?v=20260826-7";
+
+async function listMergedSupplyCategories() {
+  // 廠商供應的通常是現貨商品或包材，不是自製商品，所以合併這兩種分類清單
+  const [resale, packaging] = await Promise.all([
+    listCategories("items_resale"),
+    listCategories("items_packaging"),
+  ]);
+  const seen = new Map();
+  [...resale, ...packaging].forEach((c) => { if (!seen.has(c.name)) seen.set(c.name, c); });
+  return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+import { exportContacts } from "./export-xlsx.js?v=20260826-7";
+import { setFab } from "./fab-ui.js?v=20260826-7";
+import { iconHtml } from "./icons.js?v=20260826-7";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-7";
 
 const ROLE_LABELS = { customer: "客戶", supplier: "廠商" };
 
@@ -122,7 +133,7 @@ export async function renderContactsPage(container) {
     try {
       [contacts, inventoryCategories] = await Promise.all([
         listContacts({ includeArchived: true }),
-        listCategories("items"),
+        listMergedSupplyCategories(),
       ]);
       renderList();
     } catch (err) {

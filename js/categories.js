@@ -1,10 +1,12 @@
 // ============================================================
 // 分類管理（只有超級管理員能新增/改名/刪除）
-// module: 'items' | 'expense_cogs'（銷貨成本類別） | 'expense_opex'（營業費用類別）
+// module:
+//   'items_self_made'（自製商品分類） | 'items_resale'（現貨商品分類） | 'items_packaging'（包材分類）
+//   'expense_cogs'（銷貨成本類別） | 'expense_opex'（營業費用類別）
 // 改名會連動更新所有正在使用這個分類的資料，不留孤兒分類。
 // 刪除前會檢查有沒有東西在用，有的話擋下來、告訴你有幾筆在用。
 // ============================================================
-import { db } from "./firebase-config.js?v=20260826-6";
+import { db } from "./firebase-config.js?v=20260826-7";
 import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
   query, where, serverTimestamp, writeBatch
@@ -13,15 +15,21 @@ import {
 const categoriesCol = collection(db, "categories");
 
 function targetCollectionName(module) {
-  return module.startsWith("expense_") ? "expenses" : "items";
+  if (module.startsWith("expense_")) return "expenses";
+  if (module.startsWith("items_")) return "items";
+  return "items";
 }
 
-// 支出的兩份分類清單都存在同一個 expenses collection 裡，
-// 用 costType 欄位區分，比對用量/改名時要一併篩選，避免銷貨成本跟
-// 營業費用剛好取了同名分類時互相誤判。
-function costTypeOf(module) {
-  if (module === "expense_cogs") return "cogs";
-  if (module === "expense_opex") return "opex";
+// 有些分類清單共用同一個資料表（例如商品的三種類型都存在 items
+// collection 裡，支出的兩種類型都存在 expenses collection 裡），用這個
+// 判別欄位去區分，比對用量/改名時要一併篩選，避免不同類型剛好取了
+// 同名分類時互相誤判。
+function discriminatorOf(module) {
+  if (module === "expense_cogs") return { field: "costType", value: "cogs" };
+  if (module === "expense_opex") return { field: "costType", value: "opex" };
+  if (module === "items_self_made") return { field: "type", value: "self_made" };
+  if (module === "items_resale") return { field: "type", value: "resale" };
+  if (module === "items_packaging") return { field: "type", value: "packaging" };
   return null;
 }
 
@@ -44,10 +52,10 @@ export async function createCategory(module, name) {
 
 function buildUsageQuery(module, name) {
   const colName = targetCollectionName(module);
-  const costType = costTypeOf(module);
+  const discriminator = discriminatorOf(module);
   const base = collection(db, colName);
-  return costType
-    ? query(base, where("category", "==", name), where("costType", "==", costType))
+  return discriminator
+    ? query(base, where("category", "==", name), where(discriminator.field, "==", discriminator.value))
     : query(base, where("category", "==", name));
 }
 

@@ -3,17 +3,17 @@
 // Cloudinary 設定 / 待審核申請 / 成員
 // 品牌圖案改成「直接點側邊欄 Logo 上傳」，邏輯在 app.js
 // ============================================================
-import { db } from "./firebase-config.js?v=20260826-6";
+import { db } from "./firebase-config.js?v=20260826-7";
 import {
   doc, getDoc, setDoc, deleteDoc,
   collection, getDocs, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-6";
-import { currentSession, ROLE_LABELS } from "./auth.js?v=20260826-6";
-import { listCategories, createCategory, renameCategory, deleteCategory } from "./categories.js?v=20260826-6";
-import { listUnits, createUnit, renameUnit, deleteUnit } from "./units.js?v=20260826-6";
-import { confirmDialog } from "./modal-ui.js?v=20260826-6";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-6";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-7";
+import { currentSession, ROLE_LABELS } from "./auth.js?v=20260826-7";
+import { listCategories, createCategory, renameCategory, deleteCategory } from "./categories.js?v=20260826-7";
+import { listUnits, createUnit, renameUnit, deleteUnit } from "./units.js?v=20260826-7";
+import { confirmDialog } from "./modal-ui.js?v=20260826-7";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-7";
 
 const CLOUDINARY_DOC = doc(db, "publicSettings", "cloudinary");
 const BRAND_DOC = doc(db, "publicSettings", "brand");
@@ -270,11 +270,27 @@ export async function renderCategoriesPage(container) {
   container.innerHTML = `
     ${pageNavHtml("分類管理")}
     <div class="card" style="margin-bottom:16px;">
-      <h3 style="font-size:15px;margin-bottom:10px;">商品與庫存分類</h3>
-      <div id="cat-items-list"></div>
+      <h3 style="font-size:15px;margin-bottom:10px;">自製商品分類</h3>
+      <div id="cat-selfmade-list"></div>
       <div style="display:flex;gap:8px;margin-top:10px;">
-        <input type="text" id="cat-items-input" placeholder="新增分類名稱" style="flex:1;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;" />
-        <button class="btn btn-primary" id="cat-items-add" style="padding:9px 16px;">新增</button>
+        <input type="text" id="cat-selfmade-input" placeholder="新增分類名稱，例如：月餅" style="flex:1;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;" />
+        <button class="btn btn-primary" id="cat-selfmade-add" style="padding:9px 16px;">新增</button>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="font-size:15px;margin-bottom:10px;">現貨商品分類</h3>
+      <div id="cat-resale-list"></div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <input type="text" id="cat-resale-input" placeholder="新增分類名稱" style="flex:1;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;" />
+        <button class="btn btn-primary" id="cat-resale-add" style="padding:9px 16px;">新增</button>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="font-size:15px;margin-bottom:10px;">包材分類</h3>
+      <div id="cat-packaging-list"></div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <input type="text" id="cat-packaging-input" placeholder="新增分類名稱，例如：盒子" style="flex:1;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;" />
+        <button class="btn btn-primary" id="cat-packaging-add" style="padding:9px 16px;">新增</button>
       </div>
     </div>
     <div class="card" style="margin-bottom:16px;">
@@ -298,7 +314,9 @@ export async function renderCategoriesPage(container) {
   `;
 
   wirePageNav(container);
-  await setupCategorySection("items", "cat-items-list", "cat-items-input", "cat-items-add");
+  await setupCategorySection("items_self_made", "cat-selfmade-list", "cat-selfmade-input", "cat-selfmade-add");
+  await setupCategorySection("items_resale", "cat-resale-list", "cat-resale-input", "cat-resale-add");
+  await setupCategorySection("items_packaging", "cat-packaging-list", "cat-packaging-input", "cat-packaging-add");
   await setupCategorySection("expense_cogs", "cat-cogs-list", "cat-cogs-input", "cat-cogs-add");
   await setupCategorySection("expense_opex", "cat-opex-list", "cat-opex-input", "cat-opex-add");
 
