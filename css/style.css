@@ -121,6 +121,12 @@ input[type="number"]::-webkit-inner-spin-button {
   font-weight: 900;
   transform: rotate(-6deg);
   box-shadow: 0 4px 10px rgba(168,67,58,0.35);
+  overflow: hidden;
+}
+.login-seal:has(img) {
+  transform: none;
+  box-shadow: 0 4px 10px rgba(30,35,48,0.18);
+  background: var(--paper);
 }
 .login-card h1 {
   font-size: 25px;
