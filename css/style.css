@@ -399,6 +399,49 @@ input[type="number"]::-webkit-inner-spin-button {
   gap: 10px;
 }
 .page-header h2 { font-size: 28px; color: var(--ink); }
+
+/* ---------- 共用頁面導覽標頭（除了首頁，其他頁面都用這個） ---------- */
+.page-nav {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  margin-bottom: 22px;
+}
+.page-nav-back {
+  width: 36px; height: 36px;
+  border-radius: 9px;
+  border: 1px solid var(--paper-line);
+  background: var(--paper-raised);
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  z-index: 1;
+}
+.page-nav-back svg { width: 18px; height: 18px; display: block; }
+.page-nav-back:hover { background: var(--paper); }
+.page-nav-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  font-size: 21px;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: calc(100% - 96px);
+  text-align: center;
+}
+.page-actions-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
 .page-header .desc { font-size: 14.5px; color: var(--text-muted); margin-top: 4px; }
 
 .card {

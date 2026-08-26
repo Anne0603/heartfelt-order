@@ -5,6 +5,7 @@ import { listOrders, getPaymentStatus } from "./orders.js";
 import { listItems, buildItemsIndex } from "./items.js";
 import { renderDateRangePicker } from "./date-range-ui.js";
 import { linkifyErrorMessage } from "./utils.js";
+import { pageNavHtml, wirePageNav } from "./page-nav.js";
 
 function barRow(label, value, maxValue, formatValue) {
   const pct = maxValue > 0 ? Math.max(4, (value / maxValue) * 100) : 0;
@@ -31,11 +32,12 @@ export async function renderReportsPage(container) {
   let activeTab = "overview";
 
   container.innerHTML = `
-    <div class="page-header"><h2>統計報表</h2></div>
+    ${pageNavHtml("統計報表")}
     <div id="range-picker"></div>
     <div class="settings-tabs" id="report-tabs"></div>
     <div id="reports-content"></div>
   `;
+  wirePageNav(container);
 
   const tabsEl = container.querySelector("#report-tabs");
   const contentEl = container.querySelector("#reports-content");

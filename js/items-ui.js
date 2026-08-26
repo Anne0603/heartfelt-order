@@ -19,6 +19,7 @@ import { openSearchPicker } from "./picker-ui.js";
 import { exportItems } from "./export-xlsx.js";
 import { setFab } from "./fab-ui.js";
 import { iconHtml } from "./icons.js";
+import { pageNavHtml, wirePageNav } from "./page-nav.js";
 
 const TYPE_HINTS = {
   self_made: "自己現做的東西，客戶可訂購。不追蹤庫存量，成本 = 配方裡每一項包材的成本加總（原料/人工每月算在「利潤總覽」）。",
@@ -74,8 +75,8 @@ export async function renderItemsPage(container, initialFilter = null) {
   // ============================================================
   async function renderListView() {
     container.innerHTML = `
-      <div class="page-header">
-        <h2>商品與庫存</h2>
+      ${pageNavHtml("商品與庫存")}
+      <div class="page-actions-row">
         <button class="btn btn-secondary" id="btn-export-items" style="padding:8px 14px;font-size:13px;">匯出</button>
       </div>
       <div class="pill-toggle" id="status-toggle">
@@ -128,6 +129,7 @@ export async function renderItemsPage(container, initialFilter = null) {
         onSelect: (c) => { filterCategory = c.id === "all" ? "all" : c.name; updateCategoryBtnLabel(); renderList(); },
       });
     });
+    wirePageNav(container);
     container.querySelector("#status-toggle").addEventListener("click", (e) => {
       const btn = e.target.closest("[data-status]");
       if (!btn) return;

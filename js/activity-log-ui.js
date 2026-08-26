@@ -7,6 +7,7 @@
 import { listActivityLogPage, listActivityLogByDateRange, MODULE_LABELS } from "./activity-log.js";
 import { renderDateRangePicker } from "./date-range-ui.js";
 import { toJSDate } from "./utils.js";
+import { pageNavHtml, wirePageNav } from "./page-nav.js";
 
 const ACTION_LABELS = {
   create: "新增", update: "編輯", archive: "停用", restore: "恢復使用",
@@ -35,7 +36,7 @@ export async function renderActivityLogPage(container) {
   let currentRange = null;
 
   container.innerHTML = `
-    <div class="page-header"><h2>操作紀錄</h2></div>
+    ${pageNavHtml("操作紀錄")}
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
       <input type="text" id="search-input" placeholder="搜尋操作內容/人員" style="flex:1;min-width:160px;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;" />
       <button class="btn btn-secondary" id="btn-toggle-date" style="padding:9px 14px;font-size:13px;">依日期篩選</button>
@@ -49,6 +50,7 @@ export async function renderActivityLogPage(container) {
     </div>
   `;
 
+  wirePageNav(container);
   const tabsEl = container.querySelector("#log-tabs");
   const listEl = container.querySelector("#log-list");
   const hintEl = container.querySelector("#log-hint");

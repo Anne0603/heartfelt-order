@@ -10,6 +10,7 @@ import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js";
 import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js";
 import { setFab } from "./fab-ui.js";
 import { iconHtml } from "./icons.js";
+import { pageNavHtml, wirePageNav } from "./page-nav.js";
 
 function canWrite() {
   return ["superadmin", "admin"].includes(currentSession.member?.role);
@@ -34,9 +35,7 @@ export async function renderExpensesPage(container, initialFilter = null) {
   let rangeEnd = initialFilter?.rangeEnd || defaultRange.end;
 
   container.innerHTML = `
-    <div class="page-header">
-      <h2>支出管理</h2>
-    </div>
+    ${pageNavHtml("支出管理")}
     <div class="card" style="margin-bottom:16px;">
       <input type="text" id="search-input" placeholder="搜尋備註/金額" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;" />
       <select id="filter-costtype" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;">
@@ -57,6 +56,7 @@ export async function renderExpensesPage(container, initialFilter = null) {
     <div id="expenses-list"></div>
   `;
 
+  wirePageNav(container);
   container.querySelector("#filter-costtype").value = filterCostType;
 
   container.querySelector("#search-input").addEventListener("input", (e) => {

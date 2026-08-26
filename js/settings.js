@@ -13,6 +13,7 @@ import { currentSession, ROLE_LABELS } from "./auth.js";
 import { listCategories, createCategory, renameCategory, deleteCategory } from "./categories.js";
 import { listUnits, createUnit, renameUnit, deleteUnit } from "./units.js";
 import { confirmDialog } from "./modal-ui.js";
+import { pageNavHtml, wirePageNav } from "./page-nav.js";
 
 const CLOUDINARY_DOC = doc(db, "publicSettings", "cloudinary");
 const BRAND_DOC = doc(db, "publicSettings", "brand");
@@ -102,7 +103,7 @@ function roleOptionsHtml(selected) {
 export async function renderCloudinaryPage(container) {
   const cloudSettings = await getCloudinarySettings();
   container.innerHTML = `
-    <div class="page-header"><h2>Cloudinary</h2></div>
+    ${pageNavHtml("Cloudinary")}
     <div class="card">
       <div class="field">
         <label>Cloud Name</label>
@@ -115,6 +116,7 @@ export async function renderCloudinaryPage(container) {
       <button class="btn btn-primary" id="btn-save-cloudinary">儲存</button>
     </div>
   `;
+  wirePageNav(container);
   container.querySelector("#btn-save-cloudinary").addEventListener("click", async (e) => {
     const btn = e.currentTarget;
     const cloudName = container.querySelector("#input-cloud-name").value;
@@ -138,9 +140,10 @@ export async function renderCloudinaryPage(container) {
 // ---------- 待審核申請 ----------
 export async function renderPendingPage(container) {
   container.innerHTML = `
-    <div class="page-header"><h2>待審核申請</h2></div>
+    ${pageNavHtml("待審核申請")}
     <div id="pending-list"></div>
   `;
+  wirePageNav(container);
   const listEl = container.querySelector("#pending-list");
   await refresh();
 
@@ -200,9 +203,10 @@ export async function renderPendingPage(container) {
 // ---------- 成員 ----------
 export async function renderMembersPage(container) {
   container.innerHTML = `
-    <div class="page-header"><h2>成員</h2></div>
+    ${pageNavHtml("成員")}
     <div id="members-list"></div>
   `;
+  wirePageNav(container);
   const listEl = container.querySelector("#members-list");
   await refresh();
 
@@ -264,7 +268,7 @@ export async function renderMembersPage(container) {
 // ---------- 分類管理 ----------
 export async function renderCategoriesPage(container) {
   container.innerHTML = `
-    <div class="page-header"><h2>分類管理</h2></div>
+    ${pageNavHtml("分類管理")}
     <div class="card" style="margin-bottom:16px;">
       <h3 style="font-size:15px;margin-bottom:10px;">商品與庫存分類</h3>
       <div id="cat-items-list"></div>
@@ -293,6 +297,7 @@ export async function renderCategoriesPage(container) {
     </div>
   `;
 
+  wirePageNav(container);
   await setupCategorySection("items", "cat-items-list", "cat-items-input", "cat-items-add");
   await setupCategorySection("expense_cogs", "cat-cogs-list", "cat-cogs-input", "cat-cogs-add");
   await setupCategorySection("expense_opex", "cat-opex-list", "cat-opex-input", "cat-opex-add");
@@ -369,7 +374,7 @@ export async function renderCategoriesPage(container) {
 // ---------- 單位管理 ----------
 export async function renderUnitsPage(container) {
   container.innerHTML = `
-    <div class="page-header"><h2>單位管理</h2></div>
+    ${pageNavHtml("單位管理")}
     <div class="card">
       <h3 style="font-size:15px;margin-bottom:10px;">數量單位</h3>
       <div id="unit-list"></div>
@@ -379,6 +384,7 @@ export async function renderUnitsPage(container) {
       </div>
     </div>
   `;
+  wirePageNav(container);
 
   const listEl = container.querySelector("#unit-list");
   const inputEl = container.querySelector("#unit-input");

@@ -13,14 +13,16 @@ import { listOrders } from "./orders.js";
 import { listExpensesInRange } from "./expenses.js";
 import { renderDateRangePicker } from "./date-range-ui.js";
 import { linkifyErrorMessage } from "./utils.js";
+import { pageNavHtml, wirePageNav } from "./page-nav.js";
 
 export async function renderProfitPage(container, navigateTo) {
   function renderSummaryShell(initialRange) {
     container.innerHTML = `
-      <div class="page-header"><h2>利潤總覽</h2></div>
+      ${pageNavHtml("利潤總覽")}
       <div id="range-picker"></div>
       <div id="profit-summary"></div>
     `;
+    wirePageNav(container);
     const { getRange } = renderDateRangePicker(container.querySelector("#range-picker"), (range) => load(range), initialRange);
     return getRange;
   }

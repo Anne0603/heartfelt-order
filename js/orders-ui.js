@@ -15,6 +15,7 @@ import { exportOrders } from "./export-xlsx.js";
 import { setFab, clearFab } from "./fab-ui.js";
 import { openSearchPicker } from "./picker-ui.js";
 import { openModal, confirmDialog } from "./modal-ui.js";
+import { pageNavHtml, wirePageNav } from "./page-nav.js";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
@@ -51,8 +52,8 @@ export async function renderOrdersPage(container, initialFilter = null) {
 
   function renderListView() {
     container.innerHTML = `
-      <div class="page-header">
-        <h2>訂單管理</h2>
+      ${pageNavHtml("訂單管理")}
+      <div class="page-actions-row">
         <button class="btn btn-secondary" id="btn-export-orders" style="padding:8px 14px;font-size:13px;">匯出</button>
       </div>
       <div class="card" style="margin-bottom:16px;">
@@ -79,6 +80,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
       <div id="orders-list"></div>
     `;
 
+    wirePageNav(container);
     container.querySelector("#filter-status").value = filterShipStatus;
     container.querySelector("#filter-quick").value = filterQuick;
     container.querySelector("#search-input").addEventListener("input", (e) => {

@@ -10,6 +10,7 @@ import { listCategories } from "./categories.js";
 import { exportContacts } from "./export-xlsx.js";
 import { setFab } from "./fab-ui.js";
 import { iconHtml } from "./icons.js";
+import { pageNavHtml, wirePageNav } from "./page-nav.js";
 
 const ROLE_LABELS = { customer: "客戶", supplier: "廠商" };
 
@@ -26,8 +27,8 @@ export async function renderContactsPage(container) {
   let statusTab = "active"; // 'active' | 'archived'
 
   container.innerHTML = `
-    <div class="page-header">
-      <h2>客戶與廠商</h2>
+    ${pageNavHtml("客戶與廠商")}
+    <div class="page-actions-row">
       <button class="btn btn-secondary" id="btn-export-contacts" style="padding:8px 14px;font-size:13px;">匯出</button>
     </div>
     <div class="pill-toggle" id="status-toggle">
@@ -47,6 +48,7 @@ export async function renderContactsPage(container) {
     <div id="contacts-list"></div>
   `;
 
+  wirePageNav(container);
   container.querySelector("#search-input").addEventListener("input", (e) => {
     searchText = e.target.value.trim().toLowerCase();
     renderList();

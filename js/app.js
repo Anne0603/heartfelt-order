@@ -3,6 +3,7 @@
 // ============================================================
 import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName } from "./auth.js";
 import { iconHtml } from "./icons.js";
+import { pageNavHtml, wirePageNav } from "./page-nav.js";
 import { openProfileModal } from "./profile-ui.js";
 import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, getPendingCount } from "./settings.js";
 import { renderHomePage } from "./home.js";
@@ -189,12 +190,13 @@ async function renderCurrentModule() {
 
   if (!meta.roles.includes(myRole)) {
     mainContent.innerHTML = `
-      <div class="page-header"><h2>沒有權限</h2></div>
+      ${pageNavHtml("沒有權限")}
       <div class="card placeholder-page">
         <div class="icon-badge">心</div>
         <h3>無法使用這個功能</h3>
       </div>
     `;
+    wirePageNav(mainContent);
     return;
   }
 
@@ -231,12 +233,13 @@ async function renderCurrentModule() {
   if (currentModule === "members") return renderMembersPage(mainContent);
 
   mainContent.innerHTML = `
-    <div class="page-header"><h2>${meta.label}</h2></div>
+    ${pageNavHtml(meta.label)}
     <div class="card placeholder-page">
       <div class="icon-badge">心</div>
       <h3>${meta.label}即將推出</h3>
     </div>
   `;
+  wirePageNav(mainContent);
 }
 
 function handleHashRoute() {
