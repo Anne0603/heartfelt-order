@@ -75,10 +75,7 @@ export async function renderItemsPage(container, initialFilter = null) {
   // ============================================================
   async function renderListView() {
     container.innerHTML = `
-      ${pageNavHtml("商品與庫存")}
-      <div class="page-actions-row">
-        <button class="btn btn-secondary" id="btn-export-items" style="padding:8px 14px;font-size:13px;">匯出</button>
-      </div>
+      ${pageNavHtml("商品與庫存", `<button class="btn btn-secondary" id="btn-export-items" style="padding:7px 12px;font-size:13px;">匯出</button>`)}
       <div class="pill-toggle" id="status-toggle">
         <button class="pill-toggle-btn ${statusTab === "active" ? "active" : ""}" data-status="active">使用中</button>
         <button class="pill-toggle-btn ${statusTab === "archived" ? "active" : ""}" data-status="archived">已停用</button>

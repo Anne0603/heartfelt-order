@@ -52,10 +52,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
 
   function renderListView() {
     container.innerHTML = `
-      ${pageNavHtml("訂單管理")}
-      <div class="page-actions-row">
-        <button class="btn btn-secondary" id="btn-export-orders" style="padding:8px 14px;font-size:13px;">匯出</button>
-      </div>
+      ${pageNavHtml("訂單管理", `<button class="btn btn-secondary" id="btn-export-orders" style="padding:7px 12px;font-size:13px;">匯出</button>`)}
       <div class="card" style="margin-bottom:16px;">
         <input type="text" id="search-input" placeholder="搜尋訂單編號/客戶/電話" value="${searchText}" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;" />
         <select id="filter-status" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;">

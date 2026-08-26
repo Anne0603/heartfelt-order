@@ -7,11 +7,12 @@
 // ============================================================
 import { ICONS } from "./icons.js";
 
-export function pageNavHtml(title) {
+export function pageNavHtml(title, rightActionHtml = "") {
   return `
     <div class="page-nav">
       <button class="page-nav-back" id="page-nav-back" aria-label="返回">${ICONS.arrowLeft}</button>
       <h2 class="page-nav-title">${title}</h2>
+      ${rightActionHtml ? `<div class="page-nav-right">${rightActionHtml}</div>` : ""}
     </div>
   `;
 }
