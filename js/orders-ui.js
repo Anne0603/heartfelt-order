@@ -1,21 +1,21 @@
 // ============================================================
 // 訂單管理頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-3";
-import { currentSession } from "./auth.js?v=20260826-3";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-4";
+import { currentSession } from "./auth.js?v=20260826-4";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, getPaymentStatus,
   markShipped, markDone, voidOrder,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel, normalizeShipStatus,
-} from "./orders.js?v=20260826-3";
-import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-3";
-import { listContacts, createContact } from "./contacts.js?v=20260826-3";
-import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-3";
-import { exportOrders } from "./export-xlsx.js?v=20260826-3";
-import { setFab, clearFab } from "./fab-ui.js?v=20260826-3";
-import { openSearchPicker } from "./picker-ui.js?v=20260826-3";
-import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-3";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-3";
+} from "./orders.js?v=20260826-4";
+import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-4";
+import { listContacts, createContact } from "./contacts.js?v=20260826-4";
+import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-4";
+import { exportOrders } from "./export-xlsx.js?v=20260826-4";
+import { setFab, clearFab } from "./fab-ui.js?v=20260826-4";
+import { openSearchPicker } from "./picker-ui.js?v=20260826-4";
+import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-4";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-4";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
@@ -195,19 +195,24 @@ export async function renderOrdersPage(container, initialFilter = null) {
     return filtered;
   }
 
+  async function fetchOrdersData() {
+    [orders, allItems, contacts] = await Promise.all([
+      listOrders(),
+      listItems({ includeArchived: true }),
+      listContacts(),
+    ]);
+    itemsById = buildItemsIndex(allItems);
+  }
+
   async function reload() {
     const listEl = container.querySelector("#orders-list");
-    listEl.innerHTML = `<div class="card" style="color:var(--text-muted);">載入中…</div>`;
+    if (listEl) listEl.innerHTML = `<div class="card" style="color:var(--text-muted);">載入中…</div>`;
     try {
-      [orders, allItems, contacts] = await Promise.all([
-        listOrders(),
-        listItems({ includeArchived: true }),
-        listContacts(),
-      ]);
-      itemsById = buildItemsIndex(allItems);
-      renderList();
+      await fetchOrdersData();
+      if (container.querySelector("#orders-list")) renderList();
     } catch (err) {
-      listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${linkifyErrorMessage(err.message)}</div>`;
+      if (listEl) listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${linkifyErrorMessage(err.message)}</div>`;
+      else showToast("載入失敗：" + err.message, "error");
     }
   }
 

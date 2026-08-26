@@ -1,16 +1,16 @@
 // ============================================================
 // 客戶與廠商頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-3";
-import { currentSession } from "./auth.js?v=20260826-3";
-import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-3";
-import { listContacts, createContact, updateContact, setContactArchived } from "./contacts.js?v=20260826-3";
-import { listOrders, getPaymentStatus } from "./orders.js?v=20260826-3";
-import { listCategories } from "./categories.js?v=20260826-3";
-import { exportContacts } from "./export-xlsx.js?v=20260826-3";
-import { setFab } from "./fab-ui.js?v=20260826-3";
-import { iconHtml } from "./icons.js?v=20260826-3";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-3";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-4";
+import { currentSession } from "./auth.js?v=20260826-4";
+import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-4";
+import { listContacts, createContact, updateContact, setContactArchived } from "./contacts.js?v=20260826-4";
+import { listOrders, getPaymentStatus } from "./orders.js?v=20260826-4";
+import { listCategories } from "./categories.js?v=20260826-4";
+import { exportContacts } from "./export-xlsx.js?v=20260826-4";
+import { setFab } from "./fab-ui.js?v=20260826-4";
+import { iconHtml } from "./icons.js?v=20260826-4";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-4";
 
 const ROLE_LABELS = { customer: "客戶", supplier: "廠商" };
 
