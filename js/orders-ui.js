@@ -1,21 +1,21 @@
 // ============================================================
 // 訂單管理頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-2";
-import { currentSession } from "./auth.js?v=20260826-2";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-3";
+import { currentSession } from "./auth.js?v=20260826-3";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, getPaymentStatus,
   markShipped, markDone, voidOrder,
-  SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel,
-} from "./orders.js?v=20260826-2";
-import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-2";
-import { listContacts, createContact } from "./contacts.js?v=20260826-2";
-import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-2";
-import { exportOrders } from "./export-xlsx.js?v=20260826-2";
-import { setFab, clearFab } from "./fab-ui.js?v=20260826-2";
-import { openSearchPicker } from "./picker-ui.js?v=20260826-2";
-import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-2";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-2";
+  SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel, normalizeShipStatus,
+} from "./orders.js?v=20260826-3";
+import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-3";
+import { listContacts, createContact } from "./contacts.js?v=20260826-3";
+import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-3";
+import { exportOrders } from "./export-xlsx.js?v=20260826-3";
+import { setFab, clearFab } from "./fab-ui.js?v=20260826-3";
+import { openSearchPicker } from "./picker-ui.js?v=20260826-3";
+import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-3";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-3";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
@@ -632,8 +632,9 @@ export async function renderOrdersPage(container, initialFilter = null) {
 
     const primaryBtns = [];
     const utilityBtns = [];
+    const normalizedStatus = normalizeShipStatus(order.shipStatus);
 
-    if (canWrite() && order.shipStatus === "pending") {
+    if (canWrite() && normalizedStatus === "pending") {
       primaryBtns.push({ label: "標記已出貨", cls: "btn-primary", handler: async (e) => {
         e.currentTarget.disabled = true;
         try {
@@ -648,7 +649,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
       }});
       utilityBtns.push({ label: "編輯訂單", cls: "btn-secondary", handler: () => renderOrderFormPage(order) });
     }
-    if (canWrite() && order.shipStatus === "shipped") {
+    if (canWrite() && normalizedStatus === "shipped") {
       primaryBtns.push({ label: "標記已完成", cls: "btn-primary", handler: async (e) => {
         e.currentTarget.disabled = true;
         try {

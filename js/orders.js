@@ -12,14 +12,14 @@
 // lineItems[].unitCost，之後商品成本再怎麼調整，都不會動到這張訂單
 // 已經算好的毛利。
 // ============================================================
-import { db } from "./firebase-config.js?v=20260826-2";
+import { db } from "./firebase-config.js?v=20260826-3";
 import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc,
   serverTimestamp, runTransaction, query, orderBy as fbOrderBy
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { currentSession, getDisplayName } from "./auth.js?v=20260826-2";
-import { addUsage, listUsagesByOrder, voidRecord, calcItemCost } from "./items.js?v=20260826-2";
-import { logActivity } from "./activity-log.js?v=20260826-2";
+import { currentSession, getDisplayName } from "./auth.js?v=20260826-3";
+import { addUsage, listUsagesByOrder, voidRecord, calcItemCost } from "./items.js?v=20260826-3";
+import { logActivity } from "./activity-log.js?v=20260826-3";
 
 const ordersCol = collection(db, "orders");
 
@@ -30,8 +30,17 @@ export const PAYMENT_STATUS_LABELS = { unpaid: "未收款", deposit: "已收訂�
  * 安全取得出貨狀態的中文顯示。舊資料如果剛好停在已經拿掉的狀態
  * （例如以前的「備貨中」），就當作「待處理」顯示，不會出現英文字。
  */
+/**
+ * 把出貨狀態正規化成三段裡的其中一種。任何不是「已出貨」「已完成」的值
+ * （包含舊資料可能停留的「備貨中」），都當作「待處理」處理——不只是
+ * 顯示文字，連可以按哪些操作按鈕的判斷也要用這個，兩邊才會一致。
+ */
+export function normalizeShipStatus(status) {
+  return ["shipped", "done"].includes(status) ? status : "pending";
+}
+
 export function getShipStatusLabel(status) {
-  return SHIP_STATUS_LABELS[status] || SHIP_STATUS_LABELS.pending;
+  return SHIP_STATUS_LABELS[normalizeShipStatus(status)];
 }
 
 /** 收款狀態直接從「實收金額」算出來，不再手動選，永遠準確 */

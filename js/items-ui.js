@@ -1,8 +1,8 @@
 // ============================================================
 // 商品與庫存頁面 UI（合併版）
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-2";
-import { currentSession } from "./auth.js?v=20260826-2";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-3";
+import { currentSession } from "./auth.js?v=20260826-3";
 import {
   listItems, createItem, updateItem, setItemArchived,
   addPurchaseBatch, stocktakeAdjust,
@@ -10,16 +10,16 @@ import {
   voidRecord, permanentlyDelete,
   computeStock, computeAvgCost, calcItemCost, buildItemsIndex,
   TYPE_LABELS, ORDERABLE_TYPES, STOCK_TRACKED_TYPES,
-} from "./items.js?v=20260826-2";
-import { listCategories } from "./categories.js?v=20260826-2";
-import { listUnits } from "./units.js?v=20260826-2";
-import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js?v=20260826-2";
-import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260826-2";
-import { openSearchPicker } from "./picker-ui.js?v=20260826-2";
-import { exportItems } from "./export-xlsx.js?v=20260826-2";
-import { setFab } from "./fab-ui.js?v=20260826-2";
-import { iconHtml } from "./icons.js?v=20260826-2";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-2";
+} from "./items.js?v=20260826-3";
+import { listCategories } from "./categories.js?v=20260826-3";
+import { listUnits } from "./units.js?v=20260826-3";
+import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js?v=20260826-3";
+import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260826-3";
+import { openSearchPicker } from "./picker-ui.js?v=20260826-3";
+import { exportItems } from "./export-xlsx.js?v=20260826-3";
+import { setFab } from "./fab-ui.js?v=20260826-3";
+import { iconHtml } from "./icons.js?v=20260826-3";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-3";
 
 const TYPE_HINTS = {
   self_made: "自己現做的東西，客戶可訂購。不追蹤庫存量，成本 = 配方裡每一項包材的成本加總（原料/人工每月算在「利潤總覽」）。",
