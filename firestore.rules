@@ -55,10 +55,11 @@ service cloud.firestore {
     }
 
     // ---------- 成員 / 待審核申請 ----------
+    // 這份資料含有角色（role）這種敏感資訊，只有本人跟超級管理員看得到，
+    // 不能放寬給所有成員查（否則角色分配會外洩）。要查「別人現在叫什麼
+    // 名字」請改查下面的 publicProfiles，那份只存暱稱、不含角色。
     match /members/{email} {
-      // 自己的資料一定看得到；其他已核准成員的資料也能個別用信箱查（用來即時顯示暱稱），
-      // 但不能列出完整名單（allow list 還是限超級管理員）。
-      allow get: if isSignedIn() && (request.auth.token.email == email || isActiveMember());
+      allow get: if isSignedIn() && (request.auth.token.email == email || isSuperadmin());
       allow list: if isSuperadmin();
 
       allow create: if isSignedIn()
@@ -71,6 +72,15 @@ service cloud.firestore {
         || (isSignedIn() && request.auth.token.email == email
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nickname']));
       allow delete: if isSuperadmin();
+    }
+
+    // ---------- 公開的暱稱資料（只有暱稱，不含角色/狀態等敏感資訊） ----------
+    // 每個人只能寫自己的這一份；任何已核准成員都能用信箱查別人現在的暱稱，
+    // 但不能列出完整名單（防止直接掃出全部人）。
+    match /publicProfiles/{email} {
+      allow get: if isActiveMember();
+      allow list: if false;
+      allow write: if isSignedIn() && request.auth.token.email == email;
     }
 
     // ---------- 公開設定（登入前就要能讀） ----------
@@ -116,9 +126,15 @@ service cloud.firestore {
 
     match /items/{itemId} {
       allow read: if hasRole(['superadmin', 'admin', 'order_staff', 'viewer']);
-      // 自製商品的定價由管理員以上決定；其餘類型（現貨/包材）訂單進出貨人員也能建立/編輯
-      allow create, update: if hasRole(['superadmin', 'admin'])
+      // 自製商品的定價由管理員以上決定；其餘類型（現貨/包材）訂單進出貨人員也能建立/編輯。
+      // update 額外檢查「原本」的類型也要在允許範圍內、而且類型本身不能被改，
+      // 避免 order_staff 假裝在編輯現貨/包材、實際上偷改自製商品的其他欄位。
+      allow create: if hasRole(['superadmin', 'admin'])
         || (hasRole(['order_staff']) && request.resource.data.type in ['resale', 'packaging']);
+      allow update: if hasRole(['superadmin', 'admin'])
+        || (hasRole(['order_staff'])
+            && resource.data.type in ['resale', 'packaging']
+            && request.resource.data.type == resource.data.type);
       allow delete: if isSuperadmin();
     }
     match /itemPurchases/{recId} {
@@ -154,7 +170,9 @@ service cloud.firestore {
     // ---------- 操作紀錄（誰、什麼時候、做了什麼；不可修改/刪除，保持稽核紀錄完整性） ----------
     match /activityLog/{logId} {
       allow read: if isSuperadmin();
-      allow create: if hasRole(['superadmin', 'admin', 'order_staff']);
+      // 四種角色都能寫入：一般業務操作（訂單/商品/客戶/支出）本來就限定在 admin 以上，
+      // 唯讀成員唯一會觸發記錄的動作是「改自己的暱稱/大頭貼」，所以也要能寫入。
+      allow create: if hasRole(['superadmin', 'admin', 'order_staff', 'viewer']);
       allow update, delete: if false;
     }
 

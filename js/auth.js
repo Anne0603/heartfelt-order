@@ -9,7 +9,7 @@
 //    - 存在但 status 是 'pending' -> 顯示「審核中」，登出
 //    - 存在且 status 是 'active' -> 放行，帶著 role 一起進系統
 // ============================================================
-import { auth, db, googleProvider } from "./firebase-config.js?v=20260826-18";
+import { auth, db, googleProvider } from "./firebase-config.js?v=20260826-19";
 import {
   signInWithPopup,
   signOut,
@@ -49,9 +49,13 @@ export function getDisplayName() {
 
 export async function updateMyNickname(nickname) {
   if (!currentSession.user?.email) throw new Error("尚未登入");
-  const ref = doc(db, "members", currentSession.user.email.toLowerCase());
-  await updateDoc(ref, { nickname: nickname.trim() });
-  currentSession.member = { ...currentSession.member, nickname: nickname.trim() };
+  const email = currentSession.user.email.toLowerCase();
+  const trimmed = nickname.trim();
+  await updateDoc(doc(db, "members", email), { nickname: trimmed });
+  // 同步寫一份到公開可查的 publicProfiles，讓其他成員能查到「現在」的暱稱，
+  // 但這份資料不含角色等敏感資訊。
+  await setDoc(doc(db, "publicProfiles", email), { nickname: trimmed }, { merge: true });
+  currentSession.member = { ...currentSession.member, nickname: trimmed };
 }
 
 async function loadMemberDoc(email) {
@@ -61,7 +65,8 @@ async function loadMemberDoc(email) {
 }
 
 // ---------- 顯示名稱解析：平常抓即時暱稱，人不在名單裡了才退回當初存的快照名稱 ----------
-const nicknameCache = new Map(); // email -> 目前暱稱 | null（null 代表查過了、但這個人已經不在成員名單裡）
+// 查的是 publicProfiles（只有暱稱，不含角色），不是 members（含角色，不能隨便給人查）。
+const nicknameCache = new Map(); // email -> 目前暱稱 | null（null 代表查過了、但查不到）
 
 export async function resolveDisplayName(email, fallbackName) {
   if (!email) return fallbackName || "未知";
@@ -71,16 +76,16 @@ export async function resolveDisplayName(email, fallbackName) {
     return cached || fallbackName || "未知";
   }
   try {
-    const data = await loadMemberDoc(key);
-    if (data && data.status === "active") {
-      const nickname = data.nickname || fallbackName || "未知";
+    const snap = await getDoc(doc(db, "publicProfiles", key));
+    if (snap.exists() && snap.data().nickname) {
+      const nickname = snap.data().nickname;
       nicknameCache.set(key, nickname);
       return nickname;
     }
-    nicknameCache.set(key, null); // 已經不在名單裡（被移除/還在審核中），快取起來避免重複查詢
+    nicknameCache.set(key, null); // 這個人從沒設定過暱稱、或已經不在名單裡，快取起來避免重複查詢
     return fallbackName || "未知";
   } catch (err) {
-    // 查不到（例如離線、還沒設定好權限）就安靜退回快照名稱，不要讓畫面壞掉
+    // 查不到（例如離線）就安靜退回快照名稱，不要讓畫面壞掉
     return fallbackName || "未知";
   }
 }
