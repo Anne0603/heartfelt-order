@@ -575,7 +575,12 @@ table.simple-table tr:last-child td { border-bottom: none; }
   gap: 6px;
   margin-bottom: 18px;
   border-bottom: 1px solid var(--paper-line);
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
 }
+.settings-tabs::-webkit-scrollbar { display: none; }
 .settings-tab-btn {
   background: transparent;
   border: none;
@@ -586,6 +591,8 @@ table.simple-table tr:last-child td { border-bottom: none; }
   cursor: pointer;
   border-bottom: 2px solid transparent;
   font-family: var(--font-body);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .settings-tab-btn.active { color: var(--gold-deep); border-bottom-color: var(--gold-deep); }
 .settings-tab-btn:hover { color: var(--ink); }
