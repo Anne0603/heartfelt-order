@@ -2,10 +2,11 @@
 // 個人資料彈跳視窗：設定暱稱、查看綁定帳號與角色、
 // （管理員以上）更換品牌圖案
 // ============================================================
-import { currentSession, ROLE_LABELS, updateMyNickname } from "./auth.js?v=20260826-17";
-import { showToast } from "./utils.js?v=20260826-17";
-import { openModal } from "./modal-ui.js?v=20260826-17";
-import { uploadImageToCloudinary, saveBrandLogoUrl } from "./settings.js?v=20260826-17";
+import { currentSession, ROLE_LABELS, updateMyNickname } from "./auth.js?v=20260826-18";
+import { showToast } from "./utils.js?v=20260826-18";
+import { openModal } from "./modal-ui.js?v=20260826-18";
+import { uploadImageToCloudinary, saveBrandLogoUrl } from "./settings.js?v=20260826-18";
+import { logActivity } from "./activity-log.js?v=20260826-18";
 
 export function openProfileModal({ brandLogoUrl, onBrandUpdated }) {
   const user = currentSession.user;
@@ -47,6 +48,7 @@ export function openProfileModal({ brandLogoUrl, onBrandUpdated }) {
         await saveBrandLogoUrl(url);
         photoBox.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;">`;
         showToast("品牌圖案已更新", "success");
+        logActivity({ module: "profile", action: "update", summary: "更換了品牌圖案" });
         onBrandUpdated && onBrandUpdated(url);
       } catch (err) {
         showToast("上傳失敗：" + err.message, "error");
@@ -60,7 +62,11 @@ export function openProfileModal({ brandLogoUrl, onBrandUpdated }) {
     const nickname = overlay.querySelector("#pf-nickname").value.trim();
     btn.disabled = true;
     try {
+      const oldNickname = member?.nickname || "";
       await updateMyNickname(nickname);
+      if (nickname !== oldNickname) {
+        logActivity({ module: "profile", action: "update", summary: oldNickname ? `暱稱從「${oldNickname}」改成「${nickname}」` : `設定暱稱為「${nickname}」` });
+      }
       showToast("已儲存", "success");
       overlay.remove();
       window.location.reload(); // 簡單作法：重整讓全站的姓名顯示同步更新

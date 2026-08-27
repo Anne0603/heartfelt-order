@@ -4,11 +4,11 @@
 // 「這筆資料是誰改的」這個核心問題），記錄本身不可修改/刪除，
 // 保持稽核紀錄的完整性。
 // ============================================================
-import { db } from "./firebase-config.js?v=20260826-17";
+import { db } from "./firebase-config.js?v=20260826-18";
 import {
   collection, addDoc, getDocs, query, where, orderBy, limit as fbLimit, startAfter, serverTimestamp, Timestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { currentSession, getDisplayName } from "./auth.js?v=20260826-17";
+import { currentSession, getDisplayName } from "./auth.js?v=20260826-18";
 
 const logCol = collection(db, "activityLog");
 
@@ -17,6 +17,7 @@ export const MODULE_LABELS = {
   orders: "訂單",
   contacts: "客戶與廠商",
   expenses: "支出",
+  profile: "個人設定",
 };
 
 /**
