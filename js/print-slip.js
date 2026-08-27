@@ -2,8 +2,8 @@
 // 出貨單列印
 // 開一個新視窗，排版乾淨的出貨單，不含成本/毛利，叫出瀏覽器列印功能。
 // ============================================================
-import { alertDialog } from "./modal-ui.js?v=20260826-22";
-import { SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getPaymentStatus } from "./orders.js?v=20260826-22";
+import { alertDialog } from "./modal-ui.js?v=20260826-23";
+import { SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getPaymentStatus } from "./orders.js?v=20260826-23";
 
 export function printOrderSlip(order) {
   const win = window.open("", "_blank", "width=480,height=700");
@@ -28,18 +28,18 @@ export function printOrderSlip(order) {
 <meta charset="UTF-8" />
 <title>出貨單 ${order.orderNumber}</title>
 <style>
-  body { font-family: -apple-system, "Noto Sans TC", sans-serif; padding: 24px; color: #23262E; max-width: 420px; margin: 0 auto; }
-  h1 { font-size: 20px; margin: 0 0 4px; }
-  .sub { color: #746F62; font-size: 13px; margin-bottom: 16px; }
-  .section { margin-bottom: 16px; }
-  .section .label { font-size: 12px; color: #746F62; margin-bottom: 2px; }
-  .section .value { font-size: 14px; }
-  table { width: 100%; border-collapse: collapse; margin: 10px 0; }
-  th, td { padding: 6px 4px; border-bottom: 1px solid #E3DDCC; font-size: 13px; text-align: left; }
-  .totals { text-align: right; font-size: 14px; margin-top: 8px; }
-  .totals .grand { font-size: 18px; font-weight: 700; margin-top: 4px; }
-  .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; background: #F4F1E9; font-size: 12px; margin-right: 6px; }
-  .footer { margin-top: 24px; font-size: 11px; color: #9AA0B4; text-align: center; }
+  body { font-family: -apple-system, "Noto Sans TC", sans-serif; padding: 24px; color: #23262E; max-width: 480px; margin: 0 auto; }
+  h1 { font-size: 26px; margin: 0 0 6px; }
+  .sub { color: #746F62; font-size: 16px; margin-bottom: 20px; }
+  .section { margin-bottom: 18px; }
+  .section .label { font-size: 14px; color: #746F62; margin-bottom: 3px; }
+  .section .value { font-size: 19px; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; }
+  th, td { padding: 10px 6px; border-bottom: 1px solid #E3DDCC; font-size: 18px; text-align: left; }
+  .totals { text-align: right; font-size: 18px; margin-top: 10px; }
+  .totals .grand { font-size: 24px; font-weight: 700; margin-top: 6px; }
+  .badge { display: inline-block; padding: 5px 14px; border-radius: 999px; background: #F4F1E9; font-size: 16px; margin-right: 8px; }
+  .footer { margin-top: 24px; font-size: 13px; color: #9AA0B4; text-align: center; }
   @media print { body { padding: 0; } }
 </style>
 </head>
@@ -132,19 +132,19 @@ export function printShippingList(ordersList) {
 <title>今日出貨清單</title>
 <style>
   body { font-family: -apple-system, "Noto Sans TC", sans-serif; padding: 24px; color: #23262E; }
-  h1 { font-size: 20px; margin: 0 0 4px; }
-  .sub { color: #746F62; font-size: 13px; margin-bottom: 18px; }
+  h1 { font-size: 24px; margin: 0 0 6px; }
+  .sub { color: #746F62; font-size: 15px; margin-bottom: 10px; }
   table { width: 100%; border-collapse: collapse; }
-  th, td { padding: 10px 8px; border-bottom: 1px solid #E3DDCC; font-size: 14px; text-align: left; vertical-align: top; }
-  th { font-size: 12px; color: #746F62; font-weight: 600; border-bottom: 2px solid #23262E; }
-  .check-col { width: 30px; }
-  .checkbox { display: inline-block; width: 16px; height: 16px; border: 1.5px solid #23262E; }
+  th, td { padding: 12px 8px; border-bottom: 1px solid #E3DDCC; font-size: 17px; text-align: left; vertical-align: top; }
+  th { font-size: 14px; color: #746F62; font-weight: 600; border-bottom: 2px solid #23262E; }
+  .check-col { width: 36px; }
+  .checkbox { display: inline-block; width: 22px; height: 22px; border: 2px solid #23262E; }
   .order-no { font-family: "SFMono-Regular", monospace; font-weight: 700; }
-  .sub2 { font-size: 12.5px; color: #746F62; margin-top: 2px; }
-  .item-line { margin-bottom: 2px; }
-  .amount-due { font-weight: 700; color: #A8433A; white-space: nowrap; }
+  .sub2 { font-size: 14.5px; color: #746F62; margin-top: 3px; }
+  .item-line { margin-bottom: 3px; }
+  .amount-due { font-weight: 700; color: #A8433A; white-space: nowrap; font-size: 18px; }
   .amount-paid { color: #4A7A5E; white-space: nowrap; }
-  .footer { margin-top: 20px; font-size: 11px; color: #9AA0B4; text-align: right; }
+  .footer { margin-top: 20px; font-size: 13px; color: #9AA0B4; text-align: right; }
   @media print { body { padding: 0; } tr { page-break-inside: avoid; } }
 </style>
 </head>
