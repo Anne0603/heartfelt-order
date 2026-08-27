@@ -1,12 +1,12 @@
 // ============================================================
 // 客戶與廠商頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-21";
-import { currentSession } from "./auth.js?v=20260826-21";
-import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-21";
-import { listContacts, createContact, updateContact, setContactArchived } from "./contacts.js?v=20260826-21";
-import { listOrders, getPaymentStatus } from "./orders.js?v=20260826-21";
-import { listCategories } from "./categories.js?v=20260826-21";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-22";
+import { currentSession } from "./auth.js?v=20260826-22";
+import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-22";
+import { listContacts, createContact, updateContact, setContactArchived } from "./contacts.js?v=20260826-22";
+import { listOrders, getPaymentStatus } from "./orders.js?v=20260826-22";
+import { listCategories } from "./categories.js?v=20260826-22";
 
 async function listMergedSupplyCategories() {
   // 廠商供應的通常是現貨商品或包材，不是自製商品，所以合併這兩種分類清單
@@ -18,10 +18,10 @@ async function listMergedSupplyCategories() {
   [...resale, ...packaging].forEach((c) => { if (!seen.has(c.name)) seen.set(c.name, c); });
   return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
-import { exportContacts } from "./export-xlsx.js?v=20260826-21";
-import { setFab } from "./fab-ui.js?v=20260826-21";
-import { iconHtml } from "./icons.js?v=20260826-21";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-21";
+import { exportContacts } from "./export-xlsx.js?v=20260826-22";
+import { setFab } from "./fab-ui.js?v=20260826-22";
+import { iconHtml } from "./icons.js?v=20260826-22";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-22";
 
 const ROLE_LABELS = { customer: "客戶", supplier: "廠商" };
 
@@ -37,47 +37,50 @@ export async function renderContactsPage(container) {
   let searchText = "";
   let statusTab = "active"; // 'active' | 'archived'
 
-  container.innerHTML = `
-    ${pageNavHtml("客戶與廠商", `<button class="btn btn-secondary" id="btn-export-contacts" style="padding:7px 12px;font-size:13px;">匯出</button>`)}
-    <div class="pill-toggle" id="status-toggle">
-      <button class="pill-toggle-btn ${statusTab === "active" ? "active" : ""}" data-status="active">使用中</button>
-      <button class="pill-toggle-btn ${statusTab === "archived" ? "active" : ""}" data-status="archived">已停用</button>
-    </div>
-    <div class="card" style="margin-bottom:16px;">
-      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-        <input type="text" id="search-input" placeholder="搜尋名稱/電話" style="flex:1;min-width:160px;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;" />
-        <select id="filter-role" style="padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;">
-          <option value="all">全部</option>
-          <option value="customer">客戶</option>
-          <option value="supplier">廠商</option>
-        </select>
+  function renderListView() {
+    container.innerHTML = `
+      ${pageNavHtml("客戶與廠商", `<button class="btn btn-secondary" id="btn-export-contacts" style="padding:7px 12px;font-size:13px;">匯出</button>`)}
+      <div class="pill-toggle" id="status-toggle">
+        <button class="pill-toggle-btn ${statusTab === "active" ? "active" : ""}" data-status="active">使用中</button>
+        <button class="pill-toggle-btn ${statusTab === "archived" ? "active" : ""}" data-status="archived">已停用</button>
       </div>
-    </div>
-    <div id="contacts-list"></div>
-  `;
+      <div class="card" style="margin-bottom:16px;">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <input type="text" id="search-input" placeholder="搜尋名稱/電話" style="flex:1;min-width:160px;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;" />
+          <select id="filter-role" style="padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;">
+            <option value="all">全部</option>
+            <option value="customer">客戶</option>
+            <option value="supplier">廠商</option>
+          </select>
+        </div>
+      </div>
+      <div id="contacts-list"></div>
+    `;
 
-  wirePageNav(container);
-  container.querySelector("#search-input").addEventListener("input", (e) => {
-    searchText = e.target.value.trim().toLowerCase();
+    wirePageNav(container);
+    container.querySelector("#search-input").addEventListener("input", (e) => {
+      searchText = e.target.value.trim().toLowerCase();
+      renderList();
+    });
+    container.querySelector("#filter-role").addEventListener("change", (e) => {
+      filterRole = e.target.value;
+      renderList();
+    });
+    container.querySelector("#status-toggle").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-status]");
+      if (!btn) return;
+      statusTab = btn.getAttribute("data-status");
+      container.querySelectorAll("#status-toggle [data-status]").forEach((b) => b.classList.toggle("active", b === btn));
+      renderList();
+    });
+    if (canWrite()) {
+      setFab([{ icon: "add", label: "新增聯絡人", onClick: () => openContactModal() }]);
+    }
+    container.querySelector("#btn-export-contacts").addEventListener("click", () => {
+      openExportModal();
+    });
     renderList();
-  });
-  container.querySelector("#filter-role").addEventListener("change", (e) => {
-    filterRole = e.target.value;
-    renderList();
-  });
-  container.querySelector("#status-toggle").addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-status]");
-    if (!btn) return;
-    statusTab = btn.getAttribute("data-status");
-    container.querySelectorAll("#status-toggle [data-status]").forEach((b) => b.classList.toggle("active", b === btn));
-    renderList();
-  });
-  if (canWrite()) {
-    setFab([{ icon: "add", label: "新增聯絡人", onClick: () => openContactModal() }]);
   }
-  container.querySelector("#btn-export-contacts").addEventListener("click", () => {
-    openExportModal();
-  });
 
   function openExportModal() {
     const overlay = openModal(`
@@ -127,17 +130,22 @@ export async function renderContactsPage(container) {
     return filtered;
   }
 
+  async function fetchContactsData() {
+    [contacts, inventoryCategories] = await Promise.all([
+      listContacts({ includeArchived: true }),
+      listMergedSupplyCategories(),
+    ]);
+  }
+
   async function reload() {
     const listEl = container.querySelector("#contacts-list");
-    listEl.innerHTML = `<div class="card" style="color:var(--text-muted);">載入中…</div>`;
+    if (listEl) listEl.innerHTML = `<div class="card" style="color:var(--text-muted);">載入中…</div>`;
     try {
-      [contacts, inventoryCategories] = await Promise.all([
-        listContacts({ includeArchived: true }),
-        listMergedSupplyCategories(),
-      ]);
-      renderList();
+      await fetchContactsData();
+      if (container.querySelector("#contacts-list")) renderList();
     } catch (err) {
-      listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${linkifyErrorMessage(err.message)}</div>`;
+      if (listEl) listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${linkifyErrorMessage(err.message)}</div>`;
+      else showToast("載入失敗：" + err.message, "error");
     }
   }
 
@@ -153,37 +161,28 @@ export async function renderContactsPage(container) {
     listEl.innerHTML = filtered.map((c) => {
       const isArchived = c.status === "archived";
       return `
-        <div class="card" style="margin-bottom:10px;">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
-            <div>
-              <div style="font-weight:700;font-size:16px;color:var(--ink);">${c.name}</div>
-              <div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap;">
-                ${(c.roles || []).map((r) => `<span class="seal-badge ok"><span class="dot"></span>${ROLE_LABELS[r]}</span>`).join("")}
-                ${isArchived ? `<span class="seal-badge muted"><span class="dot"></span>已停用</span>` : ""}
-              </div>
-              ${c.phone ? `<div class="hint" style="margin-top:6px;">${iconHtml("phone", "--icon-size:13px;")} ${c.phone}</div>` : ""}
-              ${c.address ? `<div class="hint">${iconHtml("pin", "--icon-size:13px;")} ${c.address}</div>` : ""}
-              ${c.roles?.includes("customer") && c.orderChannel ? `<div class="hint">訂購管道：${c.orderChannel}</div>` : ""}
-              ${c.roles?.includes("supplier") && c.supplyCategory ? `<div class="hint">供應類別：${c.supplyCategory}</div>` : ""}
-            </div>
+        <div class="card" style="margin-bottom:10px;cursor:pointer;${isArchived ? "opacity:0.6;" : ""}" data-open="${c.id}">
+          <div style="font-weight:700;font-size:16px;color:var(--ink);">${c.name}</div>
+          <div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap;">
+            ${(c.roles || []).map((r) => `<span class="seal-badge ok"><span class="dot"></span>${ROLE_LABELS[r]}</span>`).join("")}
+            ${isArchived ? `<span class="seal-badge muted"><span class="dot"></span>已停用</span>` : ""}
           </div>
-          <div style="margin-top:10px;display:flex;justify-content:flex-end;">
-            ${canWrite() ? `<button class="btn btn-secondary" data-edit="${c.id}" style="padding:7px 14px;font-size:13px;">編輯</button>` : ""}
-          </div>
+          ${c.phone ? `<div class="hint" style="margin-top:6px;">${iconHtml("phone", "--icon-size:13px;")} ${c.phone}</div>` : ""}
+          ${c.address ? `<div class="hint">${iconHtml("pin", "--icon-size:13px;")} ${c.address}</div>` : ""}
         </div>
       `;
     }).join("");
 
-    listEl.querySelectorAll("[data-edit]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const c = contacts.find((x) => x.id === btn.getAttribute("data-edit"));
-        openContactModal(c);
+    listEl.querySelectorAll("[data-open]").forEach((card) => {
+      card.addEventListener("click", () => {
+        const c = contacts.find((x) => x.id === card.getAttribute("data-open"));
+        renderContactDetailPage(c);
       });
     });
   }
 
-  async function loadOrderHistory(contact, overlay) {
-    const box = overlay.querySelector("#c-order-history");
+  async function loadOrderHistory(contact, scope) {
+    const box = scope.querySelector("#c-order-history");
     if (!box) return;
     try {
       const orders = await listOrders();
@@ -219,6 +218,36 @@ export async function renderContactsPage(container) {
     }
   }
 
+  // ---------- 詳細頁面（查看用，編輯要另外點按鈕進去，兩者分開） ----------
+  function renderContactDetailPage(contact) {
+    const roles = contact.roles || [];
+    container.innerHTML = `
+      ${pageNavHtml(contact.name)}
+      ${contact.status === "archived" ? `<div class="seal-badge muted" style="margin-bottom:12px;"><span class="dot"></span>已停用</div>` : ""}
+
+      <div class="card" style="margin-bottom:16px;">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+          ${roles.map((r) => `<span class="seal-badge ok"><span class="dot"></span>${ROLE_LABELS[r]}</span>`).join("")}
+        </div>
+        ${contact.phone ? `<div class="hint" style="margin-top:6px;">${iconHtml("phone", "--icon-size:13px;")} ${contact.phone}</div>` : ""}
+        ${contact.address ? `<div class="hint">${iconHtml("pin", "--icon-size:13px;")} ${contact.address}</div>` : ""}
+        ${roles.includes("customer") && contact.orderChannel ? `<div class="hint">訂購管道：${contact.orderChannel}</div>` : ""}
+        ${roles.includes("supplier") && contact.supplyCategory ? `<div class="hint">供應類別：${contact.supplyCategory}</div>` : ""}
+        ${contact.note ? `<div class="hint" style="margin-top:6px;">備註：${contact.note}</div>` : ""}
+        ${canWrite() ? `
+          <div style="display:flex;justify-content:flex-end;margin-top:14px;padding-top:14px;border-top:1px solid var(--paper-line);">
+            <button class="btn btn-secondary" id="cd-edit" style="padding:7px 14px;font-size:13px;">編輯</button>
+          </div>
+        ` : ""}
+      </div>
+
+      ${roles.includes("customer") ? `<div class="card" style="margin-bottom:16px;" id="c-order-history"><div class="hint">載入訂購紀錄中…</div></div>` : ""}
+    `;
+    wirePageNav(container, () => renderListView());
+    if (roles.includes("customer")) loadOrderHistory(contact, container);
+    container.querySelector("#cd-edit")?.addEventListener("click", () => openContactModal(contact));
+  }
+
   function openContactModal(contact = null) {
     const isEdit = !!contact;
     const roles = contact?.roles || [];
@@ -228,7 +257,6 @@ export async function renderContactsPage(container) {
     const overlay = openModal(`
       <h3 style="margin-bottom:16px;">${isEdit ? "編輯聯絡人" : "新增聯絡人"}</h3>
       <div class="field"><label>名稱</label><input type="text" id="c-name" value="${contact?.name || ""}" /></div>
-      ${isEdit && roles.includes("customer") ? `<div class="card" style="background:var(--paper);box-shadow:none;margin-bottom:16px;" id="c-order-history"><div class="hint">載入訂購紀錄中…</div></div>` : ""}
       <div class="field"><label>類型（至少選一個）</label>
         <div class="chip-select">
           <button type="button" class="chip-btn ${selectedRoles.includes("customer") ? "active" : ""}" data-role="customer">客戶</button>
@@ -258,9 +286,6 @@ export async function renderContactsPage(container) {
       overlay.querySelector("#c-channel-field").style.display = selectedRoles.includes("customer") ? "block" : "none";
       overlay.querySelector("#c-supply-field").style.display = selectedRoles.includes("supplier") ? "block" : "none";
     }
-    if (isEdit && roles.includes("customer")) {
-      loadOrderHistory(contact, overlay);
-    }
 
     overlay.querySelectorAll("[data-role]").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -279,7 +304,10 @@ export async function renderContactsPage(container) {
         await setContactArchived(contact.id, willArchive, contact.name);
         showToast(willArchive ? "已停用" : "已恢復使用", "success");
         overlay.remove();
-        await reload();
+        await fetchContactsData();
+        const updated = contacts.find((c) => c.id === contact.id);
+        if (updated) renderContactDetailPage(updated);
+        else renderListView();
       } catch (err) {
         showToast("操作失敗：" + err.message, "error");
       }
@@ -315,7 +343,13 @@ export async function renderContactsPage(container) {
         else await createContact(data);
         showToast("已儲存", "success");
         overlay.remove();
-        await reload();
+        await fetchContactsData();
+        if (isEdit) {
+          const updated = contacts.find((c) => c.id === contact.id) || { ...contact, ...data };
+          renderContactDetailPage(updated);
+        } else {
+          renderListView();
+        }
       } catch (err) {
         showToast("失敗：" + err.message, "error");
         btn.disabled = false;
@@ -323,5 +357,6 @@ export async function renderContactsPage(container) {
     });
   }
 
+  renderListView();
   await reload();
 }
