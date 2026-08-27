@@ -56,7 +56,9 @@ service cloud.firestore {
 
     // ---------- 成員 / 待審核申請 ----------
     match /members/{email} {
-      allow get: if isSignedIn() && request.auth.token.email == email;
+      // 自己的資料一定看得到；其他已核准成員的資料也能個別用信箱查（用來即時顯示暱稱），
+      // 但不能列出完整名單（allow list 還是限超級管理員）。
+      allow get: if isSignedIn() && (request.auth.token.email == email || isActiveMember());
       allow list: if isSuperadmin();
 
       allow create: if isSignedIn()

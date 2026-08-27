@@ -1,8 +1,8 @@
 // ============================================================
 // 商品與庫存頁面 UI（合併版）
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-16";
-import { currentSession } from "./auth.js?v=20260826-16";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-17";
+import { currentSession, wireNameResolution } from "./auth.js?v=20260826-17";
 import {
   listItems, createItem, updateItem, setItemArchived,
   addPurchaseBatch, stocktakeAdjust,
@@ -10,16 +10,16 @@ import {
   voidRecord, permanentlyDelete,
   computeStock, computeAvgCost, calcItemCost, buildItemsIndex,
   TYPE_LABELS, ORDERABLE_TYPES, STOCK_TRACKED_TYPES,
-} from "./items.js?v=20260826-16";
-import { listCategories } from "./categories.js?v=20260826-16";
-import { listUnits } from "./units.js?v=20260826-16";
-import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js?v=20260826-16";
-import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260826-16";
-import { openSearchPicker } from "./picker-ui.js?v=20260826-16";
-import { exportItems } from "./export-xlsx.js?v=20260826-16";
-import { setFab } from "./fab-ui.js?v=20260826-16";
-import { iconHtml } from "./icons.js?v=20260826-16";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-16";
+} from "./items.js?v=20260826-17";
+import { listCategories } from "./categories.js?v=20260826-17";
+import { listUnits } from "./units.js?v=20260826-17";
+import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js?v=20260826-17";
+import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260826-17";
+import { openSearchPicker } from "./picker-ui.js?v=20260826-17";
+import { exportItems } from "./export-xlsx.js?v=20260826-17";
+import { setFab } from "./fab-ui.js?v=20260826-17";
+import { iconHtml } from "./icons.js?v=20260826-17";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-17";
 
 const TYPE_HINTS = {
   self_made: "自己現做的東西，客戶可訂購。不追蹤庫存量，成本 = 配方裡每一項包材的成本加總（原料/人工每月算在「利潤總覽」）。",
@@ -451,9 +451,10 @@ export async function renderItemsPage(container, initialFilter = null) {
             <div style="padding:10px 0;border-bottom:1px solid var(--paper-line);">
               <div style="font-size:14px;">${s.date} · 盤點為 ${s.countedQty}（原 ${s.systemQtyBefore}，差 ${s.diff > 0 ? "+" : ""}${s.diff}）</div>
               ${s.note ? `<div class="hint">${s.note}</div>` : ""}
-              <div class="hint">${s.createdByName || ""}</div>
+              <div class="hint" data-resolve-email="${s.createdBy || ""}">${s.createdByName || ""}</div>
             </div>
           `).join("");
+          wireNameResolution(listEl);
           return;
         }
         const kind = activeTab === "purchases" ? "purchase" : "usage";
@@ -468,10 +469,11 @@ export async function renderItemsPage(container, initialFilter = null) {
                 ${isVoid && canDelete() ? `<button class="btn btn-danger" data-delete="${kind}:${rec.id}" style="padding:3px 10px;font-size:12px;">刪除</button>` : ""}
               </div>
               ${rec.note ? `<div class="hint">${rec.note}</div>` : ""}
-              <div class="hint">${rec.createdByName || rec.createdBy || ""}</div>
+              <div class="hint" data-resolve-email="${rec.createdBy || ""}">${rec.createdByName || rec.createdBy || ""}</div>
             </div>
           `;
         }).join("");
+        wireNameResolution(listEl);
 
         listEl.querySelectorAll("[data-void]").forEach((btn) => {
           btn.addEventListener("click", async () => {

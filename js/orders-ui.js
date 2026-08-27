@@ -1,21 +1,21 @@
 // ============================================================
 // 訂單管理頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-16";
-import { currentSession } from "./auth.js?v=20260826-16";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-17";
+import { currentSession, wireNameResolution } from "./auth.js?v=20260826-17";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, getPaymentStatus,
   markShipped, voidOrder,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel, normalizeShipStatus,
-} from "./orders.js?v=20260826-16";
-import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-16";
-import { listContacts, createContact } from "./contacts.js?v=20260826-16";
-import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-16";
-import { exportOrders } from "./export-xlsx.js?v=20260826-16";
-import { setFab, clearFab } from "./fab-ui.js?v=20260826-16";
-import { openSearchPicker } from "./picker-ui.js?v=20260826-16";
-import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-16";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-16";
+} from "./orders.js?v=20260826-17";
+import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-17";
+import { listContacts, createContact } from "./contacts.js?v=20260826-17";
+import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-17";
+import { exportOrders } from "./export-xlsx.js?v=20260826-17";
+import { setFab, clearFab } from "./fab-ui.js?v=20260826-17";
+import { openSearchPicker } from "./picker-ui.js?v=20260826-17";
+import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-17";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-17";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
@@ -666,7 +666,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
             <div class="hint">客戶</div>
             <div style="font-size:15px;color:var(--ink);">${order.contactName || "（未指定客戶）"}${order.contactPhone ? " · " + order.contactPhone : ""}</div>
           </div>
-          ${order.createdByName ? `<div style="text-align:right;flex-shrink:0;"><div class="hint">建立人</div><div style="font-size:13px;color:var(--text-muted);">${order.createdByName}</div></div>` : ""}
+          ${order.createdByName ? `<div style="text-align:right;flex-shrink:0;"><div class="hint">建立人</div><div style="font-size:13px;color:var(--text-muted);" data-resolve-email="${order.createdBy || ""}">${order.createdByName}</div></div>` : ""}
         </div>
         <div style="display:flex;gap:22px;flex-wrap:wrap;">
           <div><div class="hint">訂購日期</div><div style="font-size:14px;color:var(--ink);">${order.orderDate}</div></div>
@@ -675,8 +675,8 @@ export async function renderOrdersPage(container, initialFilter = null) {
           ${order.expectedDate ? `<div><div class="hint">預計出貨/取貨</div><div style="font-size:14px;color:var(--ink);">${order.expectedDate}</div></div>` : ""}
         </div>
         ${order.note ? `<div class="hint" style="margin-top:10px;">備註：${order.note}</div>` : ""}
-        ${order.shippedByName ? `<div class="hint" style="margin-top:6px;">出貨紀錄：${order.shippedByName}</div>` : ""}
-        ${order.receivedByName ? `<div class="hint" style="margin-top:6px;">收款登記人：${order.receivedByName}</div>` : ""}
+        ${order.shippedByName ? `<div class="hint" style="margin-top:6px;">出貨紀錄：<span data-resolve-email="${order.shippedBy || ""}">${order.shippedByName}</span></div>` : ""}
+        ${order.receivedByName ? `<div class="hint" style="margin-top:6px;">收款登記人：<span data-resolve-email="${order.receivedBy || ""}">${order.receivedByName}</span></div>` : ""}
       </div>
 
       <div class="card" style="margin-bottom:16px;">
@@ -701,6 +701,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
     `;
 
     wirePageNav(container, () => renderListView());
+    wireNameResolution(container);
     renderOrderDetailActions(order);
   }
 

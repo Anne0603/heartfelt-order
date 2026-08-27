@@ -9,7 +9,7 @@
 //    - 存在但 status 是 'pending' -> 顯示「審核中」，登出
 //    - 存在且 status 是 'active' -> 放行，帶著 role 一起進系統
 // ============================================================
-import { auth, db, googleProvider } from "./firebase-config.js?v=20260826-16";
+import { auth, db, googleProvider } from "./firebase-config.js?v=20260826-17";
 import {
   signInWithPopup,
   signOut,
@@ -58,6 +58,46 @@ async function loadMemberDoc(email) {
   const ref = doc(db, "members", email.toLowerCase());
   const snap = await getDoc(ref);
   return snap.exists() ? snap.data() : null;
+}
+
+// ---------- 顯示名稱解析：平常抓即時暱稱，人不在名單裡了才退回當初存的快照名稱 ----------
+const nicknameCache = new Map(); // email -> 目前暱稱 | null（null 代表查過了、但這個人已經不在成員名單裡）
+
+export async function resolveDisplayName(email, fallbackName) {
+  if (!email) return fallbackName || "未知";
+  const key = email.toLowerCase();
+  if (nicknameCache.has(key)) {
+    const cached = nicknameCache.get(key);
+    return cached || fallbackName || "未知";
+  }
+  try {
+    const data = await loadMemberDoc(key);
+    if (data && data.status === "active") {
+      const nickname = data.nickname || fallbackName || "未知";
+      nicknameCache.set(key, nickname);
+      return nickname;
+    }
+    nicknameCache.set(key, null); // 已經不在名單裡（被移除/還在審核中），快取起來避免重複查詢
+    return fallbackName || "未知";
+  } catch (err) {
+    // 查不到（例如離線、還沒設定好權限）就安靜退回快照名稱，不要讓畫面壞掉
+    return fallbackName || "未知";
+  }
+}
+
+/**
+ * 掃描 container 裡所有帶 data-resolve-email 的元素，非同步把顯示文字
+ * 升級成「現在」的暱稱；查不到的話維持原本畫面上已經顯示的快照名稱，
+ * 使用者感覺不到任何延遲或閃爍。
+ */
+export function wireNameResolution(container) {
+  container.querySelectorAll("[data-resolve-email]").forEach((el) => {
+    const email = el.getAttribute("data-resolve-email");
+    const fallback = el.textContent;
+    resolveDisplayName(email, fallback).then((resolved) => {
+      if (resolved && resolved !== fallback) el.textContent = resolved;
+    });
+  });
 }
 
 async function createPendingRequest(user) {

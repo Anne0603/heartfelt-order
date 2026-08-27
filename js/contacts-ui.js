@@ -1,12 +1,12 @@
 // ============================================================
 // 客戶與廠商頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-16";
-import { currentSession } from "./auth.js?v=20260826-16";
-import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-16";
-import { listContacts, createContact, updateContact, setContactArchived } from "./contacts.js?v=20260826-16";
-import { listOrders, getPaymentStatus } from "./orders.js?v=20260826-16";
-import { listCategories } from "./categories.js?v=20260826-16";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-17";
+import { currentSession } from "./auth.js?v=20260826-17";
+import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-17";
+import { listContacts, createContact, updateContact, setContactArchived } from "./contacts.js?v=20260826-17";
+import { listOrders, getPaymentStatus } from "./orders.js?v=20260826-17";
+import { listCategories } from "./categories.js?v=20260826-17";
 
 async function listMergedSupplyCategories() {
   // 廠商供應的通常是現貨商品或包材，不是自製商品，所以合併這兩種分類清單
@@ -18,10 +18,10 @@ async function listMergedSupplyCategories() {
   [...resale, ...packaging].forEach((c) => { if (!seen.has(c.name)) seen.set(c.name, c); });
   return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
-import { exportContacts } from "./export-xlsx.js?v=20260826-16";
-import { setFab } from "./fab-ui.js?v=20260826-16";
-import { iconHtml } from "./icons.js?v=20260826-16";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-16";
+import { exportContacts } from "./export-xlsx.js?v=20260826-17";
+import { setFab } from "./fab-ui.js?v=20260826-17";
+import { iconHtml } from "./icons.js?v=20260826-17";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-17";
 
 const ROLE_LABELS = { customer: "客戶", supplier: "廠商" };
 

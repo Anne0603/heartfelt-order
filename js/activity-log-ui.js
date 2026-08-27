@@ -4,10 +4,11 @@
 // 分頁籤依項目分類；預設用「載入更多」往回翻，也可以切到日期
 // 區間篩選，直接查某段特定期間發生的事。
 // ============================================================
-import { listActivityLogPage, listActivityLogByDateRange, MODULE_LABELS } from "./activity-log.js?v=20260826-16";
-import { renderDateRangePicker } from "./date-range-ui.js?v=20260826-16";
-import { toJSDate } from "./utils.js?v=20260826-16";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-16";
+import { listActivityLogPage, listActivityLogByDateRange, MODULE_LABELS } from "./activity-log.js?v=20260826-17";
+import { renderDateRangePicker } from "./date-range-ui.js?v=20260826-17";
+import { toJSDate } from "./utils.js?v=20260826-17";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-17";
+import { wireNameResolution } from "./auth.js?v=20260826-17";
 
 const ACTION_LABELS = {
   create: "新增", update: "編輯", archive: "停用", restore: "恢復使用",
@@ -150,12 +151,13 @@ export async function renderActivityLogPage(container) {
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
             <div>
               <div style="font-size:14.5px;color:var(--ink);">${l.summary || ""}</div>
-              <div class="hint" style="margin-top:3px;">${l.performedByName || "未知"} · ${whenText}</div>
+              <div class="hint" style="margin-top:3px;"><span data-resolve-email="${l.performedBy || ""}">${l.performedByName || "未知"}</span> · ${whenText}</div>
             </div>
             <span class="seal-badge ${actionBadgeClass(l.action)}" style="flex-shrink:0;"><span class="dot"></span>${ACTION_LABELS[l.action] || l.action}</span>
           </div>
         </div>
       `;
     }).join("");
+    wireNameResolution(listEl);
   }
 }
