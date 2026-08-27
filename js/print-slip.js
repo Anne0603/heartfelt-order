@@ -2,8 +2,8 @@
 // 出貨單列印
 // 開一個新視窗，排版乾淨的出貨單，不含成本/毛利，叫出瀏覽器列印功能。
 // ============================================================
-import { alertDialog } from "./modal-ui.js?v=20260826-19";
-import { SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getPaymentStatus } from "./orders.js?v=20260826-19";
+import { alertDialog } from "./modal-ui.js?v=20260826-20";
+import { SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getPaymentStatus } from "./orders.js?v=20260826-20";
 
 export function printOrderSlip(order) {
   const win = window.open("", "_blank", "width=480,height=700");
@@ -102,6 +102,12 @@ export function printShippingList(ordersList) {
 
   const rows = ordersList.map((order, idx) => {
     const itemsHtml = order.lineItems.map((li) => `<div class="item-line">${li.productName} <b>x${li.qty}</b></div>`).join("");
+    const outstanding = order.totalAmount - (order.amountReceived || 0);
+    const amountHtml = outstanding > 0
+      ? `<div class="amount-due">應收 $${outstanding}</div>`
+      : `<div class="amount-paid">已收款</div>`;
+    // 自取不需要地址，宅配/郵寄/超商取貨這種才需要現場知道要送去哪
+    const needsAddress = order.pickupMethod && order.pickupMethod !== "自取";
     return `
       <tr>
         <td class="check-col"><span class="checkbox"></span></td>
@@ -109,9 +115,11 @@ export function printShippingList(ordersList) {
         <td>
           <div class="order-no">${order.orderNumber}</div>
           <div class="sub2">${order.contactName || "（未指定）"}${order.contactPhone ? " · " + order.contactPhone : ""}</div>
+          ${needsAddress && order.contactAddress ? `<div class="sub2">${order.contactAddress}</div>` : ""}
         </td>
         <td>${itemsHtml}</td>
         <td>${order.pickupMethod || ""}</td>
+        <td>${amountHtml}</td>
       </tr>
     `;
   }).join("");
@@ -134,6 +142,8 @@ export function printShippingList(ordersList) {
   .order-no { font-family: "SFMono-Regular", monospace; font-weight: 700; }
   .sub2 { font-size: 12.5px; color: #746F62; margin-top: 2px; }
   .item-line { margin-bottom: 2px; }
+  .amount-due { font-weight: 700; color: #A8433A; white-space: nowrap; }
+  .amount-paid { color: #4A7A5E; white-space: nowrap; }
   .footer { margin-top: 20px; font-size: 11px; color: #9AA0B4; text-align: right; }
   @media print { body { padding: 0; } tr { page-break-inside: avoid; } }
 </style>
@@ -141,8 +151,9 @@ export function printShippingList(ordersList) {
 <body>
   <h1>心意 · 今日出貨清單</h1>
   <div class="sub">共 ${ordersList.length} 張訂單　列印時間：${new Date().toLocaleString("zh-TW")}</div>
+  <div class="sub" style="font-weight:700;color:#A8433A;">這趟總共應收 $${ordersList.reduce((s, o) => s + Math.max(0, o.totalAmount - (o.amountReceived || 0)), 0)}</div>
   <table>
-    <thead><tr><th></th><th>#</th><th>訂單 / 客戶</th><th>商品明細</th><th>取貨方式</th></tr></thead>
+    <thead><tr><th></th><th>#</th><th>訂單 / 客戶</th><th>商品明細</th><th>取貨方式</th><th>應收</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>
   <script>
