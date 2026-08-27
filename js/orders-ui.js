@@ -1,21 +1,21 @@
 // ============================================================
 // 訂單管理頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-20";
-import { currentSession, wireNameResolution } from "./auth.js?v=20260826-20";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-21";
+import { currentSession, wireNameResolution } from "./auth.js?v=20260826-21";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, getPaymentStatus,
   markShipped, voidOrder,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel, normalizeShipStatus,
-} from "./orders.js?v=20260826-20";
-import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-20";
-import { listContacts, createContact } from "./contacts.js?v=20260826-20";
-import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-20";
-import { exportOrders } from "./export-xlsx.js?v=20260826-20";
-import { setFab, clearFab } from "./fab-ui.js?v=20260826-20";
-import { openSearchPicker } from "./picker-ui.js?v=20260826-20";
-import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-20";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-20";
+} from "./orders.js?v=20260826-21";
+import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-21";
+import { listContacts, createContact } from "./contacts.js?v=20260826-21";
+import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-21";
+import { exportOrders } from "./export-xlsx.js?v=20260826-21";
+import { setFab, clearFab } from "./fab-ui.js?v=20260826-21";
+import { openSearchPicker } from "./picker-ui.js?v=20260826-21";
+import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-21";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-21";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
@@ -421,6 +421,9 @@ export async function renderOrdersPage(container, initialFilter = null) {
         <div class="field"><label>取貨方式</label>
           <button type="button" id="o-pickup-btn" class="picker-trigger">${order?.pickupMethod || "請選擇"}</button>
         </div>
+        <div class="field"><label>收件地址（選填）</label><textarea id="o-address" rows="2" style="resize:vertical;">${order?.contactAddress || ""}</textarea>
+          <div class="hint">選客戶時會自動帶入客戶本人的地址，但可以自由修改——例如這張訂單是要寄給客戶的朋友，直接改成朋友的地址就好，不會動到客戶本人存的資料。</div>
+        </div>
         <div class="field"><label>預計出貨/取貨日期</label><input type="date" id="o-expected" value="${order?.expectedDate || ""}" /></div>
         <div class="field"><label>備註（選填）</label><textarea id="o-note" rows="3" style="resize:vertical;">${order?.note || ""}</textarea></div>
 
@@ -537,6 +540,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
         onSelect: (c) => {
           selectedContact = c;
           container.querySelector("#o-contact-btn").textContent = c.name;
+          if (c.address) container.querySelector("#o-address").value = c.address;
         },
       });
     });
@@ -546,6 +550,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
         contacts.push(newContact);
         selectedContact = newContact;
         container.querySelector("#o-contact-btn").textContent = newContact.name;
+        if (newContact.address) container.querySelector("#o-address").value = newContact.address;
       });
     });
 
@@ -566,7 +571,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
         contactId: selectedContact?.id || null,
         contactName: selectedContact?.name || "",
         contactPhone: selectedContact?.phone || "",
-        contactAddress: selectedContact?.address || "",
+        contactAddress: container.querySelector("#o-address").value.trim(),
         lineItems: validLines,
         shippingFee: container.querySelector("#o-shipping").value,
         pickupMethod,
@@ -674,7 +679,8 @@ export async function renderOrdersPage(container, initialFilter = null) {
           ${order.pickupMethod ? `<div><div class="hint">取貨方式</div><div style="font-size:14px;color:var(--ink);">${order.pickupMethod}</div></div>` : ""}
           ${order.expectedDate ? `<div><div class="hint">預計出貨/取貨</div><div style="font-size:14px;color:var(--ink);">${order.expectedDate}</div></div>` : ""}
         </div>
-        ${order.note ? `<div class="hint" style="margin-top:10px;">備註：${order.note}</div>` : ""}
+        ${order.contactAddress ? `<div class="hint" style="margin-top:10px;">收件地址：${order.contactAddress}</div>` : ""}
+        ${order.note ? `<div class="hint" style="margin-top:6px;">備註：${order.note}</div>` : ""}
         ${order.shippedByName ? `<div class="hint" style="margin-top:6px;">出貨紀錄：<span data-resolve-email="${order.shippedBy || ""}">${order.shippedByName}</span></div>` : ""}
         ${order.receivedByName ? `<div class="hint" style="margin-top:6px;">收款登記人：<span data-resolve-email="${order.receivedBy || ""}">${order.receivedByName}</span></div>` : ""}
       </div>

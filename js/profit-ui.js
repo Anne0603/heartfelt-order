@@ -9,11 +9,11 @@
 // 版面採用會計報表慣例：項目靠左、金額靠右，明細緊接在對應的
 // 總額下面；每一行明細都能點看更細的拆解。
 // ============================================================
-import { listOrders } from "./orders.js?v=20260826-20";
-import { listExpensesInRange } from "./expenses.js?v=20260826-20";
-import { renderDateRangePicker } from "./date-range-ui.js?v=20260826-20";
-import { linkifyErrorMessage } from "./utils.js?v=20260826-20";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-20";
+import { listOrders } from "./orders.js?v=20260826-21";
+import { listExpensesInRange } from "./expenses.js?v=20260826-21";
+import { renderDateRangePicker } from "./date-range-ui.js?v=20260826-21";
+import { linkifyErrorMessage } from "./utils.js?v=20260826-21";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-21";
 
 export async function renderProfitPage(container, navigateTo) {
   function renderSummaryShell(initialRange) {
