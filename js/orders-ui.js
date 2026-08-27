@@ -1,21 +1,21 @@
 // ============================================================
 // 訂單管理頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-13";
-import { currentSession } from "./auth.js?v=20260826-13";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-14";
+import { currentSession } from "./auth.js?v=20260826-14";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, getPaymentStatus,
   markShipped, voidOrder,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel, normalizeShipStatus,
-} from "./orders.js?v=20260826-13";
-import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-13";
-import { listContacts, createContact } from "./contacts.js?v=20260826-13";
-import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-13";
-import { exportOrders } from "./export-xlsx.js?v=20260826-13";
-import { setFab, clearFab } from "./fab-ui.js?v=20260826-13";
-import { openSearchPicker } from "./picker-ui.js?v=20260826-13";
-import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-13";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-13";
+} from "./orders.js?v=20260826-14";
+import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-14";
+import { listContacts, createContact } from "./contacts.js?v=20260826-14";
+import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-14";
+import { exportOrders } from "./export-xlsx.js?v=20260826-14";
+import { setFab, clearFab } from "./fab-ui.js?v=20260826-14";
+import { openSearchPicker } from "./picker-ui.js?v=20260826-14";
+import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-14";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-14";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
@@ -140,8 +140,8 @@ export async function renderOrdersPage(container, initialFilter = null) {
       <div class="card" style="margin-bottom:16px;padding:14px;">
         <div class="hint" style="margin-bottom:10px;">已選 ${selectedIds.size} 張訂單</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn btn-primary" id="btn-batch-ship" style="flex:1;min-width:100px;">批次出貨</button>
-          <button class="btn btn-secondary" id="btn-batch-pay" style="flex:1;min-width:100px;">批次收款</button>
+          ${canWrite() ? `<button class="btn btn-primary" id="btn-batch-ship" style="flex:1;min-width:100px;">批次出貨</button>` : ""}
+          ${canWrite() ? `<button class="btn btn-secondary" id="btn-batch-pay" style="flex:1;min-width:100px;">批次收款</button>` : ""}
           <button class="btn btn-secondary" id="btn-batch-print" style="flex:1;min-width:100px;">列印清單</button>
         </div>
       </div>
@@ -151,12 +151,12 @@ export async function renderOrdersPage(container, initialFilter = null) {
       if (chosen.length === 0) { showToast("請先勾選訂單", "error"); return; }
       printShippingList(chosen);
     });
-    bar.querySelector("#btn-batch-pay").addEventListener("click", () => {
+    bar.querySelector("#btn-batch-pay")?.addEventListener("click", () => {
       const chosen = orders.filter((o) => selectedIds.has(o.id) && getPaymentStatus(o) !== "paid");
       if (chosen.length === 0) { showToast("勾選的訂單都已經收款了", "error"); return; }
       openBatchPaymentReviewModal(chosen);
     });
-    bar.querySelector("#btn-batch-ship").addEventListener("click", () => {
+    bar.querySelector("#btn-batch-ship")?.addEventListener("click", () => {
       const chosen = orders.filter((o) => selectedIds.has(o.id) && !o.voided && normalizeShipStatus(o.shipStatus) !== "shipped");
       if (chosen.length === 0) { showToast("勾選的訂單都已經出貨了", "error"); return; }
       openBatchShipReviewModal(chosen);
