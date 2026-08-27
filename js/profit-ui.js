@@ -4,16 +4,16 @@
 //          + 其他（手動登記的銷貨成本支出，例如原料）
 // 毛利 = 營收 − 銷貨成本
 // 淨利 = 毛利 − 營業費用
-// 只有超級管理員/管理員/唯讀主管看得到（跟 MODULES 的角色設定一致）
+// 只有超級管理員/管理員/唯讀成員看得到（跟 MODULES 的角色設定一致）
 // 支出的登記/查詢/編輯在獨立的「支出管理」頁面，這裡只看計算結果。
 // 版面採用會計報表慣例：項目靠左、金額靠右，明細緊接在對應的
 // 總額下面；每一行明細都能點看更細的拆解。
 // ============================================================
-import { listOrders } from "./orders.js?v=20260826-14";
-import { listExpensesInRange } from "./expenses.js?v=20260826-14";
-import { renderDateRangePicker } from "./date-range-ui.js?v=20260826-14";
-import { linkifyErrorMessage } from "./utils.js?v=20260826-14";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-14";
+import { listOrders } from "./orders.js?v=20260826-15";
+import { listExpensesInRange } from "./expenses.js?v=20260826-15";
+import { renderDateRangePicker } from "./date-range-ui.js?v=20260826-15";
+import { linkifyErrorMessage } from "./utils.js?v=20260826-15";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-15";
 
 export async function renderProfitPage(container, navigateTo) {
   function renderSummaryShell(initialRange) {

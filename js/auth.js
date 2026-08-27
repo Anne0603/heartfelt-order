@@ -9,7 +9,7 @@
 //    - 存在但 status 是 'pending' -> 顯示「審核中」，登出
 //    - 存在且 status 是 'active' -> 放行，帶著 role 一起進系統
 // ============================================================
-import { auth, db, googleProvider } from "./firebase-config.js?v=20260826-14";
+import { auth, db, googleProvider } from "./firebase-config.js?v=20260826-15";
 import {
   signInWithPopup,
   signOut,
@@ -34,7 +34,7 @@ export const ROLE_LABELS = {
   superadmin: "超級管理員",
   admin: "管理員",
   order_staff: "訂單進出貨人員",
-  viewer: "唯讀主管",
+  viewer: "唯讀成員",
 };
 
 export const currentSession = {
