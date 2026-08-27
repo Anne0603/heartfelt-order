@@ -12,14 +12,14 @@
 // lineItems[].unitCost，之後商品成本再怎麼調整，都不會動到這張訂單
 // 已經算好的毛利。
 // ============================================================
-import { db } from "./firebase-config.js?v=20260826-15";
+import { db } from "./firebase-config.js?v=20260826-16";
 import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc,
   serverTimestamp, runTransaction, query, orderBy as fbOrderBy
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { currentSession, getDisplayName } from "./auth.js?v=20260826-15";
-import { addUsage, listUsagesByOrder, voidRecord, calcItemCost } from "./items.js?v=20260826-15";
-import { logActivity } from "./activity-log.js?v=20260826-15";
+import { currentSession, getDisplayName } from "./auth.js?v=20260826-16";
+import { addUsage, listUsagesByOrder, voidRecord, calcItemCost } from "./items.js?v=20260826-16";
+import { logActivity } from "./activity-log.js?v=20260826-16";
 
 const ordersCol = collection(db, "orders");
 

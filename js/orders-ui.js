@@ -1,27 +1,27 @@
 // ============================================================
 // 訂單管理頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-15";
-import { currentSession } from "./auth.js?v=20260826-15";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-16";
+import { currentSession } from "./auth.js?v=20260826-16";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, getPaymentStatus,
   markShipped, voidOrder,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel, normalizeShipStatus,
-} from "./orders.js?v=20260826-15";
-import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-15";
-import { listContacts, createContact } from "./contacts.js?v=20260826-15";
-import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-15";
-import { exportOrders } from "./export-xlsx.js?v=20260826-15";
-import { setFab, clearFab } from "./fab-ui.js?v=20260826-15";
-import { openSearchPicker } from "./picker-ui.js?v=20260826-15";
-import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-15";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-15";
+} from "./orders.js?v=20260826-16";
+import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-16";
+import { listContacts, createContact } from "./contacts.js?v=20260826-16";
+import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-16";
+import { exportOrders } from "./export-xlsx.js?v=20260826-16";
+import { setFab, clearFab } from "./fab-ui.js?v=20260826-16";
+import { openSearchPicker } from "./picker-ui.js?v=20260826-16";
+import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-16";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-16";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
 }
 function canSeeProfit() {
-  return ["superadmin", "viewer"].includes(currentSession.member?.role);
+  return currentSession.member?.role === "superadmin";
 }
 function canWrite() {
   return ["superadmin", "admin", "order_staff"].includes(currentSession.member?.role);

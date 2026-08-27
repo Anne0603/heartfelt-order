@@ -1,8 +1,8 @@
 // ============================================================
 // 商品與庫存頁面 UI（合併版）
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-15";
-import { currentSession } from "./auth.js?v=20260826-15";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-16";
+import { currentSession } from "./auth.js?v=20260826-16";
 import {
   listItems, createItem, updateItem, setItemArchived,
   addPurchaseBatch, stocktakeAdjust,
@@ -10,16 +10,16 @@ import {
   voidRecord, permanentlyDelete,
   computeStock, computeAvgCost, calcItemCost, buildItemsIndex,
   TYPE_LABELS, ORDERABLE_TYPES, STOCK_TRACKED_TYPES,
-} from "./items.js?v=20260826-15";
-import { listCategories } from "./categories.js?v=20260826-15";
-import { listUnits } from "./units.js?v=20260826-15";
-import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js?v=20260826-15";
-import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260826-15";
-import { openSearchPicker } from "./picker-ui.js?v=20260826-15";
-import { exportItems } from "./export-xlsx.js?v=20260826-15";
-import { setFab } from "./fab-ui.js?v=20260826-15";
-import { iconHtml } from "./icons.js?v=20260826-15";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-15";
+} from "./items.js?v=20260826-16";
+import { listCategories } from "./categories.js?v=20260826-16";
+import { listUnits } from "./units.js?v=20260826-16";
+import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js?v=20260826-16";
+import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260826-16";
+import { openSearchPicker } from "./picker-ui.js?v=20260826-16";
+import { exportItems } from "./export-xlsx.js?v=20260826-16";
+import { setFab } from "./fab-ui.js?v=20260826-16";
+import { iconHtml } from "./icons.js?v=20260826-16";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-16";
 
 const TYPE_HINTS = {
   self_made: "自己現做的東西，客戶可訂購。不追蹤庫存量，成本 = 配方裡每一項包材的成本加總（原料/人工每月算在「利潤總覽」）。",
@@ -34,7 +34,7 @@ function canSeeCost() {
 // 但報表頁面（利潤總覽/統計報表）本來就有自己的角色限制，管理員
 // 主動去看報表還是看得到，這裡只限制「順手就會看到」的畫面。
 function canSeeProfit() {
-  return ["superadmin", "viewer"].includes(currentSession.member?.role);
+  return currentSession.member?.role === "superadmin";
 }
 function canWrite() {
   return ["superadmin", "admin", "order_staff"].includes(currentSession.member?.role);

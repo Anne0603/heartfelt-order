@@ -3,17 +3,17 @@
 // Cloudinary 設定 / 待審核申請 / 成員
 // 品牌圖案改成「直接點側邊欄 Logo 上傳」，邏輯在 app.js
 // ============================================================
-import { db } from "./firebase-config.js?v=20260826-15";
+import { db } from "./firebase-config.js?v=20260826-16";
 import {
   doc, getDoc, setDoc, deleteDoc,
   collection, getDocs, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-15";
-import { currentSession, ROLE_LABELS } from "./auth.js?v=20260826-15";
-import { listCategories, createCategory, renameCategory, deleteCategory } from "./categories.js?v=20260826-15";
-import { listUnits, createUnit, renameUnit, deleteUnit } from "./units.js?v=20260826-15";
-import { confirmDialog } from "./modal-ui.js?v=20260826-15";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-15";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-16";
+import { currentSession, ROLE_LABELS } from "./auth.js?v=20260826-16";
+import { listCategories, createCategory, renameCategory, deleteCategory } from "./categories.js?v=20260826-16";
+import { listUnits, createUnit, renameUnit, deleteUnit } from "./units.js?v=20260826-16";
+import { confirmDialog, openModal } from "./modal-ui.js?v=20260826-16";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-16";
 
 const CLOUDINARY_DOC = doc(db, "publicSettings", "cloudinary");
 const BRAND_DOC = doc(db, "publicSettings", "brand");
@@ -91,6 +91,48 @@ async function changeRole(email, role) {
     approvedAt: serverTimestamp(),
     approvedBy: currentSession.user?.email || null,
   }, { merge: true });
+}
+
+// 成員權限變更是敏感操作，不能點一下下拉選單就直接生效，
+// 要先看清楚「從什麼角色改成什麼角色」，輸入「確認」兩個字才會真的執行。
+function openRoleChangeReviewModal(email, oldRole, newRole, { onConfirmed, onCancelled }) {
+  const overlay = openModal(`
+    <h3 style="margin-bottom:4px;">確認變更成員權限</h3>
+    <div class="hint" style="margin-bottom:16px;">${email}</div>
+    <div style="display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:18px;">
+      <span class="seal-badge muted"><span class="dot"></span>${ROLE_LABELS[oldRole] || oldRole}</span>
+      <span class="hint">→</span>
+      <span class="seal-badge warn"><span class="dot"></span>${ROLE_LABELS[newRole] || newRole}</span>
+    </div>
+    <div class="field"><label>確定要變更的話，請輸入「確認」兩個字</label><input type="text" id="rc-confirm-text" placeholder="確認" /></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;">
+      <button class="btn btn-secondary" id="rc-cancel">取消</button>
+      <button class="btn btn-primary" id="rc-confirm">確定變更</button>
+    </div>
+  `, 400);
+
+  let resolved = false;
+  overlay.querySelector("#rc-cancel").addEventListener("click", () => {
+    resolved = true;
+    overlay.remove();
+    onCancelled();
+  });
+  overlay.querySelector("#rc-confirm").addEventListener("click", (e) => {
+    const text = overlay.querySelector("#rc-confirm-text").value.trim();
+    if (text !== "確認") { showToast("請輸入「確認」兩個字才能執行", "error"); return; }
+    resolved = true;
+    overlay.remove();
+    onConfirmed();
+  });
+  // 如果直接關掉視窗（點 X），也要當作取消，避免選單卡在新值但沒真的套用
+  const observer = new MutationObserver(() => {
+    if (!document.body.contains(overlay) && !resolved) {
+      resolved = true;
+      onCancelled();
+      observer.disconnect();
+    }
+  });
+  observer.observe(document.body, { childList: true });
 }
 
 function roleOptionsHtml(selected) {
@@ -235,15 +277,25 @@ export async function renderMembersPage(container) {
           }).join("");
 
       listEl.querySelectorAll(".member-role-select").forEach((sel) => {
-        sel.addEventListener("change", async () => {
+        const originalValue = sel.value;
+        sel.addEventListener("change", () => {
           const email = sel.getAttribute("data-email");
-          try {
-            await changeRole(email, sel.value);
-            showToast("已更新", "success");
-          } catch (err) {
-            showToast("失敗：" + err.message, "error");
-            refresh();
-          }
+          const newRole = sel.value;
+          openRoleChangeReviewModal(email, originalValue, newRole, {
+            onConfirmed: async () => {
+              try {
+                await changeRole(email, newRole);
+                showToast("已更新角色", "success");
+                refresh();
+              } catch (err) {
+                showToast("失敗：" + err.message, "error");
+                refresh();
+              }
+            },
+            onCancelled: () => {
+              sel.value = originalValue; // 取消的話把選單還原，不要看起來像已經改了
+            },
+          });
         });
       });
       listEl.querySelectorAll("[data-remove]").forEach((btn) => {
