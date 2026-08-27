@@ -2,15 +2,15 @@
 // 支出管理頁面（獨立功能區）
 // 每筆支出分「銷貨成本」或「營業費用」，各自有自己的分類清單
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-12";
-import { currentSession } from "./auth.js?v=20260826-12";
-import { listExpenses, addExpense, updateExpense, deleteExpense, PAYMENT_METHODS, COST_TYPE_LABELS } from "./expenses.js?v=20260826-12";
-import { listCategories } from "./categories.js?v=20260826-12";
-import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260826-12";
-import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js?v=20260826-12";
-import { setFab } from "./fab-ui.js?v=20260826-12";
-import { iconHtml } from "./icons.js?v=20260826-12";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-12";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-13";
+import { currentSession } from "./auth.js?v=20260826-13";
+import { listExpenses, addExpense, updateExpense, deleteExpense, PAYMENT_METHODS, COST_TYPE_LABELS } from "./expenses.js?v=20260826-13";
+import { listCategories } from "./categories.js?v=20260826-13";
+import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260826-13";
+import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js?v=20260826-13";
+import { setFab } from "./fab-ui.js?v=20260826-13";
+import { iconHtml } from "./icons.js?v=20260826-13";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-13";
 
 function canWrite() {
   return ["superadmin", "admin"].includes(currentSession.member?.role);
@@ -131,22 +131,23 @@ export async function renderExpensesPage(container, initialFilter = null) {
 
     listEl.innerHTML = filtered.map((exp) => `
       <div class="card" style="margin-bottom:10px;">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
-          <div style="display:flex;gap:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+          <div style="display:flex;gap:12px;flex:1;min-width:0;">
             ${exp.receiptUrl
               ? `<img src="${exp.receiptUrl}" data-preview="${exp.receiptUrl}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0;cursor:pointer;">`
               : `<div style="width:44px;height:44px;border-radius:8px;background:var(--paper);flex-shrink:0;"></div>`
             }
-            <div>
+            <div style="min-width:0;">
               <div style="font-weight:700;font-size:16px;color:var(--ink);">${exp.category || "（未分類）"}</div>
               <div style="font-size:13px;color:var(--text-muted);margin-top:2px;">
                 <span class="seal-badge ${exp.costType === "cogs" ? "warn" : "ok"}" style="padding:1px 8px 1px 3px;font-size:11px;"><span class="dot"></span>${COST_TYPE_LABELS[exp.costType] || "營業費用"}</span>
-                ${exp.date}${exp.paymentMethod ? " · " + exp.paymentMethod : ""}${exp.note ? " · " + exp.note : ""}
+                ${exp.date}${exp.paymentMethod ? " · " + exp.paymentMethod : ""}
               </div>
             </div>
           </div>
-          <div style="font-family:var(--font-mono);font-size:18px;font-weight:700;color:var(--rose);">$${exp.amount}</div>
+          <div style="font-family:var(--font-mono);font-size:18px;font-weight:700;color:var(--rose);flex-shrink:0;">$${exp.amount}</div>
         </div>
+        ${exp.note ? `<div class="hint" style="margin-top:8px;white-space:pre-wrap;word-break:break-word;">${exp.note}</div>` : ""}
         ${canWrite() ? `
           <div style="margin-top:10px;display:flex;justify-content:flex-end;gap:8px;">
             <button class="btn btn-secondary" data-edit="${exp.id}" style="padding:7px 14px;font-size:13px;">編輯</button>
@@ -221,7 +222,7 @@ export async function renderExpensesPage(container, initialFilter = null) {
           ${PAYMENT_METHODS.map((m) => `<option value="${m}" ${exp?.paymentMethod === m ? "selected" : ""}>${m}</option>`).join("")}
         </select>
       </div>
-      <div class="field"><label>備註（選填）</label><input type="text" id="ee-note" value="${exp?.note || ""}" /></div>
+      <div class="field"><label>備註（選填）</label><textarea id="ee-note" rows="3" style="resize:vertical;">${exp?.note || ""}</textarea></div>
       <div style="display:flex;justify-content:flex-end;">
         <button class="btn btn-primary" id="ee-save">儲存</button>
       </div>

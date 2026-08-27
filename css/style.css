@@ -497,7 +497,8 @@ input[type="number"]::-webkit-inner-spin-button {
 .field input[type="email"],
 .field input[type="number"],
 .field input[type="date"],
-.field select {
+.field select,
+.field textarea {
   width: 100%;
   padding: 11px 12px;
   border: 1px solid var(--paper-line);
@@ -507,7 +508,7 @@ input[type="number"]::-webkit-inner-spin-button {
   background: #fff;
   color: var(--text-primary);
 }
-.field input:focus, .field select:focus {
+.field input:focus, .field select:focus, .field textarea:focus {
   outline: 2px solid var(--gold);
   outline-offset: 1px;
   border-color: var(--gold);

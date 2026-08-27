@@ -1,21 +1,21 @@
 // ============================================================
 // 訂單管理頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-12";
-import { currentSession } from "./auth.js?v=20260826-12";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-13";
+import { currentSession } from "./auth.js?v=20260826-13";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, getPaymentStatus,
   markShipped, voidOrder,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel, normalizeShipStatus,
-} from "./orders.js?v=20260826-12";
-import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-12";
-import { listContacts, createContact } from "./contacts.js?v=20260826-12";
-import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-12";
-import { exportOrders } from "./export-xlsx.js?v=20260826-12";
-import { setFab, clearFab } from "./fab-ui.js?v=20260826-12";
-import { openSearchPicker } from "./picker-ui.js?v=20260826-12";
-import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-12";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-12";
+} from "./orders.js?v=20260826-13";
+import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-13";
+import { listContacts, createContact } from "./contacts.js?v=20260826-13";
+import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-13";
+import { exportOrders } from "./export-xlsx.js?v=20260826-13";
+import { setFab, clearFab } from "./fab-ui.js?v=20260826-13";
+import { openSearchPicker } from "./picker-ui.js?v=20260826-13";
+import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-13";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-13";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
@@ -422,7 +422,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
           <button type="button" id="o-pickup-btn" class="picker-trigger">${order?.pickupMethod || "請選擇"}</button>
         </div>
         <div class="field"><label>預計出貨/取貨日期</label><input type="date" id="o-expected" value="${order?.expectedDate || ""}" /></div>
-        <div class="field"><label>備註（選填）</label><input type="text" id="o-note" value="${order?.note || ""}" /></div>
+        <div class="field"><label>備註（選填）</label><textarea id="o-note" rows="3" style="resize:vertical;">${order?.note || ""}</textarea></div>
 
         <div id="o-total-preview" style="text-align:right;font-size:15px;font-weight:700;margin:10px 0;"></div>
 

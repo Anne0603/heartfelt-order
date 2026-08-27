@@ -1,12 +1,12 @@
 // ============================================================
 // 客戶與廠商頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-12";
-import { currentSession } from "./auth.js?v=20260826-12";
-import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-12";
-import { listContacts, createContact, updateContact, setContactArchived } from "./contacts.js?v=20260826-12";
-import { listOrders, getPaymentStatus } from "./orders.js?v=20260826-12";
-import { listCategories } from "./categories.js?v=20260826-12";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-13";
+import { currentSession } from "./auth.js?v=20260826-13";
+import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-13";
+import { listContacts, createContact, updateContact, setContactArchived } from "./contacts.js?v=20260826-13";
+import { listOrders, getPaymentStatus } from "./orders.js?v=20260826-13";
+import { listCategories } from "./categories.js?v=20260826-13";
 
 async function listMergedSupplyCategories() {
   // 廠商供應的通常是現貨商品或包材，不是自製商品，所以合併這兩種分類清單
@@ -18,10 +18,10 @@ async function listMergedSupplyCategories() {
   [...resale, ...packaging].forEach((c) => { if (!seen.has(c.name)) seen.set(c.name, c); });
   return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
-import { exportContacts } from "./export-xlsx.js?v=20260826-12";
-import { setFab } from "./fab-ui.js?v=20260826-12";
-import { iconHtml } from "./icons.js?v=20260826-12";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-12";
+import { exportContacts } from "./export-xlsx.js?v=20260826-13";
+import { setFab } from "./fab-ui.js?v=20260826-13";
+import { iconHtml } from "./icons.js?v=20260826-13";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-13";
 
 const ROLE_LABELS = { customer: "客戶", supplier: "廠商" };
 
@@ -247,7 +247,7 @@ export async function renderContactsPage(container) {
           ${inventoryCategories.map((cat) => `<option value="${cat.name}" ${cat.name === contact?.supplyCategory ? "selected" : ""}>${cat.name}</option>`).join("")}
         </select>
       </div>
-      <div class="field"><label>備註（選填）</label><input type="text" id="c-note" value="${contact?.note || ""}" /></div>
+      <div class="field"><label>備註（選填）</label><textarea id="c-note" rows="3" style="resize:vertical;">${contact?.note || ""}</textarea></div>
       <div style="display:flex;justify-content:${isEdit && canWrite() ? "space-between" : "flex-end"};align-items:center;">
         ${isEdit && canWrite() ? `<button class="btn ${contact.status === "archived" ? "btn-success" : "btn-secondary"}" id="c-toggle-archive">${contact.status === "archived" ? "恢復使用" : "停用"}</button>` : ""}
         <button class="btn btn-primary" id="c-save">儲存</button>

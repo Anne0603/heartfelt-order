@@ -1,8 +1,8 @@
 // ============================================================
 // 商品與庫存頁面 UI（合併版）
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-12";
-import { currentSession } from "./auth.js?v=20260826-12";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-13";
+import { currentSession } from "./auth.js?v=20260826-13";
 import {
   listItems, createItem, updateItem, setItemArchived,
   addPurchaseBatch, stocktakeAdjust,
@@ -10,16 +10,16 @@ import {
   voidRecord, permanentlyDelete,
   computeStock, computeAvgCost, calcItemCost, buildItemsIndex,
   TYPE_LABELS, ORDERABLE_TYPES, STOCK_TRACKED_TYPES,
-} from "./items.js?v=20260826-12";
-import { listCategories } from "./categories.js?v=20260826-12";
-import { listUnits } from "./units.js?v=20260826-12";
-import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js?v=20260826-12";
-import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260826-12";
-import { openSearchPicker } from "./picker-ui.js?v=20260826-12";
-import { exportItems } from "./export-xlsx.js?v=20260826-12";
-import { setFab } from "./fab-ui.js?v=20260826-12";
-import { iconHtml } from "./icons.js?v=20260826-12";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-12";
+} from "./items.js?v=20260826-13";
+import { listCategories } from "./categories.js?v=20260826-13";
+import { listUnits } from "./units.js?v=20260826-13";
+import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js?v=20260826-13";
+import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260826-13";
+import { openSearchPicker } from "./picker-ui.js?v=20260826-13";
+import { exportItems } from "./export-xlsx.js?v=20260826-13";
+import { setFab } from "./fab-ui.js?v=20260826-13";
+import { iconHtml } from "./icons.js?v=20260826-13";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-13";
 
 const TYPE_HINTS = {
   self_made: "自己現做的東西，客戶可訂購。不追蹤庫存量，成本 = 配方裡每一項包材的成本加總（原料/人工每月算在「利潤總覽」）。",
@@ -803,7 +803,7 @@ export async function renderItemsPage(container, initialFilter = null) {
         <button type="button" id="s-item-btn" class="picker-trigger">點選項目</button>
       </div>
       <div class="field"><label>實際盤點數量</label><input type="number" id="s-counted" /></div>
-      <div class="field"><label>備註（選填）</label><input type="text" id="s-note" /></div>
+      <div class="field"><label>備註（選填）</label><textarea id="s-note" rows="3" style="resize:vertical;"></textarea></div>
       <div style="display:flex;justify-content:flex-end;">
         <button class="btn btn-primary" id="s-submit">確認校正</button>
       </div>
