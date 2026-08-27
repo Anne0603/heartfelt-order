@@ -3,16 +3,16 @@
 // 第一層：今天要做的事（全部角色，不含金額）
 // 第二層：快速操作按鈕（依角色顯示）
 // ============================================================
-import { currentSession } from "./auth.js?v=20260826-11";
-import { lowStockItems } from "./items.js?v=20260826-11";
-import { listOrders, normalizeShipStatus } from "./orders.js?v=20260826-11";
-import { iconHtml } from "./icons.js?v=20260826-11";
+import { currentSession } from "./auth.js?v=20260826-12";
+import { lowStockItems } from "./items.js?v=20260826-12";
+import { listOrders, normalizeShipStatus } from "./orders.js?v=20260826-12";
+import { iconHtml } from "./icons.js?v=20260826-12";
 
 const QUICK_ACTIONS = [
   { id: "orders",    label: "新增訂單",     icon: "pencil", roles: ["superadmin","admin","order_staff"], filter: "openNew" },
   { id: "items",     label: "商品與庫存",   icon: "box", roles: ["superadmin","admin","order_staff","viewer"] },
   { id: "orders",    label: "訂單列表",     icon: "search", roles: ["superadmin","admin","order_staff","viewer"] },
-  { id: "orders",    label: "今日出貨",     icon: "truck", roles: ["superadmin","admin","order_staff","viewer"], filter: "today" },
+  { id: "expenses",  label: "支出管理",     icon: "cash", roles: ["superadmin","admin","viewer"] },
   { id: "contacts",  label: "客戶與廠商",   icon: "idcard", roles: ["superadmin","admin","order_staff","viewer"] },
   { id: "profit",    label: "利潤總覽",     icon: "coin", roles: ["superadmin","admin","viewer"] },
 ];
