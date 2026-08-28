@@ -1,21 +1,21 @@
 // ============================================================
 // 訂單管理頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-28";
-import { currentSession, wireNameResolution } from "./auth.js?v=20260826-28";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-29";
+import { currentSession, wireNameResolution } from "./auth.js?v=20260826-29";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, updateOrderNoteAndAddress, getPaymentStatus,
   markShipped, voidOrder,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel, normalizeShipStatus,
-} from "./orders.js?v=20260826-28";
-import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-28";
-import { listContacts, createContact } from "./contacts.js?v=20260826-28";
-import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-28";
-import { exportOrders } from "./export-xlsx.js?v=20260826-28";
-import { setFab, clearFab } from "./fab-ui.js?v=20260826-28";
-import { openSearchPicker } from "./picker-ui.js?v=20260826-28";
-import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-28";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-28";
+} from "./orders.js?v=20260826-29";
+import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-29";
+import { listContacts, createContact } from "./contacts.js?v=20260826-29";
+import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-29";
+import { exportOrders } from "./export-xlsx.js?v=20260826-29";
+import { setFab, clearFab } from "./fab-ui.js?v=20260826-29";
+import { openSearchPicker } from "./picker-ui.js?v=20260826-29";
+import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-29";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-29";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
@@ -637,9 +637,10 @@ export async function renderOrdersPage(container, initialFilter = null) {
       </div>
     `, 420);
     overlay.querySelector("#qc-save").addEventListener("click", async (e) => {
+      const btn = e.currentTarget;
       const name = overlay.querySelector("#qc-name").value.trim();
       if (!name) { showToast("請輸入名稱", "error"); return; }
-      e.currentTarget.disabled = true;
+      btn.disabled = true;
       try {
         const data = {
           name,
@@ -655,7 +656,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
         onCreated(created);
       } catch (err) {
         showToast("失敗：" + err.message, "error");
-        e.currentTarget.disabled = false;
+        btn.disabled = false;
       }
     });
   }
@@ -820,7 +821,8 @@ export async function renderOrdersPage(container, initialFilter = null) {
 
     if (canWrite() && normalizedStatus === "pending") {
       shipBtns.push({ label: "標記已出貨", cls: "btn-primary", handler: async (e) => {
-        e.currentTarget.disabled = true;
+        const btn = e.currentTarget;
+        btn.disabled = true;
         try {
           await markShipped(order.id, itemsById);
           showToast("已出貨，庫存已自動扣除", "success");
@@ -829,7 +831,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
         } catch (err) {
           msgEl.textContent = "失敗：" + err.message;
           showToast("失敗：" + err.message, "error");
-          e.currentTarget.disabled = false;
+          btn.disabled = false;
         }
       }});
       utilityBtns.push({ label: "編輯訂單", cls: "btn-secondary", handler: () => renderOrderFormPage(order) });
@@ -886,9 +888,10 @@ export async function renderOrdersPage(container, initialFilter = null) {
 
     if (canVoid()) {
       actionsCard.querySelector("#d-void").addEventListener("click", async (e) => {
+        const btn = e.currentTarget; // 要在 await 之前先存好，等確認視窗跳出來、瀏覽器就會把 e.currentTarget 清空
         const willRestoreStock = normalizeShipStatus(order.shipStatus) === "shipped";
         if (!await confirmDialog(willRestoreStock ? "這張訂單已出貨，作廢後會自動還原庫存，確定嗎？" : "確定要作廢這張訂單嗎？", { confirmLabel: "作廢", danger: true })) return;
-        e.currentTarget.disabled = true;
+        btn.disabled = true;
         try {
           await voidOrder(order.id);
           showToast("已作廢" + (willRestoreStock ? "，庫存已還原" : ""), "success");
@@ -897,7 +900,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
         } catch (err) {
           msgEl.textContent = "失敗：" + err.message;
           showToast("失敗：" + err.message, "error");
-          e.currentTarget.disabled = false;
+          btn.disabled = false;
         }
       });
     }
