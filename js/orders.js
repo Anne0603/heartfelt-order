@@ -12,14 +12,14 @@
 // lineItems[].unitCost，之後商品成本再怎麼調整，都不會動到這張訂單
 // 已經算好的毛利。
 // ============================================================
-import { db } from "./firebase-config.js?v=20260826-30";
+import { db } from "./firebase-config.js?v=20260826-31";
 import {
-  collection, doc, getDoc, getDocs, addDoc, updateDoc,
+  collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
   serverTimestamp, runTransaction, query, orderBy as fbOrderBy
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { currentSession, getDisplayName } from "./auth.js?v=20260826-30";
-import { addUsage, listUsagesByOrder, voidRecord, calcItemCost } from "./items.js?v=20260826-30";
-import { logActivity } from "./activity-log.js?v=20260826-30";
+import { currentSession, getDisplayName } from "./auth.js?v=20260826-31";
+import { addUsage, listUsagesByOrder, voidRecord, calcItemCost } from "./items.js?v=20260826-31";
+import { logActivity } from "./activity-log.js?v=20260826-31";
 
 const ordersCol = collection(db, "orders");
 
@@ -264,4 +264,13 @@ export async function voidOrder(orderId) {
     updatedAt: serverTimestamp(),
   });
   logActivity({ module: "orders", action: "void", summary: `訂單 ${order.orderNumber} 已作廢` });
+}
+
+// ---------- 永久刪除（限超級管理員；只能刪已經作廢的訂單，避免誤刪還在使用中的資料） ----------
+export async function deleteOrderPermanently(orderId) {
+  const order = await getOrder(orderId);
+  if (!order) throw new Error("找不到訂單");
+  if (!order.voided) throw new Error("只能刪除已作廢的訂單");
+  await deleteDoc(doc(db, "orders", orderId));
+  logActivity({ module: "orders", action: "delete", summary: `訂單 ${order.orderNumber} 已永久刪除` });
 }

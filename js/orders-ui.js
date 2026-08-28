@@ -1,21 +1,21 @@
 // ============================================================
 // 訂單管理頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-30";
-import { currentSession, wireNameResolution } from "./auth.js?v=20260826-30";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-31";
+import { currentSession, wireNameResolution } from "./auth.js?v=20260826-31";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, updateOrderNoteAndAddress, getPaymentStatus,
-  markShipped, voidOrder,
+  markShipped, voidOrder, deleteOrderPermanently,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel, normalizeShipStatus,
-} from "./orders.js?v=20260826-30";
-import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-30";
-import { listContacts, createContact } from "./contacts.js?v=20260826-30";
-import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-30";
-import { exportOrders } from "./export-xlsx.js?v=20260826-30";
-import { setFab, clearFab } from "./fab-ui.js?v=20260826-30";
-import { openSearchPicker } from "./picker-ui.js?v=20260826-30";
-import { openModal } from "./modal-ui.js?v=20260826-30";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-30";
+} from "./orders.js?v=20260826-31";
+import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-31";
+import { listContacts, createContact } from "./contacts.js?v=20260826-31";
+import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-31";
+import { exportOrders } from "./export-xlsx.js?v=20260826-31";
+import { setFab, clearFab } from "./fab-ui.js?v=20260826-31";
+import { openSearchPicker } from "./picker-ui.js?v=20260826-31";
+import { openModal } from "./modal-ui.js?v=20260826-31";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-31";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
@@ -808,11 +808,51 @@ export async function renderOrdersPage(container, initialFilter = null) {
     msgEl.style.cssText = "color:var(--rose);margin-top:8px;";
 
     if (order.voided) {
+      const isSuperadmin = currentSession.member?.role === "superadmin";
       actionsCard.innerHTML = `
         <button class="btn btn-secondary" id="d-print" style="width:100%;">列印出貨單</button>
+        ${isSuperadmin ? `
+          <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--paper-line);">
+            <button class="btn btn-danger" id="d-delete-permanent" style="width:100%;">永久刪除</button>
+          </div>
+        ` : ""}
       `;
       actionsCard.querySelector("#d-print").addEventListener("click", () => printOrderSlip(order));
+      actionsCard.querySelector("#d-delete-permanent")?.addEventListener("click", () => {
+        openPermanentDeleteModal(order);
+      });
       return;
+    }
+
+    // 永久刪除是不可逆的動作，要求輸入「確認」兩個字才會真的執行
+    function openPermanentDeleteModal(order) {
+      const overlay = openModal(`
+        <h3 style="margin-bottom:4px;">確認永久刪除</h3>
+        <div class="hint" style="margin-bottom:14px;">${order.orderNumber} · ${order.contactName || "（未指定客戶）"} · $${order.totalAmount}</div>
+        <div class="hint" style="color:var(--rose);margin-bottom:14px;">刪除後這張訂單會完全消失，其他人也看不到，無法復原。</div>
+        <div class="field"><label>確定要刪除的話，請輸入「確認」兩個字</label><input type="text" id="pd-confirm-text" placeholder="確認" /></div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;">
+          <button class="btn btn-secondary" id="pd-cancel">取消</button>
+          <button class="btn btn-danger" id="pd-confirm">永久刪除</button>
+        </div>
+      `, 400);
+      overlay.querySelector("#pd-cancel").addEventListener("click", () => overlay.remove());
+      overlay.querySelector("#pd-confirm").addEventListener("click", async (e) => {
+        const btn = e.currentTarget;
+        const text = overlay.querySelector("#pd-confirm-text").value.trim();
+        if (text !== "確認") { showToast("請輸入「確認」兩個字才能執行", "error"); return; }
+        btn.disabled = true;
+        try {
+          await deleteOrderPermanently(order.id);
+          showToast("已永久刪除", "success");
+          overlay.remove();
+          await reload();
+          renderListView();
+        } catch (err) {
+          showToast("失敗：" + err.message, "error");
+          btn.disabled = false;
+        }
+      });
     }
 
     const shipBtns = [];
