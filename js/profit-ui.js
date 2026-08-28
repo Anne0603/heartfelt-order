@@ -9,11 +9,11 @@
 // 版面採用會計報表慣例：項目靠左、金額靠右，明細緊接在對應的
 // 總額下面；每一行明細都能點看更細的拆解。
 // ============================================================
-import { listOrders } from "./orders.js?v=20260826-25";
-import { listExpensesInRange } from "./expenses.js?v=20260826-25";
-import { renderDateRangePicker } from "./date-range-ui.js?v=20260826-25";
-import { linkifyErrorMessage } from "./utils.js?v=20260826-25";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-25";
+import { listOrders } from "./orders.js?v=20260826-26";
+import { listExpensesInRange } from "./expenses.js?v=20260826-26";
+import { renderDateRangePicker } from "./date-range-ui.js?v=20260826-26";
+import { linkifyErrorMessage } from "./utils.js?v=20260826-26";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-26";
 
 export async function renderProfitPage(container, navigateTo) {
   function renderSummaryShell(initialRange) {
@@ -66,42 +66,67 @@ export async function renderProfitPage(container, navigateTo) {
     ).join("");
   }
 
+  // 把日期字串往前/往後位移幾年，用來算「去年同期」的區間
+  function shiftYear(dateStr, delta) {
+    const d = new Date(dateStr + "T00:00:00");
+    d.setFullYear(d.getFullYear() + delta);
+    return d.toISOString().slice(0, 10);
+  }
+
+  // 算一段區間的營收/成本/毛利/淨利，抽出來讓「這段期間」跟「去年同期」共用同一套邏輯
+  function computeStats(ordersInRange, expensesInRange) {
+    const revenue = ordersInRange.reduce((s, o) => s + o.totalAmount, 0);
+    let packagingCost = 0, resaleCost = 0;
+    ordersInRange.forEach((o) => {
+      o.lineItems.forEach((li) => {
+        const cost = li.unitCost * li.qty;
+        if (li.productType === "resale") resaleCost += cost;
+        else packagingCost += cost;
+      });
+    });
+    const cogsExpenses = expensesInRange.filter((e) => e.costType === "cogs");
+    const opexExpenses = expensesInRange.filter((e) => e.costType !== "cogs");
+    const cogsExtra = cogsExpenses.reduce((s, e) => s + e.amount, 0);
+    const opexTotal = opexExpenses.reduce((s, e) => s + e.amount, 0);
+    const totalCOGS = packagingCost + resaleCost + cogsExtra;
+    const grossProfit = revenue - totalCOGS;
+    const netProfit = grossProfit - opexTotal;
+    return { revenue, packagingCost, resaleCost, cogsExpenses, opexExpenses, totalCOGS, opexTotal, grossProfit, netProfit };
+  }
+
+  // 「較去年同期 +12%」這種小標籤；去年同期是 0 或沒資料就不顯示，避免除以 0 出現奇怪數字
+  function yoyBadge(current, previous) {
+    if (!previous) return "";
+    const diff = current - previous;
+    const pct = (diff / Math.abs(previous)) * 100;
+    const up = diff >= 0;
+    return `<span style="font-size:12.5px;font-weight:600;color:${up ? "var(--jade)" : "var(--rose)"};margin-left:8px;">${up ? "▲" : "▼"} ${Math.abs(pct).toFixed(0)}% 較去年同期</span>`;
+  }
+
   async function load(range) {
     const summaryEl = container.querySelector("#profit-summary");
     summaryEl.innerHTML = `<div class="card" style="color:var(--text-muted);">載入中…</div>`;
     try {
-      const [orders, expenses] = await Promise.all([
+      const lastYearRange = { start: shiftYear(range.start, -1), end: shiftYear(range.end, -1) };
+      const [orders, expenses, lastYearExpenses] = await Promise.all([
         listOrders(),
         listExpensesInRange(range.start, range.end),
+        listExpensesInRange(lastYearRange.start, lastYearRange.end),
       ]);
       const ordersInRange = orders.filter((o) => !o.voided && o.orderDate >= range.start && o.orderDate <= range.end);
-      const revenue = ordersInRange.reduce((s, o) => s + o.totalAmount, 0);
+      const lastYearOrders = orders.filter((o) => !o.voided && o.orderDate >= lastYearRange.start && o.orderDate <= lastYearRange.end);
 
-      // 包材（自製商品用掉的物料）跟進貨成本（現貨商品本身）是兩件不同的事，分開算
-      let packagingCost = 0;
-      let resaleCost = 0;
-      ordersInRange.forEach((o) => {
-        o.lineItems.forEach((li) => {
-          const cost = li.unitCost * li.qty;
-          if (li.productType === "resale") resaleCost += cost;
-          else packagingCost += cost;
-        });
-      });
+      const stats = computeStats(ordersInRange, expenses);
+      const lastYearStats = lastYearOrders.length > 0 ? computeStats(lastYearOrders, lastYearExpenses) : null;
+      const { revenue, packagingCost, resaleCost, cogsExpenses, opexExpenses, totalCOGS, opexTotal, grossProfit, netProfit } = stats;
 
-      const cogsExpenses = expenses.filter((e) => e.costType === "cogs");
-      const opexExpenses = expenses.filter((e) => e.costType !== "cogs");
-      const cogsExtra = cogsExpenses.reduce((s, e) => s + e.amount, 0);
-      const opexTotal = opexExpenses.reduce((s, e) => s + e.amount, 0);
-      const totalCOGS = packagingCost + resaleCost + cogsExtra;
-
-      const grossProfit = revenue - totalCOGS;
-      const netProfit = grossProfit - opexTotal;
       const grossMarginText = revenue > 0 ? `${((grossProfit / revenue) * 100).toFixed(1)}%` : "—";
       const netMarginText = revenue > 0 ? `${((netProfit / revenue) * 100).toFixed(1)}%` : "—";
 
       summaryEl.innerHTML = `
         <div class="card">
           ${ledgerRow({ label: "營收", amount: revenue, size: 20 })}
+          ${lastYearStats ? `<div style="text-align:right;margin-top:-6px;margin-bottom:6px;">${yoyBadge(revenue, lastYearStats.revenue)}</div>` : ""}
 
           <div style="border-top:1px solid var(--paper-line);margin-top:4px;padding-top:4px;">
             ${ledgerRow({ label: "銷貨成本", amount: totalCOGS, size: 18 })}
@@ -112,6 +137,7 @@ export async function renderProfitPage(container, navigateTo) {
 
           <div style="border-top:1px solid var(--paper-line);margin-top:8px;padding-top:4px;">
             ${ledgerRow({ label: "毛利", sub: `毛利率 ${grossMarginText}`, amount: grossProfit, size: 22, weight: 900, color: grossProfit>=0?"var(--ink)":"var(--rose)" })}
+            ${lastYearStats ? `<div style="text-align:right;margin-top:-4px;">${yoyBadge(grossProfit, lastYearStats.grossProfit)}</div>` : ""}
           </div>
 
           <div style="border-top:1px solid var(--paper-line);margin-top:8px;padding-top:4px;">
@@ -121,9 +147,11 @@ export async function renderProfitPage(container, navigateTo) {
 
           <div style="border-top:1px solid var(--paper-line);margin-top:8px;padding-top:4px;">
             ${ledgerRow({ label: "淨利", sub: `淨利率 ${netMarginText}`, amount: netProfit, size: 24, weight: 900, color: netProfit>=0?"var(--ink)":"var(--rose)" })}
+            ${lastYearStats ? `<div style="text-align:right;margin-top:-4px;">${yoyBadge(netProfit, lastYearStats.netProfit)}</div>` : ""}
           </div>
 
           <div class="hint" style="margin-top:12px;">共 ${ordersInRange.length} 張訂單（不含作廢）· ${range.start} ～ ${range.end}</div>
+          ${lastYearStats ? `<div class="hint" style="margin-top:2px;">去年同期（${lastYearRange.start} ～ ${lastYearRange.end}）：營收 $${lastYearStats.revenue.toFixed(0)}，共 ${lastYearOrders.length} 張訂單</div>` : `<div class="hint" style="margin-top:2px;">去年同期沒有訂單資料，無法比較</div>`}
         </div>
       `;
 
