@@ -3,17 +3,17 @@
 // Cloudinary 設定 / 待審核申請 / 成員
 // 品牌圖案改成「直接點側邊欄 Logo 上傳」，邏輯在 app.js
 // ============================================================
-import { db } from "./firebase-config.js?v=20260826-31";
+import { db } from "./firebase-config.js?v=20260826-32";
 import {
   doc, getDoc, setDoc, deleteDoc,
   collection, getDocs, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-31";
-import { currentSession, ROLE_LABELS } from "./auth.js?v=20260826-31";
-import { listCategories, createCategory, renameCategory, deleteCategory } from "./categories.js?v=20260826-31";
-import { listUnits, createUnit, renameUnit, deleteUnit } from "./units.js?v=20260826-31";
-import { confirmDialog, openModal } from "./modal-ui.js?v=20260826-31";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-31";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-32";
+import { currentSession, ROLE_LABELS } from "./auth.js?v=20260826-32";
+import { listCategories, createCategory, renameCategory, deleteCategory } from "./categories.js?v=20260826-32";
+import { listUnits, createUnit, renameUnit, deleteUnit } from "./units.js?v=20260826-32";
+import { confirmDialog, openModal } from "./modal-ui.js?v=20260826-32";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-32";
 
 const CLOUDINARY_DOC = doc(db, "publicSettings", "cloudinary");
 const BRAND_DOC = doc(db, "publicSettings", "brand");
@@ -81,7 +81,25 @@ async function approveMember(email, role) {
   }, { merge: true });
 }
 
-async function rejectOrRemoveMember(email) {
+// 拒絕：保留這筆記錄、標記成 rejected，不刪掉——這樣同一個信箱之後自己
+// 再申請一次，系統看到記錄已經存在，會直接擋下來，不會又跑出一筆新的待審核。
+async function rejectMember(email) {
+  await setDoc(doc(db, "members", email), {
+    status: "rejected",
+    role: null,
+    rejectedAt: serverTimestamp(),
+    rejectedBy: currentSession.user?.email || null,
+  }, { merge: true });
+}
+
+// 移除：給「已經是 active 成員」用的，真的整筆刪掉，之後這個人還是可以重新申請
+// （移除通常是行政上的異動，不代表永久拒絕這個人）。
+async function removeMember(email) {
+  await deleteDoc(doc(db, "members", email));
+}
+
+// 解除封鎖：把「已拒絕」的記錄整筆刪掉，讓這個人下次登入時可以重新走一次申請流程。
+async function unblockRejectedMember(email) {
   await deleteDoc(doc(db, "members", email));
 }
 
@@ -184,16 +202,22 @@ export async function renderPendingPage(container) {
   container.innerHTML = `
     ${pageNavHtml("待審核申請")}
     <div id="pending-list"></div>
+    <h3 style="font-size:15px;margin:20px 0 10px;color:var(--ink);">已拒絕名單</h3>
+    <div class="hint" style="margin-bottom:10px;">這些信箱之前被拒絕過，不會再自己跑出申請。想讓對方能重新申請，點「解除封鎖」。</div>
+    <div id="rejected-list"></div>
   `;
   wirePageNav(container);
   const listEl = container.querySelector("#pending-list");
+  const rejectedEl = container.querySelector("#rejected-list");
   await refresh();
 
   async function refresh() {
     listEl.innerHTML = `<div class="card" style="color:var(--text-muted);">載入中…</div>`;
+    rejectedEl.innerHTML = `<div class="card" style="color:var(--text-muted);">載入中…</div>`;
     try {
       const all = await listAllMembers();
       const pending = all.filter((m) => m.status === "pending");
+      const rejected = all.filter((m) => m.status === "rejected");
       listEl.innerHTML = pending.length === 0
         ? `<div class="card" style="color:var(--text-muted);text-align:center;">目前沒有待審核申請</div>`
         : pending.map((m) => `
@@ -207,6 +231,18 @@ export async function renderPendingPage(container) {
                   <button class="btn btn-danger" data-reject="${m.email}" style="padding:8px 14px;font-size:13px;flex:1;">拒絕</button>
                 </div>
               </div>
+            </div>
+          `).join("");
+
+      rejectedEl.innerHTML = rejected.length === 0
+        ? `<div class="card" style="color:var(--text-muted);text-align:center;">目前沒有被拒絕的名單</div>`
+        : rejected.map((m) => `
+            <div class="card" style="margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+              <div style="min-width:0;">
+                <div style="font-size:14px;color:var(--ink);word-break:break-all;">${m.email}</div>
+                <div class="hint" style="margin-top:2px;">${m.displayName || "（未提供姓名）"}</div>
+              </div>
+              <button class="btn btn-secondary" data-unblock="${m.email}" style="padding:7px 12px;font-size:12px;flex-shrink:0;">解除封鎖</button>
             </div>
           `).join("");
 
@@ -226,10 +262,23 @@ export async function renderPendingPage(container) {
       listEl.querySelectorAll("[data-reject]").forEach((btn) => {
         btn.addEventListener("click", async () => {
           const email = btn.getAttribute("data-reject");
-          if (!await confirmDialog(`拒絕 ${email} 的申請？`, { confirmLabel: "拒絕", danger: true })) return;
+          if (!await confirmDialog(`拒絕 ${email} 的申請？拒絕後這個信箱不會再自己跑出申請，除非你之後手動解除封鎖。`, { confirmLabel: "拒絕", danger: true })) return;
           try {
-            await rejectOrRemoveMember(email);
+            await rejectMember(email);
             showToast("已拒絕", "success");
+            refresh();
+          } catch (err) {
+            showToast("失敗：" + err.message, "error");
+          }
+        });
+      });
+      rejectedEl.querySelectorAll("[data-unblock]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const email = btn.getAttribute("data-unblock");
+          if (!await confirmDialog(`解除封鎖 ${email}？解除後對方下次登入會重新跑出一筆待審核申請。`, { confirmLabel: "解除封鎖" })) return;
+          try {
+            await unblockRejectedMember(email);
+            showToast("已解除封鎖", "success");
             refresh();
           } catch (err) {
             showToast("失敗：" + err.message, "error");
@@ -238,6 +287,7 @@ export async function renderPendingPage(container) {
       });
     } catch (err) {
       listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗</div>`;
+      rejectedEl.innerHTML = "";
     }
   }
 }
@@ -302,9 +352,9 @@ export async function renderMembersPage(container) {
       listEl.querySelectorAll("[data-remove]").forEach((btn) => {
         btn.addEventListener("click", async () => {
           const email = btn.getAttribute("data-remove");
-          if (!await confirmDialog(`移除 ${email} 的存取權限？`, { confirmLabel: "移除", danger: true })) return;
+          if (!await confirmDialog(`移除 ${email} 的存取權限？移除後這個人還是可以重新申請一次，如果不希望他能再申請，請改用「拒絕」（在待審核申請頁面操作，只是他要先重新申請一次才會出現在那邊）。`, { confirmLabel: "移除", danger: true })) return;
           try {
-            await rejectOrRemoveMember(email);
+            await removeMember(email);
             showToast("已移除", "success");
             refresh();
           } catch (err) {

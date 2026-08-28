@@ -9,7 +9,7 @@
 //    - 存在但 status 是 'pending' -> 顯示「審核中」，登出
 //    - 存在且 status 是 'active' -> 放行，帶著 role 一起進系統
 // ============================================================
-import { auth, db, googleProvider } from "./firebase-config.js?v=20260826-31";
+import { auth, db, googleProvider } from "./firebase-config.js?v=20260826-32";
 import {
   signInWithPopup,
   signOut,
@@ -150,7 +150,7 @@ export function watchAuthState({ onActive, onPending, onSignedOut, onError }) {
       if (member.status === "active" && member.role) {
         onActive && onActive(user, member);
       } else {
-        onPending && onPending(user);
+        onPending && onPending(user, member);
       }
     } catch (err) {
       onError && onError(err);

@@ -1,24 +1,24 @@
 // ============================================================
 // 主程式：登入流程 + 側邊導覽 + 簡易路由
 // ============================================================
-import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName } from "./auth.js?v=20260826-31";
-import { iconHtml } from "./icons.js?v=20260826-31";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-31";
-import { openProfileModal } from "./profile-ui.js?v=20260826-31";
-import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, getPendingCount } from "./settings.js?v=20260826-31";
-import { renderHomePage } from "./home.js?v=20260826-31";
-import { renderItemsPage } from "./items-ui.js?v=20260826-31";
-import { clearFab } from "./fab-ui.js?v=20260826-31";
-import { renderContactsPage } from "./contacts-ui.js?v=20260826-31";
-import { renderOrdersPage } from "./orders-ui.js?v=20260826-31";
-import { renderReportsPage } from "./reports-ui.js?v=20260826-31";
-import { renderProfitPage } from "./profit-ui.js?v=20260826-31";
-import { renderActivityLogPage } from "./activity-log-ui.js?v=20260826-31";
-import { renderExpensesPage } from "./expenses-ui.js?v=20260826-31";
-import { lowStockItems } from "./items.js?v=20260826-31";
-import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260826-31";
-import { showToast } from "./utils.js?v=20260826-31";
-import { db } from "./firebase-config.js?v=20260826-31";
+import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName } from "./auth.js?v=20260826-32";
+import { iconHtml } from "./icons.js?v=20260826-32";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-32";
+import { openProfileModal } from "./profile-ui.js?v=20260826-32";
+import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, getPendingCount } from "./settings.js?v=20260826-32";
+import { renderHomePage } from "./home.js?v=20260826-32";
+import { renderItemsPage } from "./items-ui.js?v=20260826-32";
+import { clearFab } from "./fab-ui.js?v=20260826-32";
+import { renderContactsPage } from "./contacts-ui.js?v=20260826-32";
+import { renderOrdersPage } from "./orders-ui.js?v=20260826-32";
+import { renderReportsPage } from "./reports-ui.js?v=20260826-32";
+import { renderProfitPage } from "./profit-ui.js?v=20260826-32";
+import { renderActivityLogPage } from "./activity-log-ui.js?v=20260826-32";
+import { renderExpensesPage } from "./expenses-ui.js?v=20260826-32";
+import { lowStockItems } from "./items.js?v=20260826-32";
+import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260826-32";
+import { showToast } from "./utils.js?v=20260826-32";
+import { db } from "./firebase-config.js?v=20260826-32";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 // ---------- 品牌圖案：統一套用在登入頁 / 側邊欄 / 每個人的頭像位置 ----------
@@ -280,11 +280,13 @@ function showLoginScreen() {
   appShell.classList.remove("show");
   clearFab();
 }
-function showPendingScreen(user) {
+function showPendingScreen(user, member) {
   loginScreen.style.display = "none";
   pendingScreen.style.display = "flex";
   appShell.classList.remove("show");
-  pendingEmailText.textContent = `${user.email} 的存取申請已送出，審核中，請聯絡管理員核准後再回來登入`;
+  pendingEmailText.textContent = member?.status === "rejected"
+    ? `${user.email} 的存取申請已被拒絕，請聯絡管理員`
+    : `${user.email} 的存取申請已送出，審核中，請聯絡管理員核准後再回來登入`;
   clearFab();
 }
 function showApp(user, member) {
@@ -389,7 +391,7 @@ updateOnlineStatus();
 watchAuthState({
   onSignedOut: () => showLoginScreen(),
   onActive: (user, member) => showApp(user, member),
-  onPending: (user) => showPendingScreen(user),
+  onPending: (user, member) => showPendingScreen(user, member),
   onError: (err) => {
     console.error(err);
     showToast("讀取權限資料失敗：" + err.message, "error");
