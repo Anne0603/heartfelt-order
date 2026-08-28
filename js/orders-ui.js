@@ -1,21 +1,21 @@
 // ============================================================
 // 訂單管理頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-23";
-import { currentSession, wireNameResolution } from "./auth.js?v=20260826-23";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-24";
+import { currentSession, wireNameResolution } from "./auth.js?v=20260826-24";
 import {
-  listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, getPaymentStatus,
+  listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, updateOrderNoteAndAddress, getPaymentStatus,
   markShipped, voidOrder,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel, normalizeShipStatus,
-} from "./orders.js?v=20260826-23";
-import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-23";
-import { listContacts, createContact } from "./contacts.js?v=20260826-23";
-import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-23";
-import { exportOrders } from "./export-xlsx.js?v=20260826-23";
-import { setFab, clearFab } from "./fab-ui.js?v=20260826-23";
-import { openSearchPicker } from "./picker-ui.js?v=20260826-23";
-import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-23";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-23";
+} from "./orders.js?v=20260826-24";
+import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-24";
+import { listContacts, createContact } from "./contacts.js?v=20260826-24";
+import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-24";
+import { exportOrders } from "./export-xlsx.js?v=20260826-24";
+import { setFab, clearFab } from "./fab-ui.js?v=20260826-24";
+import { openSearchPicker } from "./picker-ui.js?v=20260826-24";
+import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-24";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-24";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
@@ -335,7 +335,15 @@ export async function renderOrdersPage(container, initialFilter = null) {
       return;
     }
 
-    listEl.innerHTML = filtered.map((o) => {
+    const allSelected = selectMode && filtered.every((o) => selectedIds.has(o.id));
+    const selectAllRow = selectMode ? `
+      <div class="card" style="margin-bottom:8px;padding:10px 16px;display:flex;align-items:center;gap:10px;cursor:pointer;" id="select-all-row">
+        <span class="switch"><input type="checkbox" id="select-all-cb" ${allSelected ? "checked" : ""}><span class="switch-slider"></span></span>
+        <span style="font-size:14px;color:var(--ink);">全選目前篩選結果（${filtered.length} 張）</span>
+      </div>
+    ` : "";
+
+    listEl.innerHTML = selectAllRow + filtered.map((o) => {
       const profit = o.lineItems.reduce((s, li) => s + (li.subtotal - li.unitCost * li.qty), 0);
       const checked = selectedIds.has(o.id);
       return `
@@ -358,6 +366,14 @@ export async function renderOrdersPage(container, initialFilter = null) {
         </div>
       `;
     }).join("");
+
+    listEl.querySelector("#select-all-row")?.addEventListener("click", () => {
+      const nowAllSelected = filtered.every((o) => selectedIds.has(o.id));
+      if (nowAllSelected) filtered.forEach((o) => selectedIds.delete(o.id));
+      else filtered.forEach((o) => selectedIds.add(o.id));
+      renderList();
+      updateBatchActionBar();
+    });
 
     listEl.querySelectorAll("[data-open]").forEach((card) => {
       card.addEventListener("click", (e) => {
@@ -383,7 +399,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
     clearFab();
     const isEdit = !!order;
     const activeProducts = allItems.filter((i) => ORDERABLE_TYPES.includes(i.type) && i.status !== "archived");
-    const customerContacts = contacts.filter((c) => c.roles?.includes("customer"));
+    const customerContacts = contacts.filter((c) => c.roles?.includes("customer") && c.status !== "archived");
     let lineItems = isEdit
       ? order.lineItems.map((li) => ({ ...li }))
       : [{ productId: "", productName: "", qty: 1, unitPrice: 0 }];
@@ -424,7 +440,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
         <div class="field"><label>收件地址（選填）</label><textarea id="o-address" rows="2" style="resize:vertical;">${order?.contactAddress || ""}</textarea>
           <div class="hint">選客戶時會自動帶入客戶本人的地址，但可以自由修改——例如這張訂單是要寄給客戶的朋友，直接改成朋友的地址就好，不會動到客戶本人存的資料。</div>
         </div>
-        <div class="field"><label>預計出貨/取貨日期</label><input type="date" id="o-expected" value="${order?.expectedDate || ""}" /></div>
+        <div class="field"><label>預計出貨/取貨日期</label><input type="date" id="o-expected" value="${order?.expectedDate || new Date().toISOString().slice(0,10)}" /></div>
         <div class="field"><label>備註（選填）</label><textarea id="o-note" rows="3" style="resize:vertical;">${order?.note || ""}</textarea></div>
 
         <div id="o-total-preview" style="text-align:right;font-size:15px;font-weight:700;margin:10px 0;"></div>
@@ -712,6 +728,35 @@ export async function renderOrdersPage(container, initialFilter = null) {
   }
 
   // ---------- 登記收款 ----------
+  // 只改備註/收件地址的小視窗，不管出貨前後都能用
+  function openEditNoteAddressModal(order, onSaved) {
+    const overlay = openModal(`
+      <h3 style="margin-bottom:4px;">編輯備註/收件地址</h3>
+      <div class="hint" style="margin-bottom:16px;">${order.orderNumber}</div>
+      <div class="field"><label>收件地址（選填）</label><textarea id="na-address" rows="2" style="resize:vertical;">${order.contactAddress || ""}</textarea></div>
+      <div class="field"><label>備註（選填）</label><textarea id="na-note" rows="3" style="resize:vertical;">${order.note || ""}</textarea></div>
+      <div style="display:flex;justify-content:flex-end;">
+        <button class="btn btn-primary" id="na-save">儲存</button>
+      </div>
+    `, 420);
+    overlay.querySelector("#na-save").addEventListener("click", async (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      try {
+        await updateOrderNoteAndAddress(order.id, {
+          note: overlay.querySelector("#na-note").value.trim(),
+          contactAddress: overlay.querySelector("#na-address").value.trim(),
+        });
+        showToast("已更新", "success");
+        overlay.remove();
+        onSaved();
+      } catch (err) {
+        showToast("失敗：" + err.message, "error");
+        btn.disabled = false;
+      }
+    });
+  }
+
   function openReceivePaymentModal(order, onSaved) {
     const received = order.amountReceived || 0;
     const isFullyPaid = received >= order.totalAmount;
@@ -795,15 +840,20 @@ export async function renderOrdersPage(container, initialFilter = null) {
       }});
     }
     utilityBtns.push({ label: "列印出貨單", cls: "btn-secondary", handler: () => printOrderSlip(order) });
+    if (canWrite()) {
+      utilityBtns.push({ label: "編輯備註/地址", cls: "btn-secondary", handler: () => {
+        openEditNoteAddressModal(order, async () => { await reload(); renderOrderDetailPage(order.id); });
+      }});
+    }
 
-    function buttonRowHtml(id, btns) {
+    function buttonRowHtml(id, btns, wrap = false) {
       if (btns.length === 0) return "";
-      return `<div id="${id}" style="display:flex;gap:8px;margin-bottom:10px;"></div>`;
+      return `<div id="${id}" style="display:flex;gap:8px;margin-bottom:10px;${wrap ? "flex-wrap:wrap;" : ""}"></div>`;
     }
 
     actionsCard.innerHTML = `
       ${buttonRowHtml("d-ship-row", shipBtns)}
-      ${buttonRowHtml("d-utility-row", utilityBtns)}
+      ${buttonRowHtml("d-utility-row", utilityBtns, true)}
       <div id="d-msg-slot"></div>
       ${canVoid() ? `
         <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--paper-line);">
@@ -827,7 +877,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
     utilityBtns.forEach((a) => {
       const btn = document.createElement("button");
       btn.className = `btn ${a.cls}`;
-      btn.style.cssText = "flex:1;padding:9px;font-size:13.5px;";
+      btn.style.cssText = "flex:1;min-width:110px;padding:9px;font-size:13.5px;";
       btn.textContent = a.label;
       btn.addEventListener("click", a.handler);
       utilityEl?.appendChild(btn);

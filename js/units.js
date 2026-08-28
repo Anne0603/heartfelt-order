@@ -2,7 +2,7 @@
 // 數量單位管理（只有超級管理員能新增/改名/刪除）
 // 改名會連動更新所有正在用這個單位的項目；刪除前檢查有沒有東西在用。
 // ============================================================
-import { db } from "./firebase-config.js?v=20260826-23";
+import { db } from "./firebase-config.js?v=20260826-24";
 import {
   collection, doc, getDoc, getDocs, addDoc, deleteDoc,
   query, where, serverTimestamp, writeBatch

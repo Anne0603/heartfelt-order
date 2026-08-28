@@ -12,14 +12,14 @@
 // lineItems[].unitCost，之後商品成本再怎麼調整，都不會動到這張訂單
 // 已經算好的毛利。
 // ============================================================
-import { db } from "./firebase-config.js?v=20260826-23";
+import { db } from "./firebase-config.js?v=20260826-24";
 import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc,
   serverTimestamp, runTransaction, query, orderBy as fbOrderBy
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { currentSession, getDisplayName } from "./auth.js?v=20260826-23";
-import { addUsage, listUsagesByOrder, voidRecord, calcItemCost } from "./items.js?v=20260826-23";
-import { logActivity } from "./activity-log.js?v=20260826-23";
+import { currentSession, getDisplayName } from "./auth.js?v=20260826-24";
+import { addUsage, listUsagesByOrder, voidRecord, calcItemCost } from "./items.js?v=20260826-24";
+import { logActivity } from "./activity-log.js?v=20260826-24";
 
 const ordersCol = collection(db, "orders");
 
@@ -168,6 +168,21 @@ export async function updateOrderBeforeShip(orderId, data, itemsById) {
 
 export async function updateOrderNote(orderId, note) {
   await updateDoc(doc(db, "orders", orderId), { note, updatedAt: serverTimestamp() });
+}
+
+/**
+ * 只改備註跟收件地址，不管出貨前出貨後都能用——這兩個欄位不影響
+ * 庫存/金額，不需要跟著整張訂單一起鎖住。真的要動到商品/金額，
+ * 還是要走「作廢重開」。
+ */
+export async function updateOrderNoteAndAddress(orderId, { note, contactAddress }) {
+  await updateDoc(doc(db, "orders", orderId), {
+    note: note || "",
+    contactAddress: contactAddress || "",
+    updatedAt: serverTimestamp(),
+  });
+  const order = await getOrder(orderId);
+  logActivity({ module: "orders", action: "update", summary: `訂單 ${order?.orderNumber || orderId} 更新備註/收件地址` });
 }
 
 export async function updateAmountReceived(orderId, amount) {
