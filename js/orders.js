@@ -12,14 +12,14 @@
 // lineItems[].unitCost，之後商品成本再怎麼調整，都不會動到這張訂單
 // 已經算好的毛利。
 // ============================================================
-import { db } from "./firebase-config.js?v=20260826-35";
+import { db } from "./firebase-config.js?v=20260826-36";
 import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
   serverTimestamp, runTransaction, query, orderBy as fbOrderBy
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { currentSession, getDisplayName } from "./auth.js?v=20260826-35";
-import { addUsage, listUsagesByOrder, voidRecord, calcItemCost } from "./items.js?v=20260826-35";
-import { logActivity } from "./activity-log.js?v=20260826-35";
+import { currentSession, getDisplayName } from "./auth.js?v=20260826-36";
+import { addUsage, listUsagesByOrder, voidRecord, calcItemCost, permanentlyDelete } from "./items.js?v=20260826-36";
+import { logActivity } from "./activity-log.js?v=20260826-36";
 
 const ordersCol = collection(db, "orders");
 
@@ -271,6 +271,15 @@ export async function deleteOrderPermanently(orderId) {
   const order = await getOrder(orderId);
   if (!order) throw new Error("找不到訂單");
   if (!order.voided) throw new Error("只能刪除已作廢的訂單");
+
+  // 訂單出貨時會在商品那邊留一筆「出貨自動扣」的領用記錄；作廢時只會標記成
+  // 已作廢（保留紀錄可查），但永久刪除訂單的話，這些記錄也要一併真的刪掉，
+  // 不然會變成引用一個已經不存在的訂單編號的孤兒紀錄，商品頁面還是看得到。
+  const usages = await listUsagesByOrder(orderId);
+  for (const u of usages) {
+    await permanentlyDelete("usage", u.id);
+  }
+
   await deleteDoc(doc(db, "orders", orderId));
   logActivity({ module: "orders", action: "delete", summary: `訂單 ${order.orderNumber} 已永久刪除` });
 }

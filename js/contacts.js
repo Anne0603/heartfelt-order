@@ -3,13 +3,13 @@
 // 一份聯絡人清單，用 roles 陣列區分身份（可以同時是客戶+廠商）：
 //   roles: ['customer'] | ['supplier'] | ['customer','supplier']
 // ============================================================
-import { db } from "./firebase-config.js?v=20260826-35";
+import { db } from "./firebase-config.js?v=20260826-36";
 import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { currentSession, getDisplayName } from "./auth.js?v=20260826-35";
-import { logActivity } from "./activity-log.js?v=20260826-35";
+import { currentSession, getDisplayName } from "./auth.js?v=20260826-36";
+import { logActivity } from "./activity-log.js?v=20260826-36";
 
 const contactsCol = collection(db, "contacts");
 
