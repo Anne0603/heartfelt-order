@@ -5,7 +5,7 @@
 // 額外記一套瀏覽紀錄。
 // 頁面本身如果有動作按鈕（匯出、篩選…），放在這個標頭下面自己一排。
 // ============================================================
-import { ICONS } from "./icons.js?v=20260826-34";
+import { ICONS } from "./icons.js?v=20260826-35";
 
 export function pageNavHtml(title, rightActionHtml = "") {
   return `
