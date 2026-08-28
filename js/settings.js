@@ -3,17 +3,17 @@
 // Cloudinary 設定 / 待審核申請 / 成員
 // 品牌圖案改成「直接點側邊欄 Logo 上傳」，邏輯在 app.js
 // ============================================================
-import { db } from "./firebase-config.js?v=20260826-24";
+import { db } from "./firebase-config.js?v=20260826-25";
 import {
   doc, getDoc, setDoc, deleteDoc,
   collection, getDocs, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-24";
-import { currentSession, ROLE_LABELS } from "./auth.js?v=20260826-24";
-import { listCategories, createCategory, renameCategory, deleteCategory } from "./categories.js?v=20260826-24";
-import { listUnits, createUnit, renameUnit, deleteUnit } from "./units.js?v=20260826-24";
-import { confirmDialog, openModal } from "./modal-ui.js?v=20260826-24";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-24";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-25";
+import { currentSession, ROLE_LABELS } from "./auth.js?v=20260826-25";
+import { listCategories, createCategory, renameCategory, deleteCategory } from "./categories.js?v=20260826-25";
+import { listUnits, createUnit, renameUnit, deleteUnit } from "./units.js?v=20260826-25";
+import { confirmDialog, openModal } from "./modal-ui.js?v=20260826-25";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-25";
 
 const CLOUDINARY_DOC = doc(db, "publicSettings", "cloudinary");
 const BRAND_DOC = doc(db, "publicSettings", "brand");
@@ -264,7 +264,8 @@ export async function renderMembersPage(container) {
             const isTargetSuperadmin = m.role === "superadmin";
             return `
               <div class="card" style="margin-bottom:10px;">
-                <div style="font-size:15px;color:var(--ink);word-break:break-all;">${m.email}${isSelf ? ` <span class="hint">(你)</span>` : ""}</div>
+                <div style="font-size:16px;font-weight:700;color:var(--ink);">${m.nickname || "（尚未設定暱稱）"}${isSelf ? ` <span class="hint" style="font-weight:400;">(你)</span>` : ""}</div>
+                <div style="font-size:13px;color:var(--text-muted);word-break:break-all;margin-top:2px;">${m.email}</div>
                 <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
                   ${isTargetSuperadmin
                     ? `<span class="seal-badge warn" style="white-space:nowrap;"><span class="dot"></span>超級管理員</span>`

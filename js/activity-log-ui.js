@@ -4,11 +4,11 @@
 // 分頁籤依項目分類；預設用「載入更多」往回翻，也可以切到日期
 // 區間篩選，直接查某段特定期間發生的事。
 // ============================================================
-import { listActivityLogPage, listActivityLogByDateRange, MODULE_LABELS } from "./activity-log.js?v=20260826-24";
-import { renderDateRangePicker } from "./date-range-ui.js?v=20260826-24";
-import { toJSDate } from "./utils.js?v=20260826-24";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-24";
-import { wireNameResolution } from "./auth.js?v=20260826-24";
+import { listActivityLogPage, listActivityLogByDateRange, MODULE_LABELS } from "./activity-log.js?v=20260826-25";
+import { renderDateRangePicker } from "./date-range-ui.js?v=20260826-25";
+import { toJSDate } from "./utils.js?v=20260826-25";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-25";
+import { wireNameResolution } from "./auth.js?v=20260826-25";
 
 const ACTION_LABELS = {
   create: "新增", update: "編輯", archive: "停用", restore: "恢復使用",
