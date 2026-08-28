@@ -2,12 +2,12 @@
 // 營業支出（原料總帳、人事、電費、房租...等，類別由系統設定管理）
 // 供「利潤總覽」計算淨利使用，登記/查詢/編輯在獨立的「支出管理」頁面
 // ============================================================
-import { db } from "./firebase-config.js?v=20260826-29";
+import { db } from "./firebase-config.js?v=20260826-30";
 import {
   collection, doc, getDocs, addDoc, updateDoc, deleteDoc, serverTimestamp, query, where
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { currentSession, getDisplayName } from "./auth.js?v=20260826-29";
-import { logActivity } from "./activity-log.js?v=20260826-29";
+import { currentSession, getDisplayName } from "./auth.js?v=20260826-30";
+import { logActivity } from "./activity-log.js?v=20260826-30";
 
 const expensesCol = collection(db, "expenses");
 

@@ -1,21 +1,21 @@
 // ============================================================
 // 訂單管理頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-29";
-import { currentSession, wireNameResolution } from "./auth.js?v=20260826-29";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-30";
+import { currentSession, wireNameResolution } from "./auth.js?v=20260826-30";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, updateOrderNoteAndAddress, getPaymentStatus,
   markShipped, voidOrder,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel, normalizeShipStatus,
-} from "./orders.js?v=20260826-29";
-import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-29";
-import { listContacts, createContact } from "./contacts.js?v=20260826-29";
-import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-29";
-import { exportOrders } from "./export-xlsx.js?v=20260826-29";
-import { setFab, clearFab } from "./fab-ui.js?v=20260826-29";
-import { openSearchPicker } from "./picker-ui.js?v=20260826-29";
-import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-29";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-29";
+} from "./orders.js?v=20260826-30";
+import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-30";
+import { listContacts, createContact } from "./contacts.js?v=20260826-30";
+import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-30";
+import { exportOrders } from "./export-xlsx.js?v=20260826-30";
+import { setFab, clearFab } from "./fab-ui.js?v=20260826-30";
+import { openSearchPicker } from "./picker-ui.js?v=20260826-30";
+import { openModal } from "./modal-ui.js?v=20260826-30";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-30";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
@@ -887,23 +887,42 @@ export async function renderOrdersPage(container, initialFilter = null) {
     });
 
     if (canVoid()) {
-      actionsCard.querySelector("#d-void").addEventListener("click", async (e) => {
-        const btn = e.currentTarget; // 要在 await 之前先存好，等確認視窗跳出來、瀏覽器就會把 e.currentTarget 清空
-        const willRestoreStock = normalizeShipStatus(order.shipStatus) === "shipped";
-        if (!await confirmDialog(willRestoreStock ? "這張訂單已出貨，作廢後會自動還原庫存，確定嗎？" : "確定要作廢這張訂單嗎？", { confirmLabel: "作廢", danger: true })) return;
-        btn.disabled = true;
-        try {
-          await voidOrder(order.id);
-          showToast("已作廢" + (willRestoreStock ? "，庫存已還原" : ""), "success");
-          await reload();
-          renderOrderDetailPage(order.id);
-        } catch (err) {
-          msgEl.textContent = "失敗：" + err.message;
-          showToast("失敗：" + err.message, "error");
-          btn.disabled = false;
-        }
+      actionsCard.querySelector("#d-void").addEventListener("click", () => {
+        openVoidOrderModal(order);
       });
     }
+  }
+
+  // 作廢是不容易復原的動作，不能只靠一個「確定」按鈕，要求輸入「確認」兩個字才會真的執行
+  function openVoidOrderModal(order) {
+    const willRestoreStock = normalizeShipStatus(order.shipStatus) === "shipped";
+    const overlay = openModal(`
+      <h3 style="margin-bottom:4px;">確認作廢訂單</h3>
+      <div class="hint" style="margin-bottom:14px;">${order.orderNumber} · ${order.contactName || "（未指定客戶）"} · $${order.totalAmount}</div>
+      ${willRestoreStock ? `<div class="hint" style="color:var(--rose);margin-bottom:14px;">這張訂單已出貨，作廢後會自動還原庫存。</div>` : ""}
+      <div class="field"><label>確定要作廢的話，請輸入「確認」兩個字</label><input type="text" id="vo-confirm-text" placeholder="確認" /></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button class="btn btn-secondary" id="vo-cancel">取消</button>
+        <button class="btn btn-danger" id="vo-confirm">確認作廢</button>
+      </div>
+    `, 400);
+    overlay.querySelector("#vo-cancel").addEventListener("click", () => overlay.remove());
+    overlay.querySelector("#vo-confirm").addEventListener("click", async (e) => {
+      const btn = e.currentTarget;
+      const text = overlay.querySelector("#vo-confirm-text").value.trim();
+      if (text !== "確認") { showToast("請輸入「確認」兩個字才能執行", "error"); return; }
+      btn.disabled = true;
+      try {
+        await voidOrder(order.id);
+        showToast("已作廢" + (willRestoreStock ? "，庫存已還原" : ""), "success");
+        overlay.remove();
+        await reload();
+        renderOrderDetailPage(order.id);
+      } catch (err) {
+        showToast("失敗：" + err.message, "error");
+        btn.disabled = false;
+      }
+    });
   }
 
   renderListView();

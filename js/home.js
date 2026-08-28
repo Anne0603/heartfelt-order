@@ -3,10 +3,10 @@
 // 第一層：今天要做的事（全部角色，不含金額）
 // 第二層：快速操作按鈕（依角色顯示）
 // ============================================================
-import { currentSession } from "./auth.js?v=20260826-29";
-import { lowStockItems } from "./items.js?v=20260826-29";
-import { listOrders, normalizeShipStatus } from "./orders.js?v=20260826-29";
-import { iconHtml } from "./icons.js?v=20260826-29";
+import { currentSession } from "./auth.js?v=20260826-30";
+import { lowStockItems } from "./items.js?v=20260826-30";
+import { listOrders, normalizeShipStatus } from "./orders.js?v=20260826-30";
+import { iconHtml } from "./icons.js?v=20260826-30";
 
 const QUICK_ACTIONS = [
   { id: "orders",    label: "新增訂單",     icon: "pencil", roles: ["superadmin","admin","order_staff"], filter: "openNew" },
@@ -21,7 +21,6 @@ export async function renderHomePage(container, navigateTo) {
   const role = currentSession.member?.role;
 
   container.innerHTML = `
-    <div class="page-header"><h2>首頁</h2></div>
     <div id="home-stats" style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:20px;">
       <div class="card" style="padding:16px;cursor:pointer;position:relative;" id="pending-card">
         <div class="hint">待處理訂單</div>
