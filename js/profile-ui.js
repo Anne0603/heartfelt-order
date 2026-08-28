@@ -2,11 +2,11 @@
 // 個人資料彈跳視窗：設定暱稱、查看綁定帳號與角色、
 // （管理員以上）更換品牌圖案
 // ============================================================
-import { currentSession, ROLE_LABELS, updateMyNickname } from "./auth.js?v=20260826-26";
-import { showToast } from "./utils.js?v=20260826-26";
-import { openModal } from "./modal-ui.js?v=20260826-26";
-import { uploadImageToCloudinary, saveBrandLogoUrl } from "./settings.js?v=20260826-26";
-import { logActivity } from "./activity-log.js?v=20260826-26";
+import { currentSession, ROLE_LABELS, updateMyNickname } from "./auth.js?v=20260826-27";
+import { showToast } from "./utils.js?v=20260826-27";
+import { openModal } from "./modal-ui.js?v=20260826-27";
+import { uploadImageToCloudinary, saveBrandLogoUrl } from "./settings.js?v=20260826-27";
+import { logActivity } from "./activity-log.js?v=20260826-27";
 
 export function openProfileModal({ brandLogoUrl, onBrandUpdated }) {
   const user = currentSession.user;

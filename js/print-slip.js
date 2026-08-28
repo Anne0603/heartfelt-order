@@ -2,8 +2,8 @@
 // 出貨單列印
 // 開一個新視窗，排版乾淨的出貨單，不含成本/毛利，叫出瀏覽器列印功能。
 // ============================================================
-import { alertDialog } from "./modal-ui.js?v=20260826-26";
-import { SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getPaymentStatus } from "./orders.js?v=20260826-26";
+import { alertDialog } from "./modal-ui.js?v=20260826-27";
+import { SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getPaymentStatus } from "./orders.js?v=20260826-27";
 
 export function printOrderSlip(order) {
   const win = window.open("", "_blank", "width=480,height=700");
@@ -106,8 +106,6 @@ export function printShippingList(ordersList) {
     const amountHtml = outstanding > 0
       ? `<div class="amount-due">應收 $${outstanding}</div>`
       : `<div class="amount-paid">已收款</div>`;
-    // 自取不需要地址，宅配/郵寄/超商取貨這種才需要現場知道要送去哪
-    const needsAddress = order.pickupMethod && order.pickupMethod !== "自取";
     return `
       <tr>
         <td class="check-col"><span class="checkbox"></span></td>
@@ -115,7 +113,8 @@ export function printShippingList(ordersList) {
         <td>
           <div class="order-no">${order.orderNumber}</div>
           <div class="sub2">${order.contactName || "（未指定）"}${order.contactPhone ? " · " + order.contactPhone : ""}</div>
-          ${needsAddress && order.contactAddress ? `<div class="sub2">${order.contactAddress}</div>` : ""}
+          ${order.contactAddress ? `<div class="sub2">${order.contactAddress}</div>` : ""}
+          ${order.note ? `<div class="sub2">備註：${order.note}</div>` : ""}
         </td>
         <td>${itemsHtml}</td>
         <td>${order.pickupMethod || ""}</td>

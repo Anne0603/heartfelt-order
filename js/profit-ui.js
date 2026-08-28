@@ -9,11 +9,12 @@
 // 版面採用會計報表慣例：項目靠左、金額靠右，明細緊接在對應的
 // 總額下面；每一行明細都能點看更細的拆解。
 // ============================================================
-import { listOrders } from "./orders.js?v=20260826-26";
-import { listExpensesInRange } from "./expenses.js?v=20260826-26";
-import { renderDateRangePicker } from "./date-range-ui.js?v=20260826-26";
-import { linkifyErrorMessage } from "./utils.js?v=20260826-26";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-26";
+import { listOrders } from "./orders.js?v=20260826-27";
+import { listItems, computeStock, computeAvgCost, STOCK_TRACKED_TYPES } from "./items.js?v=20260826-27";
+import { listExpensesInRange } from "./expenses.js?v=20260826-27";
+import { renderDateRangePicker } from "./date-range-ui.js?v=20260826-27";
+import { linkifyErrorMessage } from "./utils.js?v=20260826-27";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-27";
 
 export async function renderProfitPage(container, navigateTo) {
   function renderSummaryShell(initialRange) {
@@ -108,13 +109,17 @@ export async function renderProfitPage(container, navigateTo) {
     summaryEl.innerHTML = `<div class="card" style="color:var(--text-muted);">載入中…</div>`;
     try {
       const lastYearRange = { start: shiftYear(range.start, -1), end: shiftYear(range.end, -1) };
-      const [orders, expenses, lastYearExpenses] = await Promise.all([
+      const [orders, expenses, lastYearExpenses, allItems] = await Promise.all([
         listOrders(),
         listExpensesInRange(range.start, range.end),
         listExpensesInRange(lastYearRange.start, lastYearRange.end),
+        listItems(),
       ]);
       const ordersInRange = orders.filter((o) => !o.voided && o.orderDate >= range.start && o.orderDate <= range.end);
       const lastYearOrders = orders.filter((o) => !o.voided && o.orderDate >= lastYearRange.start && o.orderDate <= lastYearRange.end);
+
+      const stockValueItems = allItems.filter((i) => STOCK_TRACKED_TYPES.includes(i.type) && i.status !== "archived" && computeStock(i) > 0);
+      const totalStockValue = stockValueItems.reduce((s, i) => s + computeStock(i) * computeAvgCost(i), 0);
 
       const stats = computeStats(ordersInRange, expenses);
       const lastYearStats = lastYearOrders.length > 0 ? computeStats(lastYearOrders, lastYearExpenses) : null;
@@ -152,6 +157,13 @@ export async function renderProfitPage(container, navigateTo) {
 
           <div class="hint" style="margin-top:12px;">共 ${ordersInRange.length} 張訂單（不含作廢）· ${range.start} ～ ${range.end}</div>
           ${lastYearStats ? `<div class="hint" style="margin-top:2px;">去年同期（${lastYearRange.start} ～ ${lastYearRange.end}）：營收 $${lastYearStats.revenue.toFixed(0)}，共 ${lastYearOrders.length} 張訂單</div>` : `<div class="hint" style="margin-top:2px;">去年同期沒有訂單資料，無法比較</div>`}
+        </div>
+
+        <div class="card" style="margin-top:16px;background:var(--paper);">
+          <h3 style="font-size:14px;margin-bottom:4px;">目前庫存價值</h3>
+          <div class="hint" style="margin-bottom:10px;">現在手上還沒賣掉的存貨值多少錢，給對外申報/會計參考用，<b>不會影響上面的利潤計算</b>。</div>
+          <div style="font-family:var(--font-mono);font-size:22px;font-weight:700;color:var(--ink);">$${totalStockValue.toFixed(0)}</div>
+          <div class="hint" style="margin-top:4px;">${stockValueItems.length} 項有庫存的商品/包材，用目前的加權平均成本估算</div>
         </div>
       `;
 

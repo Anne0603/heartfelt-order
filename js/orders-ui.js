@@ -1,21 +1,21 @@
 // ============================================================
 // 訂單管理頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-26";
-import { currentSession, wireNameResolution } from "./auth.js?v=20260826-26";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-27";
+import { currentSession, wireNameResolution } from "./auth.js?v=20260826-27";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, updateOrderNoteAndAddress, getPaymentStatus,
   markShipped, voidOrder,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel, normalizeShipStatus,
-} from "./orders.js?v=20260826-26";
-import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-26";
-import { listContacts, createContact } from "./contacts.js?v=20260826-26";
-import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-26";
-import { exportOrders } from "./export-xlsx.js?v=20260826-26";
-import { setFab, clearFab } from "./fab-ui.js?v=20260826-26";
-import { openSearchPicker } from "./picker-ui.js?v=20260826-26";
-import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-26";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-26";
+} from "./orders.js?v=20260826-27";
+import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-27";
+import { listContacts, createContact } from "./contacts.js?v=20260826-27";
+import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-27";
+import { exportOrders } from "./export-xlsx.js?v=20260826-27";
+import { setFab, clearFab } from "./fab-ui.js?v=20260826-27";
+import { openSearchPicker } from "./picker-ui.js?v=20260826-27";
+import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-27";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-27";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);

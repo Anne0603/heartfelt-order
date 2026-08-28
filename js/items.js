@@ -23,13 +23,14 @@
 //   itemUsages/{id}      領用/消耗記錄（含出貨自動扣、手動例外）
 //   itemStocktakes/{id}  盤點記錄
 // ============================================================
-import { db } from "./firebase-config.js?v=20260826-26";
+import { db } from "./firebase-config.js?v=20260826-27";
 import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, runTransaction,
   serverTimestamp, query, where
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { currentSession, getDisplayName } from "./auth.js?v=20260826-26";
-import { logActivity } from "./activity-log.js?v=20260826-26";
+import { currentSession, getDisplayName } from "./auth.js?v=20260826-27";
+import { logActivity } from "./activity-log.js?v=20260826-27";
+import { addExpense } from "./expenses.js?v=20260826-27";
 
 const itemsCol = collection(db, "items");
 const purchasesCol = collection(db, "itemPurchases");
@@ -244,17 +245,75 @@ export async function addUsage({ itemId, qty, note, source = "manual", orderId =
   });
 }
 
-// ---------- 盤點（只能對 resale / packaging 做） ----------
-export async function stocktakeAdjust({ itemId, countedQty, note }) {
+/**
+ * 報廢/損耗登記：東西真的壞了、丟了、不是賣掉的。
+ * 只要填數量，系統自動用「均價」算出損失金額，同時：
+ *   1. 扣庫存（跟領用一樣的機制）
+ *   2. 自動記一筆「銷貨成本／存貨報廢」支出，損益表會正確反映這筆損失
+ * 不用自己打金額，避免算錯、也確保金額跟系統的均價邏輯一致。
+ */
+export async function disposeStock({ itemId, qty, note }) {
   const who = whoAmI();
   const itemRef = doc(db, "items", itemId);
+  let itemName = "";
+  let lossAmount = 0;
   await runTransaction(db, async (tx) => {
     const itemSnap = await tx.get(itemRef);
     if (!itemSnap.exists()) throw new Error("找不到項目");
     const item = itemSnap.data();
+    itemName = item.name;
+    const stock = computeStock(item);
+    if (qty > stock) {
+      throw new Error(`庫存不足：${item.name} 只剩 ${stock}，不能報廢 ${qty}`);
+    }
+    lossAmount = computeAvgCost(item) * qty;
+    tx.update(itemRef, {
+      totalUsedQty: (item.totalUsedQty || 0) + qty,
+      updatedAt: serverTimestamp(),
+    });
+    const usageRef = doc(usagesCol);
+    tx.set(usageRef, {
+      itemId,
+      itemName: item.name,
+      date: new Date().toISOString().slice(0, 10),
+      qty,
+      note: note || "",
+      source: "disposal",
+      orderId: null,
+      status: "active",
+      createdBy: who.email,
+      createdByName: who.name,
+      createdAt: serverTimestamp(),
+    });
+  });
+
+  await addExpense({
+    costType: "cogs",
+    category: "存貨報廢",
+    amount: lossAmount,
+    date: new Date().toISOString().slice(0, 10),
+    note: `「${itemName}」報廢/損耗 ${qty} 個${note ? "：" + note : ""}`,
+  });
+  logActivity({ module: "items", action: "dispose", summary: `「${itemName}」報廢/損耗 ${qty} 個，損失 $${lossAmount.toFixed(0)}` });
+  return lossAmount;
+}
+
+
+export async function stocktakeAdjust({ itemId, countedQty, note, recordLoss = true }) {
+  const who = whoAmI();
+  const itemRef = doc(db, "items", itemId);
+  let itemName = "";
+  let diff = 0;
+  let avgCost = 0;
+  await runTransaction(db, async (tx) => {
+    const itemSnap = await tx.get(itemRef);
+    if (!itemSnap.exists()) throw new Error("找不到項目");
+    const item = itemSnap.data();
+    itemName = item.name;
     if (!STOCK_TRACKED_TYPES.includes(item.type)) throw new Error(`${TYPE_LABELS[item.type]}不能盤點`);
     const systemQtyBefore = computeStock(item);
-    const diff = Number(countedQty) - systemQtyBefore;
+    diff = Number(countedQty) - systemQtyBefore;
+    avgCost = computeAvgCost(item);
     tx.update(itemRef, {
       stocktakeAdjustment: (item.stocktakeAdjustment || 0) + diff,
       updatedAt: serverTimestamp(),
@@ -273,6 +332,20 @@ export async function stocktakeAdjust({ itemId, countedQty, note }) {
       createdAt: serverTimestamp(),
     });
   });
+
+  // 盤點發現「比系統少」，代表東西真的對不起來，預設自動記一筆報廢/損耗損失
+  let lossAmount = 0;
+  if (diff < 0 && recordLoss) {
+    lossAmount = Math.abs(diff) * avgCost;
+    await addExpense({
+      costType: "cogs",
+      category: "存貨報廢",
+      amount: lossAmount,
+      date: new Date().toISOString().slice(0, 10),
+      note: `「${itemName}」盤點短少 ${Math.abs(diff)} 個${note ? "：" + note : ""}`,
+    });
+  }
+  return { diff, lossAmount };
 }
 
 // ---------- 作廢 / 刪除 ----------

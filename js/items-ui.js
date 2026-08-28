@@ -1,25 +1,25 @@
 // ============================================================
 // 商品與庫存頁面 UI（合併版）
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-26";
-import { currentSession, wireNameResolution } from "./auth.js?v=20260826-26";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-27";
+import { currentSession, wireNameResolution } from "./auth.js?v=20260826-27";
 import {
   listItems, createItem, updateItem, setItemArchived,
-  addPurchaseBatch, stocktakeAdjust,
+  addPurchaseBatch, stocktakeAdjust, disposeStock,
   listPurchases, listUsages, listStocktakes,
   voidRecord, permanentlyDelete,
   computeStock, computeAvgCost, calcItemCost, buildItemsIndex,
   TYPE_LABELS, ORDERABLE_TYPES, STOCK_TRACKED_TYPES,
-} from "./items.js?v=20260826-26";
-import { listCategories } from "./categories.js?v=20260826-26";
-import { listUnits } from "./units.js?v=20260826-26";
-import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js?v=20260826-26";
-import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260826-26";
-import { openSearchPicker } from "./picker-ui.js?v=20260826-26";
-import { exportItems } from "./export-xlsx.js?v=20260826-26";
-import { setFab } from "./fab-ui.js?v=20260826-26";
-import { iconHtml } from "./icons.js?v=20260826-26";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-26";
+} from "./items.js?v=20260826-27";
+import { listCategories } from "./categories.js?v=20260826-27";
+import { listUnits } from "./units.js?v=20260826-27";
+import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js?v=20260826-27";
+import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260826-27";
+import { openSearchPicker } from "./picker-ui.js?v=20260826-27";
+import { exportItems } from "./export-xlsx.js?v=20260826-27";
+import { setFab } from "./fab-ui.js?v=20260826-27";
+import { iconHtml } from "./icons.js?v=20260826-27";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-27";
 
 const TYPE_HINTS = {
   self_made: "自己現做的東西，客戶可訂購。不追蹤庫存量，成本 = 配方裡每一項包材的成本加總（原料/人工每月算在「利潤總覽」）。",
@@ -170,6 +170,7 @@ export async function renderItemsPage(container, initialFilter = null) {
         { icon: "add", label: "新增項目", onClick: () => openItemModal() },
         { icon: "cart", label: "採購登記", onClick: () => openPurchaseModal() },
         { icon: "clipboard", label: "盤點", onClick: () => openStocktakeModal() },
+        { icon: "trash", label: "報廢/損耗", onClick: () => openDisposeModal() },
       ]);
     }
 
@@ -805,11 +806,35 @@ export async function renderItemsPage(container, initialFilter = null) {
         <button type="button" id="s-item-btn" class="picker-trigger">點選項目</button>
       </div>
       <div class="field"><label>實際盤點數量</label><input type="number" id="s-counted" /></div>
+      <div id="s-preview"></div>
       <div class="field"><label>備註（選填）</label><textarea id="s-note" rows="3" style="resize:vertical;"></textarea></div>
       <div style="display:flex;justify-content:flex-end;">
         <button class="btn btn-primary" id="s-submit">確認校正</button>
       </div>
     `);
+
+    function updatePreview() {
+      const previewEl = overlay.querySelector("#s-preview");
+      const counted = overlay.querySelector("#s-counted").value;
+      if (!selectedItem || counted === "") { previewEl.innerHTML = ""; return; }
+      const systemQty = computeStock(selectedItem);
+      const diff = Number(counted) - systemQty;
+      if (diff === 0) {
+        previewEl.innerHTML = `<div class="hint" style="margin-bottom:10px;">跟系統數量一致，沒有差異。</div>`;
+      } else if (diff > 0) {
+        previewEl.innerHTML = `<div class="hint" style="margin-bottom:10px;color:var(--jade);">比系統多 ${diff} 個。</div>`;
+      } else {
+        const lossAmount = Math.abs(diff) * computeAvgCost(selectedItem);
+        previewEl.innerHTML = `
+          <div class="hint" style="margin-bottom:6px;color:var(--rose);">比系統少 ${Math.abs(diff)} 個，用均價估算損失 $${lossAmount.toFixed(0)}。</div>
+          <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink);margin-bottom:10px;cursor:pointer;">
+            <input type="checkbox" id="s-record-loss" checked style="width:16px;height:16px;" />
+            自動記一筆「存貨報廢」支出（損益表會反映這筆損失）
+          </label>
+        `;
+      }
+    }
+
     overlay.querySelector("#s-item-btn").addEventListener("click", () => {
       openSearchPicker({
         title: "選擇項目",
@@ -817,18 +842,82 @@ export async function renderItemsPage(container, initialFilter = null) {
         renderLabel: (i) => i.name,
         renderSub: (i) => `${TYPE_LABELS[i.type]} · 系統目前：${computeStock(i)} ${i.unit || "個"}`,
         renderThumb: (i) => i.photoUrl || null,
-        onSelect: (i) => { selectedItem = i; overlay.querySelector("#s-item-btn").textContent = i.name; },
+        onSelect: (i) => { selectedItem = i; overlay.querySelector("#s-item-btn").textContent = i.name; updatePreview(); },
       });
     });
+    overlay.querySelector("#s-counted").addEventListener("input", updatePreview);
+
     overlay.querySelector("#s-submit").addEventListener("click", async (e) => {
       const btn = e.currentTarget;
       const counted = overlay.querySelector("#s-counted").value;
       if (!selectedItem) { showToast("請選擇項目", "error"); return; }
       if (counted === "") { showToast("請輸入盤點數量", "error"); return; }
+      const recordLossCb = overlay.querySelector("#s-record-loss");
+      const recordLoss = recordLossCb ? recordLossCb.checked : true;
       btn.disabled = true;
       try {
-        await stocktakeAdjust({ itemId: selectedItem.id, countedQty: counted, note: overlay.querySelector("#s-note").value });
-        showToast("已校正庫存", "success");
+        const result = await stocktakeAdjust({ itemId: selectedItem.id, countedQty: counted, note: overlay.querySelector("#s-note").value, recordLoss });
+        showToast(result.lossAmount > 0 ? `已校正庫存，並記錄 $${result.lossAmount.toFixed(0)} 報廢損失` : "已校正庫存", "success");
+        overlay.remove();
+        await reload();
+      } catch (err) {
+        showToast("失敗：" + err.message, "error");
+        btn.disabled = false;
+      }
+    });
+  }
+
+  // 報廢/損耗登記：只填數量，系統自動用均價算損失金額
+  function openDisposeModal() {
+    const disposable = items.filter((i) => STOCK_TRACKED_TYPES.includes(i.type) && i.status !== "archived" && computeStock(i) > 0);
+    if (disposable.length === 0) {
+      showToast("沒有庫存大於 0 的項目可以報廢", "error");
+      return;
+    }
+    let selectedItem = null;
+    const overlay = openModal(`
+      <h3 style="margin-bottom:4px;">報廢/損耗登記</h3>
+      <div class="hint" style="margin-bottom:16px;">東西真的壞了、丟了、不是賣掉的，才用這個。</div>
+      <div class="field"><label>項目</label>
+        <button type="button" id="d-item-btn" class="picker-trigger">點選項目</button>
+      </div>
+      <div class="field"><label>報廢數量</label><input type="number" id="d-qty" /></div>
+      <div id="d-preview"></div>
+      <div class="field"><label>備註（選填）</label><textarea id="d-note" rows="3" style="resize:vertical;" placeholder="例如：受潮壞掉"></textarea></div>
+      <div style="display:flex;justify-content:flex-end;">
+        <button class="btn btn-danger" id="d-submit">確認報廢</button>
+      </div>
+    `);
+
+    function updateDisposePreview() {
+      const previewEl = overlay.querySelector("#d-preview");
+      const qty = overlay.querySelector("#d-qty").value;
+      if (!selectedItem || qty === "" || Number(qty) <= 0) { previewEl.innerHTML = ""; return; }
+      const lossAmount = Number(qty) * computeAvgCost(selectedItem);
+      previewEl.innerHTML = `<div class="hint" style="margin-bottom:10px;color:var(--rose);">用均價估算，這筆會記錄 $${lossAmount.toFixed(0)} 的存貨報廢損失。</div>`;
+    }
+
+    overlay.querySelector("#d-item-btn").addEventListener("click", () => {
+      openSearchPicker({
+        title: "選擇項目",
+        items: disposable,
+        renderLabel: (i) => i.name,
+        renderSub: (i) => `${TYPE_LABELS[i.type]} · 目前庫存：${computeStock(i)} ${i.unit || "個"}`,
+        renderThumb: (i) => i.photoUrl || null,
+        onSelect: (i) => { selectedItem = i; overlay.querySelector("#d-item-btn").textContent = i.name; updateDisposePreview(); },
+      });
+    });
+    overlay.querySelector("#d-qty").addEventListener("input", updateDisposePreview);
+
+    overlay.querySelector("#d-submit").addEventListener("click", async (e) => {
+      const btn = e.currentTarget;
+      const qty = overlay.querySelector("#d-qty").value;
+      if (!selectedItem) { showToast("請選擇項目", "error"); return; }
+      if (qty === "" || Number(qty) <= 0) { showToast("請輸入報廢數量", "error"); return; }
+      btn.disabled = true;
+      try {
+        const lossAmount = await disposeStock({ itemId: selectedItem.id, qty: Number(qty), note: overlay.querySelector("#d-note").value });
+        showToast(`已登記報廢，記錄 $${lossAmount.toFixed(0)} 損失`, "success");
         overlay.remove();
         await reload();
       } catch (err) {
