@@ -23,14 +23,14 @@
 //   itemUsages/{id}      領用/消耗記錄（含出貨自動扣、手動例外）
 //   itemStocktakes/{id}  盤點記錄
 // ============================================================
-import { db } from "./firebase-config.js?v=20260826-36";
+import { db } from "./firebase-config.js?v=20260826-37";
 import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, runTransaction,
   serverTimestamp, query, where
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { currentSession, getDisplayName } from "./auth.js?v=20260826-36";
-import { logActivity } from "./activity-log.js?v=20260826-36";
-import { addExpense } from "./expenses.js?v=20260826-36";
+import { currentSession, getDisplayName } from "./auth.js?v=20260826-37";
+import { logActivity } from "./activity-log.js?v=20260826-37";
+import { addExpense } from "./expenses.js?v=20260826-37";
 
 const itemsCol = collection(db, "items");
 const purchasesCol = collection(db, "itemPurchases");
@@ -171,6 +171,41 @@ export async function setItemArchived(itemId, archived, itemName = "") {
     updatedAt: serverTimestamp(),
   });
   logActivity({ module: "items", action: archived ? "archive" : "restore", summary: `${archived ? "停用" : "恢復使用"}「${itemName}」` });
+}
+
+/**
+ * 永久刪除商品：只能刪已停用的商品，避免誤刪還在使用中的資料。
+ * 刪除前會檢查有沒有其他「使用中」的自製商品配方還在引用這個項目
+ * （通常是包材），有的話會擋下來、列出是哪些商品，請先處理配方再刪。
+ * 確定可以刪的話，連同這個商品的進貨/領用/盤點記錄一起真的刪掉，
+ * 不留下引用不存在商品的孤兒紀錄。
+ */
+export async function deleteItemPermanently(itemId) {
+  const itemRef = doc(db, "items", itemId);
+  const itemSnap = await getDoc(itemRef);
+  if (!itemSnap.exists()) throw new Error("找不到項目");
+  const item = itemSnap.data();
+  if (item.status !== "archived") throw new Error("只能刪除已停用的項目");
+
+  const allItems = await listItems({ includeArchived: true });
+  const referencing = allItems.filter((i) =>
+    i.id !== itemId && i.status !== "archived" && (i.recipe || []).some((r) => r.itemId === itemId)
+  );
+  if (referencing.length > 0) {
+    throw new Error(`還有使用中的商品配方引用這個項目（${referencing.map((i) => i.name).join("、")}），請先移除配方裡的這個項目再刪除`);
+  }
+
+  const [purchases, usages, stocktakes] = await Promise.all([
+    listPurchases(itemId),
+    listUsages(itemId),
+    listStocktakes(itemId),
+  ]);
+  for (const p of purchases) await deleteDoc(doc(db, "itemPurchases", p.id));
+  for (const u of usages) await deleteDoc(doc(db, "itemUsages", u.id));
+  for (const s of stocktakes) await deleteDoc(doc(db, "itemStocktakes", s.id));
+
+  await deleteDoc(itemRef);
+  logActivity({ module: "items", action: "delete", summary: `「${item.name}」已永久刪除` });
 }
 
 // ---------- 進貨（可批次，只能是 resale / packaging） ----------

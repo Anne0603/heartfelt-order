@@ -1,25 +1,25 @@
 // ============================================================
 // 商品與庫存頁面 UI（合併版）
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-36";
-import { currentSession, wireNameResolution } from "./auth.js?v=20260826-36";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-37";
+import { currentSession, wireNameResolution } from "./auth.js?v=20260826-37";
 import {
-  listItems, createItem, updateItem, setItemArchived,
+  listItems, createItem, updateItem, setItemArchived, deleteItemPermanently,
   addPurchaseBatch, stocktakeAdjust, disposeStock,
   listPurchases, listUsages, listStocktakes,
   voidRecord, permanentlyDelete,
   computeStock, computeAvgCost, calcItemCost, buildItemsIndex,
   TYPE_LABELS, ORDERABLE_TYPES, STOCK_TRACKED_TYPES,
-} from "./items.js?v=20260826-36";
-import { listCategories } from "./categories.js?v=20260826-36";
-import { listUnits } from "./units.js?v=20260826-36";
-import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js?v=20260826-36";
-import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260826-36";
-import { openSearchPicker } from "./picker-ui.js?v=20260826-36";
-import { exportItems } from "./export-xlsx.js?v=20260826-36";
-import { setFab } from "./fab-ui.js?v=20260826-36";
-import { iconHtml } from "./icons.js?v=20260826-36";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-36";
+} from "./items.js?v=20260826-37";
+import { listCategories } from "./categories.js?v=20260826-37";
+import { listUnits } from "./units.js?v=20260826-37";
+import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js?v=20260826-37";
+import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260826-37";
+import { openSearchPicker } from "./picker-ui.js?v=20260826-37";
+import { exportItems } from "./export-xlsx.js?v=20260826-37";
+import { setFab } from "./fab-ui.js?v=20260826-37";
+import { iconHtml } from "./icons.js?v=20260826-37";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-37";
 
 const TYPE_HINTS = {
   self_made: "自己現做的東西，客戶可訂購。不追蹤庫存量，成本 = 配方裡每一項包材的成本加總（原料/人工每月算在「利潤總覽」）。",
@@ -341,6 +341,11 @@ export async function renderItemsPage(container, initialFilter = null) {
             <button class="btn ${item.status === "archived" ? "btn-success" : "btn-secondary"}" id="btn-archive-item" style="padding:7px 14px;font-size:13px;">${item.status === "archived" ? "恢復使用" : "停用"}</button>
           </div>
         ` : ""}
+        ${item.status === "archived" && currentSession.member?.role === "superadmin" ? `
+          <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--paper-line);">
+            <button class="btn btn-danger" id="btn-delete-item-permanent" style="width:100%;">永久刪除</button>
+          </div>
+        ` : ""}
       </div>
 
       ${canSeeCost() && calc ? `
@@ -377,10 +382,44 @@ export async function renderItemsPage(container, initialFilter = null) {
         }
       });
     }
+    container.querySelector("#btn-delete-item-permanent")?.addEventListener("click", () => {
+      openDeleteItemModal(item, itemId);
+    });
 
     if (isTracked) {
       await renderRecordTabs(itemId);
     }
+  }
+
+  // 永久刪除商品是不可逆的動作，要求輸入「確認」兩個字才會真的執行
+  function openDeleteItemModal(item, itemId) {
+    const overlay = openModal(`
+      <h3 style="margin-bottom:4px;">確認永久刪除</h3>
+      <div class="hint" style="margin-bottom:14px;">${item.name}</div>
+      <div class="hint" style="color:var(--rose);margin-bottom:14px;">刪除後這個項目會完全消失，其他人也看不到，連同它的進貨/領用/盤點記錄一起刪除，無法復原。</div>
+      <div class="field"><label>確定要刪除的話，請輸入「確認」兩個字</label><input type="text" id="di-confirm-text" placeholder="確認" /></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button class="btn btn-secondary" id="di-cancel">取消</button>
+        <button class="btn btn-danger" id="di-confirm">永久刪除</button>
+      </div>
+    `, 400);
+    overlay.querySelector("#di-cancel").addEventListener("click", () => overlay.remove());
+    overlay.querySelector("#di-confirm").addEventListener("click", async (e) => {
+      const btn = e.currentTarget;
+      const text = overlay.querySelector("#di-confirm-text").value.trim();
+      if (text !== "確認") { showToast("請輸入「確認」兩個字才能執行", "error"); return; }
+      btn.disabled = true;
+      try {
+        await deleteItemPermanently(itemId);
+        showToast("已永久刪除", "success");
+        overlay.remove();
+        await loadData();
+        renderListView();
+      } catch (err) {
+        showToast("失敗：" + err.message, "error");
+        btn.disabled = false;
+      }
+    });
   }
 
   async function renderRecordTabs(itemId) {
