@@ -2,15 +2,15 @@
 // 支出管理頁面（獨立功能區）
 // 每筆支出分「銷貨成本」或「營業費用」，各自有自己的分類清單
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260828-40";
-import { currentSession } from "./auth.js?v=20260828-40";
-import { listExpenses, addExpense, updateExpense, deleteExpense, PAYMENT_METHODS, COST_TYPE_LABELS } from "./expenses.js?v=20260828-40";
-import { listCategories } from "./categories.js?v=20260828-40";
-import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260828-40";
-import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js?v=20260828-40";
-import { setFab } from "./fab-ui.js?v=20260828-40";
-import { iconHtml } from "./icons.js?v=20260828-40";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260828-40";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260829-41";
+import { currentSession } from "./auth.js?v=20260829-41";
+import { listExpenses, addExpense, updateExpense, deleteExpense, PAYMENT_METHODS, COST_TYPE_LABELS } from "./expenses.js?v=20260829-41";
+import { listCategories } from "./categories.js?v=20260829-41";
+import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260829-41";
+import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js?v=20260829-41";
+import { setFab } from "./fab-ui.js?v=20260829-41";
+import { iconHtml } from "./icons.js?v=20260829-41";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-41";
 
 function canWrite() {
   return ["superadmin", "admin"].includes(currentSession.member?.role);
@@ -37,19 +37,19 @@ export async function renderExpensesPage(container, initialFilter = null) {
   container.innerHTML = `
     ${pageNavHtml("支出管理")}
     <div class="card" style="margin-bottom:16px;">
-      <input type="text" id="search-input" placeholder="搜尋備註/金額" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;" />
-      <select id="filter-costtype" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;">
+      <input type="text" id="search-input" placeholder="搜尋備註/金額" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:16px;margin-bottom:10px;" />
+      <select id="filter-costtype" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:16px;margin-bottom:10px;">
         <option value="all">全部</option>
         <option value="cogs">銷貨成本</option>
         <option value="opex">營業費用</option>
       </select>
-      <select id="filter-category" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;">
+      <select id="filter-category" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:16px;margin-bottom:10px;">
         <option value="all">全部類別</option>
       </select>
       <div style="display:flex;gap:8px;align-items:center;">
-        <input type="date" id="filter-start" value="${rangeStart}" style="flex:1;min-width:0;padding:9px 8px;border:1px solid var(--paper-line);border-radius:8px;font-size:14px;" />
+        <input type="date" id="filter-start" value="${rangeStart}" style="flex:1;min-width:0;padding:9px 8px;border:1px solid var(--paper-line);border-radius:8px;font-size:16px;" />
         <span class="hint">～</span>
-        <input type="date" id="filter-end" value="${rangeEnd}" style="flex:1;min-width:0;padding:9px 8px;border:1px solid var(--paper-line);border-radius:8px;font-size:14px;" />
+        <input type="date" id="filter-end" value="${rangeEnd}" style="flex:1;min-width:0;padding:9px 8px;border:1px solid var(--paper-line);border-radius:8px;font-size:16px;" />
       </div>
     </div>
     <div id="expenses-total" class="hint" style="margin-bottom:10px;"></div>

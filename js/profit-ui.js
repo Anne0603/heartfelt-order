@@ -9,12 +9,12 @@
 // 版面採用會計報表慣例：項目靠左、金額靠右，明細緊接在對應的
 // 總額下面；每一行明細都能點看更細的拆解。
 // ============================================================
-import { listOrders } from "./orders.js?v=20260828-40";
-import { listItems, computeStock, computeAvgCost, STOCK_TRACKED_TYPES } from "./items.js?v=20260828-40";
-import { listExpensesInRange } from "./expenses.js?v=20260828-40";
-import { renderDateRangePicker } from "./date-range-ui.js?v=20260828-40";
-import { linkifyErrorMessage } from "./utils.js?v=20260828-40";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260828-40";
+import { listOrders } from "./orders.js?v=20260829-41";
+import { listItems, computeStock, computeAvgCost, STOCK_TRACKED_TYPES } from "./items.js?v=20260829-41";
+import { listExpensesInRange } from "./expenses.js?v=20260829-41";
+import { renderDateRangePicker } from "./date-range-ui.js?v=20260829-41";
+import { linkifyErrorMessage } from "./utils.js?v=20260829-41";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-41";
 
 export async function renderProfitPage(container, navigateTo) {
   function renderSummaryShell(initialRange) {
@@ -252,7 +252,7 @@ export async function renderProfitPage(container, navigateTo) {
       const tab = tabs.find((t) => t.id === activeTab);
       contentEl.innerHTML = `
         <div class="card">
-          <input type="text" id="drill-search" placeholder="搜尋" value="${searchText}" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:14px;margin-bottom:12px;" />
+          <input type="text" id="drill-search" placeholder="搜尋" value="${searchText}" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:16px;margin-bottom:12px;" />
           <div id="drill-rows"></div>
         </div>
       `;

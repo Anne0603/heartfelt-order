@@ -1,12 +1,12 @@
 // ============================================================
 // 客戶與廠商頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260828-40";
-import { currentSession } from "./auth.js?v=20260828-40";
-import { openModal, confirmDialog } from "./modal-ui.js?v=20260828-40";
-import { listContacts, createContact, updateContact, setContactArchived } from "./contacts.js?v=20260828-40";
-import { listOrders, getPaymentStatus } from "./orders.js?v=20260828-40";
-import { listCategories } from "./categories.js?v=20260828-40";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260829-41";
+import { currentSession } from "./auth.js?v=20260829-41";
+import { openModal, confirmDialog } from "./modal-ui.js?v=20260829-41";
+import { listContacts, createContact, updateContact, setContactArchived } from "./contacts.js?v=20260829-41";
+import { listOrders, getPaymentStatus } from "./orders.js?v=20260829-41";
+import { listCategories } from "./categories.js?v=20260829-41";
 
 async function listMergedSupplyCategories() {
   // 廠商供應的通常是現貨商品或包材，不是自製商品，所以合併這兩種分類清單
@@ -18,10 +18,10 @@ async function listMergedSupplyCategories() {
   [...resale, ...packaging].forEach((c) => { if (!seen.has(c.name)) seen.set(c.name, c); });
   return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
-import { exportContacts } from "./export-xlsx.js?v=20260828-40";
-import { setFab } from "./fab-ui.js?v=20260828-40";
-import { iconHtml } from "./icons.js?v=20260828-40";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260828-40";
+import { exportContacts } from "./export-xlsx.js?v=20260829-41";
+import { setFab } from "./fab-ui.js?v=20260829-41";
+import { iconHtml } from "./icons.js?v=20260829-41";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-41";
 
 const ROLE_LABELS = { customer: "客戶", supplier: "廠商" };
 
@@ -46,8 +46,8 @@ export async function renderContactsPage(container) {
       </div>
       <div class="card" style="margin-bottom:16px;">
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-          <input type="text" id="search-input" placeholder="搜尋名稱/電話" style="flex:1;min-width:160px;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;" />
-          <select id="filter-role" style="padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;">
+          <input type="text" id="search-input" placeholder="搜尋名稱/電話" style="flex:1;min-width:160px;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:16px;" />
+          <select id="filter-role" style="padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:16px;">
             <option value="all">全部</option>
             <option value="customer">客戶</option>
             <option value="supplier">廠商</option>

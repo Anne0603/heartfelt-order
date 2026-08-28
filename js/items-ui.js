@@ -1,8 +1,8 @@
 // ============================================================
 // 商品與庫存頁面 UI（合併版）
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260828-40";
-import { currentSession, wireNameResolution } from "./auth.js?v=20260828-40";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260829-41";
+import { currentSession, wireNameResolution } from "./auth.js?v=20260829-41";
 import {
   listItems, createItem, updateItem, setItemArchived, deleteItemPermanently,
   addPurchaseBatch, stocktakeAdjust, disposeStock,
@@ -10,16 +10,16 @@ import {
   voidRecord, permanentlyDelete,
   computeStock, computeAvgCost, calcItemCost, buildItemsIndex,
   TYPE_LABELS, ORDERABLE_TYPES, STOCK_TRACKED_TYPES,
-} from "./items.js?v=20260828-40";
-import { listCategories } from "./categories.js?v=20260828-40";
-import { listUnits } from "./units.js?v=20260828-40";
-import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js?v=20260828-40";
-import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260828-40";
-import { openSearchPicker } from "./picker-ui.js?v=20260828-40";
-import { exportItems } from "./export-xlsx.js?v=20260828-40";
-import { setFab } from "./fab-ui.js?v=20260828-40";
-import { iconHtml } from "./icons.js?v=20260828-40";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260828-40";
+} from "./items.js?v=20260829-41";
+import { listCategories } from "./categories.js?v=20260829-41";
+import { listUnits } from "./units.js?v=20260829-41";
+import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js?v=20260829-41";
+import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260829-41";
+import { openSearchPicker } from "./picker-ui.js?v=20260829-41";
+import { exportItems } from "./export-xlsx.js?v=20260829-41";
+import { setFab } from "./fab-ui.js?v=20260829-41";
+import { iconHtml } from "./icons.js?v=20260829-41";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-41";
 
 const TYPE_HINTS = {
   self_made: "自己現做的東西，客戶可訂購。不追蹤庫存量，成本 = 配方裡每一項包材的成本加總（原料/人工每月算在「利潤總覽」）。",
@@ -101,7 +101,7 @@ export async function renderItemsPage(container, initialFilter = null) {
         <button class="pill-toggle-btn ${statusTab === "archived" ? "active" : ""}" data-status="archived">已停用</button>
       </div>
       <div class="card" style="margin-bottom:16px;">
-        <input type="text" id="search-input" placeholder="搜尋名稱" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;" />
+        <input type="text" id="search-input" placeholder="搜尋名稱" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:16px;margin-bottom:10px;" />
         <div style="display:flex;gap:10px;">
           <button type="button" id="filter-type-btn" class="picker-trigger" style="flex:1;">全部類型</button>
           <button type="button" id="filter-category-btn" class="picker-trigger" style="flex:1;">全部分類</button>
@@ -469,7 +469,7 @@ export async function renderItemsPage(container, initialFilter = null) {
 
       contentEl.innerHTML = `
         <div class="card">
-          <input type="text" id="rec-search" placeholder="搜尋日期/金額/備註/人員" value="${recSearch}" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:14px;margin-bottom:12px;" />
+          <input type="text" id="rec-search" placeholder="搜尋日期/金額/備註/人員" value="${recSearch}" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:16px;margin-bottom:12px;" />
           <div id="rec-list"></div>
         </div>
       `;

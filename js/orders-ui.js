@@ -1,21 +1,21 @@
 // ============================================================
 // 訂單管理頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260828-40";
-import { currentSession, wireNameResolution } from "./auth.js?v=20260828-40";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260829-41";
+import { currentSession, wireNameResolution } from "./auth.js?v=20260829-41";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, updateOrderNoteAndAddress, getPaymentStatus,
   markShipped, voidOrder, deleteOrderPermanently,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel, normalizeShipStatus,
-} from "./orders.js?v=20260828-40";
-import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260828-40";
-import { listContacts, createContact } from "./contacts.js?v=20260828-40";
-import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260828-40";
-import { exportOrders } from "./export-xlsx.js?v=20260828-40";
-import { setFab, clearFab } from "./fab-ui.js?v=20260828-40";
-import { openSearchPicker } from "./picker-ui.js?v=20260828-40";
-import { openModal } from "./modal-ui.js?v=20260828-40";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260828-40";
+} from "./orders.js?v=20260829-41";
+import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260829-41";
+import { listContacts, createContact } from "./contacts.js?v=20260829-41";
+import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260829-41";
+import { exportOrders } from "./export-xlsx.js?v=20260829-41";
+import { setFab, clearFab } from "./fab-ui.js?v=20260829-41";
+import { openSearchPicker } from "./picker-ui.js?v=20260829-41";
+import { openModal } from "./modal-ui.js?v=20260829-41";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-41";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
@@ -63,22 +63,22 @@ export async function renderOrdersPage(container, initialFilter = null) {
       `)}
       <div id="batch-action-bar"></div>
       <div class="card" style="margin-bottom:16px;">
-        <input type="text" id="search-input" placeholder="搜尋訂單編號/客戶/電話" value="${searchText}" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;" />
-        <select id="filter-status" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;">
+        <input type="text" id="search-input" placeholder="搜尋訂單編號/客戶/電話" value="${searchText}" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:16px;margin-bottom:10px;" />
+        <select id="filter-status" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:16px;margin-bottom:10px;">
           <option value="all">全部狀態</option>
           <option value="pending">待處理</option>
           <option value="shipped">已出貨</option>
         </select>
-        <select id="filter-quick" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;">
+        <select id="filter-quick" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:16px;margin-bottom:10px;">
           <option value="all">不特別篩選</option>
           <option value="today">今天應出貨</option>
           <option value="overdue">已逾期未出貨</option>
           <option value="unpaid_shipped">已出貨但未收款</option>
         </select>
         <div style="display:flex;gap:8px;align-items:center;">
-          <input type="date" id="filter-date-start" value="${filterDateStart}" style="flex:1;min-width:0;padding:9px 8px;border:1px solid var(--paper-line);border-radius:8px;font-size:14px;" />
+          <input type="date" id="filter-date-start" value="${filterDateStart}" style="flex:1;min-width:0;padding:9px 8px;border:1px solid var(--paper-line);border-radius:8px;font-size:16px;" />
           <span class="hint">～</span>
-          <input type="date" id="filter-date-end" value="${filterDateEnd}" style="flex:1;min-width:0;padding:9px 8px;border:1px solid var(--paper-line);border-radius:8px;font-size:14px;" />
+          <input type="date" id="filter-date-end" value="${filterDateEnd}" style="flex:1;min-width:0;padding:9px 8px;border:1px solid var(--paper-line);border-radius:8px;font-size:16px;" />
         </div>
       </div>
       <div id="orders-list"></div>

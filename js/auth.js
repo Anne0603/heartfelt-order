@@ -9,7 +9,7 @@
 //    - 存在但 status 是 'pending' -> 顯示「審核中」，登出
 //    - 存在且 status 是 'active' -> 放行，帶著 role 一起進系統
 // ============================================================
-import { auth, db, googleProvider } from "./firebase-config.js?v=20260828-40";
+import { auth, db, googleProvider } from "./firebase-config.js?v=20260829-41";
 import {
   signInWithPopup,
   signOut,

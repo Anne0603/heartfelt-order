@@ -3,17 +3,17 @@
 // Cloudinary 設定 / 待審核申請 / 成員
 // 品牌圖案改成「直接點側邊欄 Logo 上傳」，邏輯在 app.js
 // ============================================================
-import { db } from "./firebase-config.js?v=20260828-40";
+import { db } from "./firebase-config.js?v=20260829-41";
 import {
   doc, getDoc, setDoc, deleteDoc,
   collection, getDocs, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260828-40";
-import { currentSession, ROLE_LABELS } from "./auth.js?v=20260828-40";
-import { listCategories, createCategory, renameCategory, deleteCategory } from "./categories.js?v=20260828-40";
-import { listUnits, createUnit, renameUnit, deleteUnit } from "./units.js?v=20260828-40";
-import { confirmDialog, openModal } from "./modal-ui.js?v=20260828-40";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260828-40";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260829-41";
+import { currentSession, ROLE_LABELS } from "./auth.js?v=20260829-41";
+import { listCategories, createCategory, renameCategory, deleteCategory } from "./categories.js?v=20260829-41";
+import { listUnits, createUnit, renameUnit, deleteUnit } from "./units.js?v=20260829-41";
+import { confirmDialog, openModal } from "./modal-ui.js?v=20260829-41";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-41";
 
 const CLOUDINARY_DOC = doc(db, "publicSettings", "cloudinary");
 const BRAND_DOC = doc(db, "publicSettings", "brand");
@@ -245,7 +245,7 @@ export async function renderPendingPage(container) {
               <div style="font-size:15px;color:var(--ink);word-break:break-all;">${m.email}</div>
               <div class="hint" style="margin-top:2px;">${m.displayName || "（未提供姓名）"}</div>
               <div style="margin-top:10px;">
-                <select class="pending-role-select" data-email="${m.email}" style="width:100%;padding:9px 10px;border:1px solid var(--paper-line);border-radius:8px;font-size:14px;margin-bottom:8px;">${roleOptionsHtml("order_staff")}</select>
+                <select class="pending-role-select" data-email="${m.email}" style="width:100%;padding:9px 10px;border:1px solid var(--paper-line);border-radius:8px;font-size:16px;margin-bottom:8px;">${roleOptionsHtml("order_staff")}</select>
                 <div style="display:flex;gap:8px;">
                   <button class="btn btn-primary" data-approve="${m.email}" style="padding:8px 14px;font-size:13px;flex:1;">核准</button>
                   <button class="btn btn-danger" data-reject="${m.email}" style="padding:8px 14px;font-size:13px;flex:1;">拒絕</button>
@@ -339,7 +339,7 @@ export async function renderMembersPage(container) {
                 <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
                   ${isTargetSuperadmin
                     ? `<span class="seal-badge warn" style="white-space:nowrap;"><span class="dot"></span>超級管理員</span>`
-                    : `<select class="member-role-select" data-email="${m.email}" style="padding:8px 10px;border:1px solid var(--paper-line);border-radius:8px;font-size:14px;">${roleOptionsHtml(m.role)}</select>`
+                    : `<select class="member-role-select" data-email="${m.email}" style="padding:8px 10px;border:1px solid var(--paper-line);border-radius:8px;font-size:16px;">${roleOptionsHtml(m.role)}</select>`
                   }
                   ${isTargetSuperadmin || isSelf ? "" : `<button class="btn btn-danger" data-remove="${m.email}" style="padding:6px 12px;font-size:12px;">移除</button>`}
                 </div>
@@ -456,7 +456,7 @@ export async function renderCategoriesPage(container) {
           ? `<div class="hint">尚未新增任何分類</div>`
           : cats.map((c) => `
               <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--paper-line);">
-                <input type="text" class="cat-name-input" data-id="${c.id}" value="${c.name}" style="flex:1;padding:6px 10px;border:1px solid transparent;border-radius:6px;font-size:14px;" />
+                <input type="text" class="cat-name-input" data-id="${c.id}" value="${c.name}" style="flex:1;padding:6px 10px;border:1px solid transparent;border-radius:6px;font-size:16px;" />
                 <button class="btn btn-secondary cat-rename" data-id="${c.id}" style="padding:5px 10px;font-size:12px;">改名</button>
                 <button class="btn btn-danger cat-delete" data-id="${c.id}" style="padding:5px 10px;font-size:12px;">刪除</button>
               </div>
@@ -538,7 +538,7 @@ export async function renderUnitsPage(container) {
         ? `<div class="hint">尚未新增任何單位</div>`
         : units.map((u) => `
             <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--paper-line);">
-              <input type="text" class="unit-name-input" data-id="${u.id}" value="${u.name}" style="flex:1;padding:6px 10px;border:1px solid transparent;border-radius:6px;font-size:14px;" />
+              <input type="text" class="unit-name-input" data-id="${u.id}" value="${u.name}" style="flex:1;padding:6px 10px;border:1px solid transparent;border-radius:6px;font-size:16px;" />
               <button class="btn btn-secondary unit-rename" data-id="${u.id}" style="padding:5px 10px;font-size:12px;">改名</button>
               <button class="btn btn-danger unit-delete" data-id="${u.id}" style="padding:5px 10px;font-size:12px;">刪除</button>
             </div>

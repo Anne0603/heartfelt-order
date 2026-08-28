@@ -9,7 +9,7 @@ export function openSearchPicker({ title, items, renderLabel, renderSub, renderT
     <div class="card" style="max-width:420px;width:100%;max-height:75vh;display:flex;flex-direction:column;padding:16px;position:relative;">
       <button id="picker-close-x" aria-label="關閉" style="position:absolute;top:12px;right:12px;width:30px;height:30px;border-radius:50%;border:none;background:var(--paper);color:var(--text-muted);font-size:16px;cursor:pointer;line-height:1;">✕</button>
       <h3 style="margin-bottom:10px;padding-right:30px;">${title}</h3>
-      <input type="text" id="picker-search" placeholder="輸入關鍵字搜尋" style="padding:10px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;margin-bottom:10px;" />
+      <input type="text" id="picker-search" placeholder="輸入關鍵字搜尋" style="padding:10px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:16px;margin-bottom:10px;" />
       <div id="picker-list" style="overflow-y:auto;flex:1;"></div>
     </div>
   `;

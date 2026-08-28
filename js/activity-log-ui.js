@@ -4,11 +4,11 @@
 // 分頁籤依項目分類；預設用「載入更多」往回翻，也可以切到日期
 // 區間篩選，直接查某段特定期間發生的事。
 // ============================================================
-import { listActivityLogPage, listActivityLogByDateRange, MODULE_LABELS } from "./activity-log.js?v=20260828-40";
-import { renderDateRangePicker } from "./date-range-ui.js?v=20260828-40";
-import { toJSDate } from "./utils.js?v=20260828-40";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260828-40";
-import { wireNameResolution } from "./auth.js?v=20260828-40";
+import { listActivityLogPage, listActivityLogByDateRange, MODULE_LABELS } from "./activity-log.js?v=20260829-41";
+import { renderDateRangePicker } from "./date-range-ui.js?v=20260829-41";
+import { toJSDate } from "./utils.js?v=20260829-41";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-41";
+import { wireNameResolution } from "./auth.js?v=20260829-41";
 
 const ACTION_LABELS = {
   create: "新增", update: "編輯", archive: "停用", restore: "恢復使用",
@@ -39,7 +39,7 @@ export async function renderActivityLogPage(container) {
   container.innerHTML = `
     ${pageNavHtml("操作紀錄")}
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
-      <input type="text" id="search-input" placeholder="搜尋操作內容/人員" style="flex:1;min-width:160px;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:15px;" />
+      <input type="text" id="search-input" placeholder="搜尋操作內容/人員" style="flex:1;min-width:160px;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:16px;" />
       <button class="btn btn-secondary" id="btn-toggle-date" style="padding:9px 14px;font-size:13px;">依日期篩選</button>
     </div>
     <div id="date-range-area" style="display:none;margin-bottom:10px;"></div>
