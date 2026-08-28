@@ -3,10 +3,10 @@
 // 第一層：今天要做的事（全部角色，不含金額）
 // 第二層：快速操作按鈕（依角色顯示）
 // ============================================================
-import { currentSession } from "./auth.js?v=20260826-37";
-import { lowStockItems } from "./items.js?v=20260826-37";
-import { listOrders, normalizeShipStatus } from "./orders.js?v=20260826-37";
-import { iconHtml } from "./icons.js?v=20260826-37";
+import { currentSession } from "./auth.js?v=20260826-38";
+import { lowStockItems } from "./items.js?v=20260826-38";
+import { listOrders, normalizeShipStatus } from "./orders.js?v=20260826-38";
+import { iconHtml } from "./icons.js?v=20260826-38";
 
 const QUICK_ACTIONS = [
   { id: "orders",    label: "新增訂單",     icon: "pencil", roles: ["superadmin","admin","order_staff"], filter: "openNew" },
@@ -43,7 +43,9 @@ export async function renderHomePage(container, navigateTo) {
         <span style="position:absolute;top:14px;right:14px;color:var(--text-muted);">→</span>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;" id="quick-actions"></div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px;" id="quick-actions"></div>
+    <h3 style="font-size:15px;color:var(--ink);margin-bottom:10px;">今日待辦</h3>
+    <div id="todo-list"><div class="card" style="color:var(--text-muted);">載入中…</div></div>
   `;
 
   const actionsEl = container.querySelector("#quick-actions");
@@ -77,15 +79,41 @@ export async function renderHomePage(container, navigateTo) {
     const todayEl = container.querySelector("#today-ship-count");
     const overdueEl = container.querySelector("#overdue-count");
     [pendingEl, todayEl, overdueEl].forEach((el) => el.classList.remove("stat-loading"));
+    const overdueOrders = active.filter((o) => o.expectedDate && o.expectedDate < today && normalizeShipStatus(o.shipStatus) !== "shipped");
+    const todayOrders = active.filter((o) => o.expectedDate === today && normalizeShipStatus(o.shipStatus) !== "shipped");
     pendingEl.textContent = active.filter((o) => normalizeShipStatus(o.shipStatus) === "pending").length;
-    todayEl.textContent = active.filter((o) => o.expectedDate === today && normalizeShipStatus(o.shipStatus) !== "shipped").length;
-    overdueEl.textContent = active.filter((o) => o.expectedDate && o.expectedDate < today && normalizeShipStatus(o.shipStatus) !== "shipped").length;
+    todayEl.textContent = todayOrders.length;
+    overdueEl.textContent = overdueOrders.length;
+
+    const todoEl = container.querySelector("#todo-list");
+    const todoOrders = [...overdueOrders, ...todayOrders].slice(0, 6);
+    if (todoOrders.length === 0) {
+      todoEl.innerHTML = `<div class="card" style="color:var(--text-muted);text-align:center;">目前沒有今天要出貨或逾期的訂單 🎉</div>`;
+    } else {
+      todoEl.innerHTML = todoOrders.map((o) => {
+        const isOverdue = o.expectedDate < today;
+        const itemsSummary = o.lineItems.map((li) => `${li.productName}x${li.qty}`).join("、");
+        return `
+          <div class="card" style="margin-bottom:8px;padding:12px 14px;cursor:pointer;" data-order="${o.id}" data-quick="${isOverdue ? "overdue" : "today"}">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;">
+              <span style="font-weight:700;font-size:14px;color:var(--ink);font-family:var(--font-mono);">${o.orderNumber}</span>
+              <span class="seal-badge ${isOverdue ? "bad" : "warn"}" style="flex-shrink:0;"><span class="dot"></span>${isOverdue ? "已逾期" : "今日"}</span>
+            </div>
+            <div style="font-size:13px;color:var(--text-muted);margin-top:4px;">${o.contactName || "（未指定客戶）"} · ${itemsSummary}</div>
+          </div>
+        `;
+      }).join("");
+      todoEl.querySelectorAll("[data-order]").forEach((card) => {
+        card.addEventListener("click", () => navigateTo("orders", { quick: card.getAttribute("data-quick") }));
+      });
+    }
   } catch (err) {
     ["#pending-count", "#today-ship-count", "#overdue-count"].forEach((sel) => {
       const el = container.querySelector(sel);
       el.classList.remove("stat-loading");
       el.textContent = "—";
     });
+    container.querySelector("#todo-list").innerHTML = `<div class="card" style="color:var(--rose);">載入失敗</div>`;
   }
 
   try {
