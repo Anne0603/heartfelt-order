@@ -1,21 +1,21 @@
 // ============================================================
 // 訂單管理頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-32";
-import { currentSession, wireNameResolution } from "./auth.js?v=20260826-32";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-33";
+import { currentSession, wireNameResolution } from "./auth.js?v=20260826-33";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, updateOrderNoteAndAddress, getPaymentStatus,
   markShipped, voidOrder, deleteOrderPermanently,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel, normalizeShipStatus,
-} from "./orders.js?v=20260826-32";
-import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-32";
-import { listContacts, createContact } from "./contacts.js?v=20260826-32";
-import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-32";
-import { exportOrders } from "./export-xlsx.js?v=20260826-32";
-import { setFab, clearFab } from "./fab-ui.js?v=20260826-32";
-import { openSearchPicker } from "./picker-ui.js?v=20260826-32";
-import { openModal } from "./modal-ui.js?v=20260826-32";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-32";
+} from "./orders.js?v=20260826-33";
+import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-33";
+import { listContacts, createContact } from "./contacts.js?v=20260826-33";
+import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-33";
+import { exportOrders } from "./export-xlsx.js?v=20260826-33";
+import { setFab, clearFab } from "./fab-ui.js?v=20260826-33";
+import { openSearchPicker } from "./picker-ui.js?v=20260826-33";
+import { openModal } from "./modal-ui.js?v=20260826-33";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-33";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);

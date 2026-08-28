@@ -62,11 +62,16 @@ service cloud.firestore {
       allow get: if isSignedIn() && (request.auth.token.email == email || isSuperadmin());
       allow list: if isSuperadmin();
 
-      allow create: if isSignedIn()
-        && request.auth.token.email == email
-        && !exists(memberPath())
-        && request.resource.data.status == 'pending'
-        && request.resource.data.role == null;
+      // 一般人只能建立「自己的」待審核申請；超級管理員額外可以直接建立
+      // 「封鎖」記錄（手動黑名單一個信箱，不用等對方先申請過）。
+      allow create: if (isSignedIn()
+          && request.auth.token.email == email
+          && !exists(memberPath())
+          && request.resource.data.status == 'pending'
+          && request.resource.data.role == null)
+        || (isSuperadmin()
+          && request.resource.data.status == 'rejected'
+          && request.resource.data.role == null);
 
       allow update: if isSuperadmin()
         || (isSignedIn() && request.auth.token.email == email

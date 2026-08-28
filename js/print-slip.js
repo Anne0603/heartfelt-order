@@ -2,8 +2,8 @@
 // 出貨單列印
 // 開一個新視窗，排版乾淨的出貨單，不含成本/毛利，叫出瀏覽器列印功能。
 // ============================================================
-import { alertDialog } from "./modal-ui.js?v=20260826-32";
-import { SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getPaymentStatus } from "./orders.js?v=20260826-32";
+import { alertDialog } from "./modal-ui.js?v=20260826-33";
+import { SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getPaymentStatus } from "./orders.js?v=20260826-33";
 
 export function printOrderSlip(order) {
   const win = window.open("", "_blank", "width=480,height=700");
@@ -76,6 +76,12 @@ export function printOrderSlip(order) {
 
   ${order.note ? `<div class="section"><div class="label">備註</div><div class="value">${order.note}</div></div>` : ""}
 
+  <div class="section">
+    <div class="label">現場備註（手寫）</div>
+    <div style="border-bottom:1.5px solid #23262E;height:24px;margin-top:6px;"></div>
+    <div style="border-bottom:1.5px solid #23262E;height:24px;margin-top:14px;"></div>
+  </div>
+
   <div class="footer">列印時間：${new Date().toLocaleString("zh-TW")}</div>
 
   <script>
@@ -115,6 +121,7 @@ export function printShippingList(ordersList) {
           <div class="sub2">${order.contactName || "（未指定）"}${order.contactPhone ? " · " + order.contactPhone : ""}</div>
           ${order.contactAddress ? `<div class="sub2">${order.contactAddress}</div>` : ""}
           ${order.note ? `<div class="sub2">備註：${order.note}</div>` : ""}
+          <div class="handwrite-line"></div>
         </td>
         <td>${itemsHtml}</td>
         <td>${order.pickupMethod || ""}</td>
@@ -143,6 +150,7 @@ export function printShippingList(ordersList) {
   .item-line { margin-bottom: 3px; }
   .amount-due { font-weight: 700; color: #A8433A; white-space: nowrap; font-size: 18px; }
   .amount-paid { color: #4A7A5E; white-space: nowrap; }
+  .handwrite-line { border-bottom: 1.5px solid #23262E; min-height: 22px; margin-top: 8px; }
   .footer { margin-top: 20px; font-size: 13px; color: #9AA0B4; text-align: right; }
   @media print { body { padding: 0; } tr { page-break-inside: avoid; } }
 </style>

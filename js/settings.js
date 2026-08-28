@@ -3,17 +3,17 @@
 // Cloudinary 設定 / 待審核申請 / 成員
 // 品牌圖案改成「直接點側邊欄 Logo 上傳」，邏輯在 app.js
 // ============================================================
-import { db } from "./firebase-config.js?v=20260826-32";
+import { db } from "./firebase-config.js?v=20260826-33";
 import {
   doc, getDoc, setDoc, deleteDoc,
   collection, getDocs, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-32";
-import { currentSession, ROLE_LABELS } from "./auth.js?v=20260826-32";
-import { listCategories, createCategory, renameCategory, deleteCategory } from "./categories.js?v=20260826-32";
-import { listUnits, createUnit, renameUnit, deleteUnit } from "./units.js?v=20260826-32";
-import { confirmDialog, openModal } from "./modal-ui.js?v=20260826-32";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-32";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-33";
+import { currentSession, ROLE_LABELS } from "./auth.js?v=20260826-33";
+import { listCategories, createCategory, renameCategory, deleteCategory } from "./categories.js?v=20260826-33";
+import { listUnits, createUnit, renameUnit, deleteUnit } from "./units.js?v=20260826-33";
+import { confirmDialog, openModal } from "./modal-ui.js?v=20260826-33";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-33";
 
 const CLOUDINARY_DOC = doc(db, "publicSettings", "cloudinary");
 const BRAND_DOC = doc(db, "publicSettings", "brand");
@@ -204,11 +204,31 @@ export async function renderPendingPage(container) {
     <div id="pending-list"></div>
     <h3 style="font-size:15px;margin:20px 0 10px;color:var(--ink);">已拒絕名單</h3>
     <div class="hint" style="margin-bottom:10px;">這些信箱之前被拒絕過，不會再自己跑出申請。想讓對方能重新申請，點「解除封鎖」。</div>
+    <div class="card" style="margin-bottom:10px;">
+      <label style="font-size:13px;color:var(--text-muted);margin-bottom:6px;display:block;">手動封鎖信箱（不用等對方申請過，直接輸入信箱就能先擋起來）</label>
+      <div style="display:flex;gap:8px;">
+        <input type="email" id="manual-block-email" placeholder="example@gmail.com" style="flex:1;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;" />
+        <button class="btn btn-danger" id="manual-block-btn" style="padding:9px 16px;">封鎖</button>
+      </div>
+    </div>
     <div id="rejected-list"></div>
   `;
   wirePageNav(container);
   const listEl = container.querySelector("#pending-list");
   const rejectedEl = container.querySelector("#rejected-list");
+  container.querySelector("#manual-block-btn").addEventListener("click", async () => {
+    const email = container.querySelector("#manual-block-email").value.trim().toLowerCase();
+    if (!email || !email.includes("@")) { showToast("請輸入正確的信箱", "error"); return; }
+    if (!await confirmDialog(`封鎖 ${email}？封鎖後這個信箱不會再自己跑出申請。`, { confirmLabel: "封鎖", danger: true })) return;
+    try {
+      await rejectMember(email);
+      showToast("已封鎖", "success");
+      container.querySelector("#manual-block-email").value = "";
+      refresh();
+    } catch (err) {
+      showToast("失敗：" + err.message, "error");
+    }
+  });
   await refresh();
 
   async function refresh() {
