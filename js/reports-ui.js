@@ -1,11 +1,11 @@
 // ============================================================
 // 統計報表：分成「總覽」「銷售分析」「客戶分析」「出貨趨勢」四個分頁籤
 // ============================================================
-import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260826-33";
-import { listItems, buildItemsIndex } from "./items.js?v=20260826-33";
-import { renderDateRangePicker } from "./date-range-ui.js?v=20260826-33";
-import { linkifyErrorMessage } from "./utils.js?v=20260826-33";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-33";
+import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260826-34";
+import { listItems, buildItemsIndex } from "./items.js?v=20260826-34";
+import { renderDateRangePicker } from "./date-range-ui.js?v=20260826-34";
+import { linkifyErrorMessage } from "./utils.js?v=20260826-34";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-34";
 
 function barRow(label, value, maxValue, formatValue) {
   const pct = maxValue > 0 ? Math.max(4, (value / maxValue) * 100) : 0;

@@ -9,9 +9,10 @@
 //    - 存在但 status 是 'pending' -> 顯示「審核中」，登出
 //    - 存在且 status 是 'active' -> 放行，帶著 role 一起進系統
 // ============================================================
-import { auth, db, googleProvider } from "./firebase-config.js?v=20260826-33";
+import { auth, db, googleProvider } from "./firebase-config.js?v=20260826-34";
 import {
-  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut,
   onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
@@ -117,7 +118,21 @@ async function createPendingRequest(user) {
 }
 
 export function loginWithGoogle() {
-  return signInWithPopup(auth, googleProvider);
+  return signInWithRedirect(auth, googleProvider);
+}
+
+/**
+ * 從 Google 登入頁跳轉回來後，要呼叫這個把結果撈出來。
+ * 主要是為了在跳轉失敗時能捕捉到明確的錯誤訊息，方便顯示給使用者看；
+ * 真正「登入成功、要不要放行」的判斷，還是統一交給 watchAuthState 處理。
+ */
+export async function checkRedirectResult() {
+  try {
+    await getRedirectResult(auth);
+  } catch (err) {
+    return err;
+  }
+  return null;
 }
 
 export function logout() {

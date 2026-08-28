@@ -3,17 +3,17 @@
 // Cloudinary 設定 / 待審核申請 / 成員
 // 品牌圖案改成「直接點側邊欄 Logo 上傳」，邏輯在 app.js
 // ============================================================
-import { db } from "./firebase-config.js?v=20260826-33";
+import { db } from "./firebase-config.js?v=20260826-34";
 import {
   doc, getDoc, setDoc, deleteDoc,
   collection, getDocs, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-33";
-import { currentSession, ROLE_LABELS } from "./auth.js?v=20260826-33";
-import { listCategories, createCategory, renameCategory, deleteCategory } from "./categories.js?v=20260826-33";
-import { listUnits, createUnit, renameUnit, deleteUnit } from "./units.js?v=20260826-33";
-import { confirmDialog, openModal } from "./modal-ui.js?v=20260826-33";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-33";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-34";
+import { currentSession, ROLE_LABELS } from "./auth.js?v=20260826-34";
+import { listCategories, createCategory, renameCategory, deleteCategory } from "./categories.js?v=20260826-34";
+import { listUnits, createUnit, renameUnit, deleteUnit } from "./units.js?v=20260826-34";
+import { confirmDialog, openModal } from "./modal-ui.js?v=20260826-34";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-34";
 
 const CLOUDINARY_DOC = doc(db, "publicSettings", "cloudinary");
 const BRAND_DOC = doc(db, "publicSettings", "brand");
