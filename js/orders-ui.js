@@ -1,21 +1,21 @@
 // ============================================================
 // 訂單管理頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-27";
-import { currentSession, wireNameResolution } from "./auth.js?v=20260826-27";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260826-28";
+import { currentSession, wireNameResolution } from "./auth.js?v=20260826-28";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, updateOrderNoteAndAddress, getPaymentStatus,
   markShipped, voidOrder,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel, normalizeShipStatus,
-} from "./orders.js?v=20260826-27";
-import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-27";
-import { listContacts, createContact } from "./contacts.js?v=20260826-27";
-import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-27";
-import { exportOrders } from "./export-xlsx.js?v=20260826-27";
-import { setFab, clearFab } from "./fab-ui.js?v=20260826-27";
-import { openSearchPicker } from "./picker-ui.js?v=20260826-27";
-import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-27";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-27";
+} from "./orders.js?v=20260826-28";
+import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260826-28";
+import { listContacts, createContact } from "./contacts.js?v=20260826-28";
+import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260826-28";
+import { exportOrders } from "./export-xlsx.js?v=20260826-28";
+import { setFab, clearFab } from "./fab-ui.js?v=20260826-28";
+import { openSearchPicker } from "./picker-ui.js?v=20260826-28";
+import { openModal, confirmDialog } from "./modal-ui.js?v=20260826-28";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260826-28";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
@@ -828,6 +828,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
           renderOrderDetailPage(order.id);
         } catch (err) {
           msgEl.textContent = "失敗：" + err.message;
+          showToast("失敗：" + err.message, "error");
           e.currentTarget.disabled = false;
         }
       }});
@@ -895,6 +896,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
           renderOrderDetailPage(order.id);
         } catch (err) {
           msgEl.textContent = "失敗：" + err.message;
+          showToast("失敗：" + err.message, "error");
           e.currentTarget.disabled = false;
         }
       });
