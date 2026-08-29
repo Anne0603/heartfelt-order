@@ -9,9 +9,11 @@
 //    - 存在但 status 是 'pending' -> 顯示「審核中」，登出
 //    - 存在且 status 是 'active' -> 放行，帶著 role 一起進系統
 // ============================================================
-import { auth, db, googleProvider } from "./firebase-config.js?v=20260829-41";
+import { auth, db, googleProvider } from "./firebase-config.js?v=20260829-42";
 import {
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut,
   onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
@@ -116,8 +118,31 @@ async function createPendingRequest(user) {
   });
 }
 
-export function loginWithGoogle() {
-  return signInWithPopup(auth, googleProvider);
+// 會導致 popup 走不通、需要自動改用整頁轉跳的錯誤代碼
+const POPUP_FALLBACK_CODES = new Set([
+  "auth/popup-blocked",
+  "auth/popup-closed-by-user",
+  "auth/cancelled-popup-request",
+]);
+
+export async function loginWithGoogle() {
+  try {
+    return await signInWithPopup(auth, googleProvider);
+  } catch (err) {
+    if (POPUP_FALLBACK_CODES.has(err.code)) {
+      // Safari（尤其 iPhone）常見的封鎖彈出視窗情況：改用整頁轉跳，
+      // 轉跳回來後由 watchAuthState + getRedirectResult 接手完成登入。
+      await signInWithRedirect(auth, googleProvider);
+      return null; // 頁面即將轉跳離開，不會執行到這行之後
+    }
+    throw err;
+  }
+}
+
+// 從 Google 轉跳回來後，把登入結果撈出來（純粹是為了讓轉跳流程本身的錯誤，
+// 例如使用者中途取消，能被上層看到；正常成功時 onAuthStateChanged 會自動觸發）
+export function consumeRedirectResult() {
+  return getRedirectResult(auth);
 }
 
 export function logout() {

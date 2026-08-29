@@ -1,24 +1,24 @@
 // ============================================================
 // 主程式：登入流程 + 側邊導覽 + 簡易路由
 // ============================================================
-import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName } from "./auth.js?v=20260829-41";
-import { iconHtml } from "./icons.js?v=20260829-41";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-41";
-import { openProfileModal } from "./profile-ui.js?v=20260829-41";
-import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, getPendingCount } from "./settings.js?v=20260829-41";
-import { renderHomePage } from "./home.js?v=20260829-41";
-import { renderItemsPage } from "./items-ui.js?v=20260829-41";
-import { clearFab } from "./fab-ui.js?v=20260829-41";
-import { renderContactsPage } from "./contacts-ui.js?v=20260829-41";
-import { renderOrdersPage } from "./orders-ui.js?v=20260829-41";
-import { renderReportsPage } from "./reports-ui.js?v=20260829-41";
-import { renderProfitPage } from "./profit-ui.js?v=20260829-41";
-import { renderActivityLogPage } from "./activity-log-ui.js?v=20260829-41";
-import { renderExpensesPage } from "./expenses-ui.js?v=20260829-41";
-import { lowStockItems } from "./items.js?v=20260829-41";
-import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260829-41";
-import { showToast } from "./utils.js?v=20260829-41";
-import { db } from "./firebase-config.js?v=20260829-41";
+import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName, consumeRedirectResult } from "./auth.js?v=20260829-42";
+import { iconHtml } from "./icons.js?v=20260829-42";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-42";
+import { openProfileModal } from "./profile-ui.js?v=20260829-42";
+import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, getPendingCount } from "./settings.js?v=20260829-42";
+import { renderHomePage } from "./home.js?v=20260829-42";
+import { renderItemsPage } from "./items-ui.js?v=20260829-42";
+import { clearFab } from "./fab-ui.js?v=20260829-42";
+import { renderContactsPage } from "./contacts-ui.js?v=20260829-42";
+import { renderOrdersPage } from "./orders-ui.js?v=20260829-42";
+import { renderReportsPage } from "./reports-ui.js?v=20260829-42";
+import { renderProfitPage } from "./profit-ui.js?v=20260829-42";
+import { renderActivityLogPage } from "./activity-log-ui.js?v=20260829-42";
+import { renderExpensesPage } from "./expenses-ui.js?v=20260829-42";
+import { lowStockItems } from "./items.js?v=20260829-42";
+import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260829-42";
+import { showToast } from "./utils.js?v=20260829-42";
+import { db } from "./firebase-config.js?v=20260829-42";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 // ---------- 品牌圖案：統一套用在登入頁 / 側邊欄 / 每個人的頭像位置 ----------
@@ -146,7 +146,10 @@ btnGoogleLogin.addEventListener("click", async () => {
   loginLoading.classList.add("show");
   btnGoogleLogin.disabled = true;
   try {
-    await loginWithGoogle();
+    const result = await loginWithGoogle();
+    // result 為 null 代表已改走整頁轉跳（signInWithRedirect），頁面即將離開，
+    // 不用在這裡處理任何後續，也不要恢復按鈕狀態，避免畫面在轉跳前閃一下。
+    if (result === null) return;
   } catch (err) {
     console.error(err);
     loginError.textContent = "登入失敗：" + (err.code ? `[${err.code}] ` : "") + (err.message || "未知錯誤");
@@ -387,6 +390,14 @@ function updateOnlineStatus() {
 window.addEventListener("online", updateOnlineStatus);
 window.addEventListener("offline", updateOnlineStatus);
 updateOnlineStatus();
+
+// 從 Google 轉跳登入頁回來後，先把結果讀出來一次：
+// 主要是為了在轉跳流程本身失敗時（例如使用者中途取消）能看到明確錯誤訊息，
+// 正常成功的情況會由下面的 watchAuthState / onAuthStateChanged 自動接手顯示畫面。
+consumeRedirectResult().catch((err) => {
+  console.error(err);
+  showToast("登入失敗：" + (err.code ? `[${err.code}] ` : "") + (err.message || "未知錯誤"), "error");
+});
 
 watchAuthState({
   onSignedOut: () => showLoginScreen(),
