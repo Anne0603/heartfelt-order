@@ -9,7 +9,7 @@
 //    - 存在但 status 是 'pending' -> 顯示「審核中」，登出
 //    - 存在且 status 是 'active' -> 放行，帶著 role 一起進系統
 // ============================================================
-import { auth, db, googleProvider } from "./firebase-config.js?v=20260829-49";
+import { auth, db, googleProvider } from "./firebase-config.js?v=20260829-50";
 import {
   signInWithPopup,
   signInWithRedirect,
@@ -22,6 +22,7 @@ import {
   getDoc,
   setDoc,
   updateDoc,
+  onSnapshot,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
@@ -154,9 +155,23 @@ export function logout() {
  * onPending(user)               -> 已送出申請，等待審核
  * onSignedOut()                 -> 尚未登入 / 已登出
  * onError(err)
+ * onRevoked()                   -> 原本是 active，但被即時偵測到權限被拿掉
+ *                                   （移除/角色被清空/狀態改變），系統即將
+ *                                   自動登出。上層可以用這個時機跳個提示，
+ *                                   讓使用者知道為什麼突然被登出，而不是
+ *                                   毫無說明地被踢回登入畫面。
  */
-export function watchAuthState({ onActive, onPending, onSignedOut, onError }) {
+let unsubscribeMemberWatch = null;
+
+export function watchAuthState({ onActive, onPending, onSignedOut, onError, onRevoked }) {
   onAuthStateChanged(auth, async (user) => {
+    // 每次認證狀態變化都先停掉舊的即時監聽，避免同時疊加多個監聽器
+    // （例如重新登入、切換帳號時），造成重複觸發或監聽到別人的資料。
+    if (unsubscribeMemberWatch) {
+      unsubscribeMemberWatch();
+      unsubscribeMemberWatch = null;
+    }
+
     if (!user) {
       currentSession.user = null;
       currentSession.member = null;
@@ -174,11 +189,41 @@ export function watchAuthState({ onActive, onPending, onSignedOut, onError }) {
 
       if (member.status === "active" && member.role) {
         onActive && onActive(user, member);
+        // 只有在「目前是有效成員」的狀態下才需要即時盯著資料變化——
+        // 這是這次要修的重點：如果超級管理員把這個人移除、或改了角色，
+        // 不用等這個人自己重新整理頁面才發現，系統會主動偵測到並登出。
+        watchMembershipLive(user.email, onRevoked);
       } else {
         onPending && onPending(user, member);
       }
     } catch (err) {
       onError && onError(err);
     }
+  });
+}
+
+function watchMembershipLive(email, onRevoked) {
+  const ref = doc(db, "members", email.toLowerCase());
+  unsubscribeMemberWatch = onSnapshot(ref, (snap) => {
+    const data = snap.exists() ? snap.data() : null;
+    const stillActive = data && data.status === "active" && !!data.role;
+    if (!stillActive) {
+      // 權限被拿掉了（被移除、被改成待審核、被拒絕、或角色被清空）。
+      // 主動登出，讓使用者立刻看到正確的畫面，而不是留在已經失效的
+      // 畫面上，操作到一半才發現全部失敗。
+      if (unsubscribeMemberWatch) {
+        unsubscribeMemberWatch();
+        unsubscribeMemberWatch = null;
+      }
+      onRevoked && onRevoked();
+      signOut(auth).catch(() => {});
+    } else if (data.role !== currentSession.member?.role) {
+      // 角色被改了（例如從一般成員升成管理員），但沒有被拿掉權限——
+      // 更新暫存的角色資料，讓畫面上的權限判斷跟著同步，不用重新登入。
+      currentSession.member = { ...currentSession.member, ...data };
+    }
+  }, () => {
+    // 監聽本身出錯（例如網路問題）不用特別處理，安靜忽略即可，
+    // 不影響使用者當下的操作，下次重新整理時仍會走一般的登入流程重新確認。
   });
 }
