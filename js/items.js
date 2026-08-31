@@ -23,14 +23,14 @@
 //   itemUsages/{id}      領用/消耗記錄（含出貨自動扣、手動例外）
 //   itemStocktakes/{id}  盤點記錄
 // ============================================================
-import { db } from "./firebase-config.js?v=20260829-51";
+import { db } from "./firebase-config.js?v=20260829-52";
 import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, runTransaction,
   serverTimestamp, query, where
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { currentSession, getDisplayName } from "./auth.js?v=20260829-51";
-import { logActivity } from "./activity-log.js?v=20260829-51";
-import { addExpense } from "./expenses.js?v=20260829-51";
+import { currentSession, getDisplayName } from "./auth.js?v=20260829-52";
+import { logActivity } from "./activity-log.js?v=20260829-52";
+import { addExpense } from "./expenses.js?v=20260829-52";
 
 const itemsCol = collection(db, "items");
 const purchasesCol = collection(db, "itemPurchases");
@@ -281,6 +281,44 @@ export async function addUsage({ itemId, qty, note, source = "manual", orderId =
 }
 
 /**
+ * 退貨回補庫存：客戶退回的商品狀況良好、可以繼續賣，就用這個把庫存加
+ * 回去。跟 addUsage 是相反方向的操作，故意獨立成一個函式而不是共用
+ * 「傳負數 qty 給 addUsage」這種寫法——避免在領用記錄列表裡看到一筆
+ * 「領用 -3 個」這種容易誤讀的紀錄，這裡用獨立的 source: 'return'，
+ * 畫面上可以清楚顯示成「退貨回補 +3 個」。
+ */
+export async function restockFromReturn({ itemId, qty, note, orderId }) {
+  const who = whoAmI();
+  const itemRef = doc(db, "items", itemId);
+  await runTransaction(db, async (tx) => {
+    const itemSnap = await tx.get(itemRef);
+    if (!itemSnap.exists()) throw new Error("找不到項目");
+    const item = itemSnap.data();
+    tx.update(itemRef, {
+      // 不會扣到負的：極端情況下（例如中間有盤點調整過）避免退貨回補
+      // 把「已使用量」倒扣成負數，造成庫存數字異常膨脹
+      totalUsedQty: Math.max(0, (item.totalUsedQty || 0) - qty),
+      updatedAt: serverTimestamp(),
+    });
+    const usageRef = doc(usagesCol);
+    tx.set(usageRef, {
+      itemId,
+      itemName: item.name,
+      date: new Date().toISOString().slice(0, 10),
+      qty,
+      note: note || "",
+      source: "return",
+      orderId,
+      status: "active",
+      createdBy: who.email,
+      createdByName: who.name,
+      createdAt: serverTimestamp(),
+    });
+  });
+}
+
+
+/**
  * 報廢/損耗登記：東西真的壞了、丟了、不是賣掉的。
  * 只要填數量，系統自動用「均價」算出損失金額，同時：
  *   1. 扣庫存（跟領用一樣的機制）
@@ -401,6 +439,16 @@ export async function voidRecord(kind, recordId) {
         tx.update(itemRef, {
           totalPurchasedQty: (item.totalPurchasedQty || 0) - rec.qty,
           totalPurchasedCost: (item.totalPurchasedCost || 0) - rec.amount,
+          updatedAt: serverTimestamp(),
+        });
+      } else if (rec.source === "return") {
+        // 「退貨回補」建立的時候是把庫存加回去（totalUsedQty 減少）；
+        // 所以作廢這筆記錄，要做「相反的相反」——把庫存再扣掉一次
+        // （totalUsedQty 加回去），跟一般領用記錄的作廢方向剛好相反。
+        // 這裡不能套用下面那個「usage 一律減」的邏輯，不然庫存會被
+        // 錯誤地疊加扣兩次。
+        tx.update(itemRef, {
+          totalUsedQty: (item.totalUsedQty || 0) + rec.qty,
           updatedAt: serverTimestamp(),
         });
       } else {

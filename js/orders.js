@@ -12,14 +12,14 @@
 // lineItems[].unitCost，之後商品成本再怎麼調整，都不會動到這張訂單
 // 已經算好的毛利。
 // ============================================================
-import { db } from "./firebase-config.js?v=20260829-51";
+import { db } from "./firebase-config.js?v=20260829-52";
 import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
   serverTimestamp, runTransaction, query, where, orderBy as fbOrderBy
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { currentSession, getDisplayName } from "./auth.js?v=20260829-51";
-import { addUsage, listUsagesByOrder, voidRecord, calcItemCost, permanentlyDelete } from "./items.js?v=20260829-51";
-import { logActivity } from "./activity-log.js?v=20260829-51";
+import { currentSession, getDisplayName } from "./auth.js?v=20260829-52";
+import { addUsage, listUsagesByOrder, voidRecord, calcItemCost, permanentlyDelete, restockFromReturn } from "./items.js?v=20260829-52";
+import { logActivity } from "./activity-log.js?v=20260829-52";
 
 const ordersCol = collection(db, "orders");
 
@@ -56,13 +56,27 @@ export function getShipStatusLabel(status) {
   return SHIP_STATUS_LABELS[normalizeShipStatus(status)];
 }
 
-/** 收款狀態直接從「實收金額」算出來，不再手動選，永遠準確 */
+/**
+ * 收款狀態直接從「實收金額」算，但要先扣掉退貨金額——退貨後應收的
+ * 金額變少了，不能再用原本的訂單總額去判斷有沒有付清。
+ */
 export function getPaymentStatus(order) {
   const received = order.amountReceived || 0;
-  const total = order.totalAmount || 0;
+  const effectiveTotal = (order.totalAmount || 0) - (order.returnedAmount || 0);
   if (received <= 0) return "unpaid";
-  if (received >= total) return "paid";
+  if (received >= effectiveTotal) return "paid";
   return "deposit";
+}
+
+/**
+ * 算出「還要跟客戶收多少 / 該退多少給客戶」。
+ * 正數：還要跟客戶收這麼多；負數：多收了，該退還客戶這麼多
+ * （通常發生在客戶已經付清、後來又退貨的情況）；0：剛好結清。
+ */
+export function getOutstandingBalance(order) {
+  const received = order.amountReceived || 0;
+  const effectiveTotal = (order.totalAmount || 0) - (order.returnedAmount || 0);
+  return effectiveTotal - received;
 }
 
 function whoAmI() {
@@ -327,4 +341,102 @@ export async function deleteOrderPermanently(orderId) {
   await deleteDoc(doc(db, "orders", orderId));
   logActivity({ module: "orders", action: "delete", summary: `訂單 ${order.orderNumber} 已永久刪除` });
   invalidateOrdersCache();
+}
+
+// ---------- 退貨 ----------
+// 設計精神比照作廢訂單：不直接改動原本的訂單內容，而是「新增一筆退貨
+// 記錄」，保留完整歷史軌跡（原本賣了什麼、後來退了什麼都查得到）。
+//
+// items 參數格式：[{ productId, productName, qty, unitPrice, restock }]
+//   restock: true 表示這批退回來的商品狀況良好、要加回庫存；
+//            false 表示已經不能再賣（壞了/用過了），不加回庫存，
+//            單純只是退款、不影響庫存
+export async function registerReturn(orderId, { items, note }, itemsById) {
+  const who = whoAmI();
+  const order = await getOrder(orderId);
+  if (!order) throw new Error("找不到訂單");
+  if (order.voided) throw new Error("這張訂單已作廢，無法登記退貨");
+  if (normalizeShipStatus(order.shipStatus) !== "shipped") throw new Error("只有已出貨的訂單能登記退貨");
+  if (!items || items.length === 0) throw new Error("請至少選擇一項退貨商品");
+
+  // 檢查每一項退貨數量，不能超過「當初賣出的數量」扣掉「之前已經退過
+  // 的數量」——避免同一張訂單同一項商品，退貨退到比賣出去的還多。
+  const pastReturns = await listReturnsByOrder(orderId);
+  const alreadyReturnedByProduct = new Map();
+  for (const r of pastReturns) {
+    for (const ri of r.items || []) {
+      alreadyReturnedByProduct.set(ri.productId, (alreadyReturnedByProduct.get(ri.productId) || 0) + ri.qty);
+    }
+  }
+  for (const ri of items) {
+    const lineItem = order.lineItems.find((li) => li.productId === ri.productId);
+    if (!lineItem) throw new Error(`這張訂單裡沒有「${ri.productName}」這項商品`);
+    const alreadyReturned = alreadyReturnedByProduct.get(ri.productId) || 0;
+    const maxReturnable = lineItem.qty - alreadyReturned;
+    if (ri.qty > maxReturnable) {
+      throw new Error(`「${ri.productName}」最多只能再退 ${maxReturnable} 個（原賣出 ${lineItem.qty} 個，已退 ${alreadyReturned} 個）`);
+    }
+  }
+
+  let refundAmount = 0;
+  for (const ri of items) {
+    refundAmount += ri.qty * ri.unitPrice;
+    if (!ri.restock) continue;
+    const item = itemsById.get(ri.productId);
+    if (!item) continue;
+    // 跟出貨扣庫存（markShipped）用同一套「自製商品扣配方包材／現貨商品
+    // 扣自己」的邏輯，只是方向相反：退貨時把當初扣掉的加回去。
+    if (item.type === "self_made") {
+      for (const r of item.recipe || []) {
+        await restockFromReturn({
+          itemId: r.itemId,
+          qty: (r.qty || 1) * ri.qty,
+          note: `訂單 ${order.orderNumber} 退貨回補`,
+          orderId,
+        });
+      }
+    } else if (item.type === "resale") {
+      await restockFromReturn({
+        itemId: item.id,
+        qty: ri.qty,
+        note: `訂單 ${order.orderNumber} 退貨回補`,
+        orderId,
+      });
+    }
+  }
+
+  await addDoc(collection(db, "orderReturns"), {
+    orderId,
+    orderNumber: order.orderNumber,
+    items: items.map((ri) => ({
+      productId: ri.productId,
+      productName: ri.productName,
+      qty: ri.qty,
+      unitPrice: ri.unitPrice,
+      restocked: !!ri.restock,
+    })),
+    refundAmount,
+    note: note || "",
+    performedBy: who.email,
+    performedByName: who.name,
+    createdAt: serverTimestamp(),
+  });
+
+  await updateDoc(doc(db, "orders", orderId), {
+    returnedAmount: (order.returnedAmount || 0) + refundAmount,
+    updatedAt: serverTimestamp(),
+  });
+
+  logActivity({ module: "orders", action: "return", summary: `訂單 ${order.orderNumber} 登記退貨，退款 $${refundAmount}` });
+  invalidateOrdersCache();
+  return refundAmount;
+}
+
+export async function listReturnsByOrder(orderId) {
+  const q = query(collection(db, "orderReturns"), where("orderId", "==", orderId));
+  const snap = await getDocs(q);
+  const list = [];
+  snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
+  list.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+  return list;
 }

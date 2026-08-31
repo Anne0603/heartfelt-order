@@ -3,10 +3,10 @@
 // 第一層：統計卡片（全部角色，不含金額）
 // 第二層：快速操作按鈕（依角色顯示）
 // ============================================================
-import { currentSession } from "./auth.js?v=20260829-51";
-import { lowStockItems } from "./items.js?v=20260829-51";
-import { listOrders, normalizeShipStatus } from "./orders.js?v=20260829-51";
-import { iconHtml } from "./icons.js?v=20260829-51";
+import { currentSession } from "./auth.js?v=20260829-52";
+import { lowStockItems } from "./items.js?v=20260829-52";
+import { listOrders, normalizeShipStatus } from "./orders.js?v=20260829-52";
+import { iconHtml } from "./icons.js?v=20260829-52";
 
 const QUICK_ACTIONS = [
   { id: "orders",    label: "新增訂單",     icon: "pencil", roles: ["superadmin","admin","order_staff"], filter: "openNew" },

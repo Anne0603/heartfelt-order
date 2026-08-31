@@ -1,11 +1,11 @@
 // ============================================================
 // 統計報表：分成「總覽」「銷售分析」「客戶分析」「出貨趨勢」四個分頁籤
 // ============================================================
-import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260829-51";
-import { listItems, buildItemsIndex } from "./items.js?v=20260829-51";
-import { renderDateRangePicker } from "./date-range-ui.js?v=20260829-51";
-import { linkifyErrorMessage } from "./utils.js?v=20260829-51";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-51";
+import { listOrders, getPaymentStatus, getOutstandingBalance, normalizeShipStatus } from "./orders.js?v=20260829-52";
+import { listItems, buildItemsIndex } from "./items.js?v=20260829-52";
+import { renderDateRangePicker } from "./date-range-ui.js?v=20260829-52";
+import { linkifyErrorMessage } from "./utils.js?v=20260829-52";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-52";
 
 function barRow(label, value, maxValue, formatValue) {
   const pct = maxValue > 0 ? Math.max(4, (value / maxValue) * 100) : 0;
@@ -76,7 +76,8 @@ export async function renderReportsPage(container) {
     const itemsById = buildItemsIndex(items);
     const inRange = allOrders.filter((o) => !o.voided && o.orderDate >= range.start && o.orderDate <= range.end);
 
-    const revenue = inRange.reduce((s, o) => s + o.totalAmount, 0);
+    // 營收要扣掉退貨金額，不然退過貨的訂單會虛報營收
+    const revenue = inRange.reduce((s, o) => s + (o.totalAmount - (o.returnedAmount || 0)), 0);
     const avgOrderValue = inRange.length > 0 ? revenue / inRange.length : 0;
 
     // 商品銷售排行
@@ -103,33 +104,37 @@ export async function renderReportsPage(container) {
     });
     const topCategories = [...categoryStats.entries()].sort((a, b) => b[1] - a[1]);
 
-    // 客戶消費排名
+    // 客戶消費排名（扣除退貨金額）
     const customerStats = new Map();
     inRange.forEach((o) => {
       const name = o.contactName || "（未指定客戶）";
-      customerStats.set(name, (customerStats.get(name) || 0) + o.totalAmount);
+      customerStats.set(name, (customerStats.get(name) || 0) + (o.totalAmount - (o.returnedAmount || 0)));
     });
     const topCustomers = [...customerStats.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
 
-    // 訂購管道分析
+    // 訂購管道分析（扣除退貨金額）
     const channelStats = new Map();
     inRange.forEach((o) => {
       const ch = o.orderChannel || "未指定";
       const cur = channelStats.get(ch) || { count: 0, revenue: 0 };
       cur.count += 1;
-      cur.revenue += o.totalAmount;
+      cur.revenue += (o.totalAmount - (o.returnedAmount || 0));
       channelStats.set(ch, cur);
     });
     const topChannels = [...channelStats.entries()].sort((a, b) => b[1].revenue - a[1].revenue);
 
-    // 收款狀況總覽（用實收金額精準計算）
+    // 收款狀況總覽（用實收金額精準計算；金額都是扣除退貨後的有效金額）
     const paymentStats = { unpaid: { count: 0, amount: 0 }, deposit: { count: 0, amount: 0 }, paid: { count: 0, amount: 0 } };
     let outstandingTotal = 0;
     inRange.forEach((o) => {
       const status = getPaymentStatus(o);
+      const effectiveTotal = o.totalAmount - (o.returnedAmount || 0);
       paymentStats[status].count += 1;
-      paymentStats[status].amount += o.totalAmount;
-      outstandingTotal += o.totalAmount - (o.amountReceived || 0);
+      paymentStats[status].amount += effectiveTotal;
+      // 未收款總額只加「還要跟客戶收的」部分；如果退貨後變成該退還客戶
+      // （負數），不算進「未收款」裡，不然兩種完全不同意義的錢會混在一起
+      const balance = getOutstandingBalance(o);
+      if (balance > 0) outstandingTotal += balance;
     });
 
     // 新客戶 vs 回購客戶
@@ -143,8 +148,9 @@ export async function renderReportsPage(container) {
     let newRevenue = 0, repeatRevenue = 0;
     inRange.filter((o) => o.contactId).forEach((o) => {
       const firstDate = firstOrderDateByCustomer.get(o.contactId);
-      if (firstDate >= range.start) { newCustomers.add(o.contactId); newRevenue += o.totalAmount; }
-      else { repeatCustomers.add(o.contactId); repeatRevenue += o.totalAmount; }
+      const effectiveAmount = o.totalAmount - (o.returnedAmount || 0);
+      if (firstDate >= range.start) { newCustomers.add(o.contactId); newRevenue += effectiveAmount; }
+      else { repeatCustomers.add(o.contactId); repeatRevenue += effectiveAmount; }
     });
 
     // 出貨量趨勢

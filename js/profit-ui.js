@@ -9,12 +9,12 @@
 // 版面採用會計報表慣例：項目靠左、金額靠右，明細緊接在對應的
 // 總額下面；每一行明細都能點看更細的拆解。
 // ============================================================
-import { listOrders } from "./orders.js?v=20260829-51";
-import { listItems, computeStock, computeAvgCost, STOCK_TRACKED_TYPES } from "./items.js?v=20260829-51";
-import { listExpensesInRange } from "./expenses.js?v=20260829-51";
-import { renderDateRangePicker } from "./date-range-ui.js?v=20260829-51";
-import { linkifyErrorMessage } from "./utils.js?v=20260829-51";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-51";
+import { listOrders } from "./orders.js?v=20260829-52";
+import { listItems, computeStock, computeAvgCost, STOCK_TRACKED_TYPES } from "./items.js?v=20260829-52";
+import { listExpensesInRange } from "./expenses.js?v=20260829-52";
+import { renderDateRangePicker } from "./date-range-ui.js?v=20260829-52";
+import { linkifyErrorMessage } from "./utils.js?v=20260829-52";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-52";
 
 export async function renderProfitPage(container, navigateTo) {
   function renderSummaryShell(initialRange) {
@@ -76,7 +76,8 @@ export async function renderProfitPage(container, navigateTo) {
 
   // 算一段區間的營收/成本/毛利/淨利，抽出來讓「這段期間」跟「去年同期」共用同一套邏輯
   function computeStats(ordersInRange, expensesInRange) {
-    const revenue = ordersInRange.reduce((s, o) => s + o.totalAmount, 0);
+    // 營收要扣掉退貨金額，不然退過貨的訂單會虛報營收
+    const revenue = ordersInRange.reduce((s, o) => s + (o.totalAmount - (o.returnedAmount || 0)), 0);
     let packagingCost = 0, resaleCost = 0;
     ordersInRange.forEach((o) => {
       o.lineItems.forEach((li) => {

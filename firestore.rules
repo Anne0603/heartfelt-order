@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // ============================================================
-// heartfelt-order Firestore 安全規則（完整版 v3）
+// heartfelt-order Firestore 安全規則（完整版 v5，新增 orderReturns 退貨記錄）
 // 每次新增 collection 都會提供「完整版」規則，直接整份覆蓋貼到
 // Firebase Console 上比較不容易貼錯位置，貼上後記得按「發布」。
 //
@@ -178,6 +178,14 @@ service cloud.firestore {
       // 四種角色都能寫入：一般業務操作（訂單/商品/客戶/支出）本來就限定在 admin 以上，
       // 唯讀成員唯一會觸發記錄的動作是「改自己的暱稱/大頭貼」，所以也要能寫入。
       allow create: if hasRole(['superadmin', 'admin', 'order_staff', 'viewer']);
+      allow update, delete: if false;
+    }
+
+    // ---------- 退貨記錄（誰、退了什麼、退多少錢；比照操作紀錄的精神，
+    // 不可修改/刪除，保留完整稽核軌跡，要更正的話用「再登記一筆」處理） ----------
+    match /orderReturns/{returnId} {
+      allow read: if hasRole(['superadmin', 'admin', 'order_staff', 'viewer']);
+      allow create: if hasRole(['superadmin', 'admin', 'order_staff']);
       allow update, delete: if false;
     }
 

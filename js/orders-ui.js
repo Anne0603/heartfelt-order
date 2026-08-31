@@ -1,21 +1,21 @@
 // ============================================================
 // 訂單管理頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260829-51";
-import { currentSession, wireNameResolution } from "./auth.js?v=20260829-51";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260829-52";
+import { currentSession, wireNameResolution } from "./auth.js?v=20260829-52";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, updateOrderNoteAndAddress, getPaymentStatus,
-  markShipped, voidOrder, deleteOrderPermanently,
+  markShipped, voidOrder, deleteOrderPermanently, registerReturn, listReturnsByOrder, getOutstandingBalance,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel, normalizeShipStatus,
-} from "./orders.js?v=20260829-51";
-import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260829-51";
-import { listContacts, createContact } from "./contacts.js?v=20260829-51";
-import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260829-51";
-import { exportOrders } from "./export-xlsx.js?v=20260829-51";
-import { setFab, clearFab } from "./fab-ui.js?v=20260829-51";
-import { openSearchPicker } from "./picker-ui.js?v=20260829-51";
-import { openModal } from "./modal-ui.js?v=20260829-51";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-51";
+} from "./orders.js?v=20260829-52";
+import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260829-52";
+import { listContacts, createContact } from "./contacts.js?v=20260829-52";
+import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260829-52";
+import { exportOrders } from "./export-xlsx.js?v=20260829-52";
+import { setFab, clearFab } from "./fab-ui.js?v=20260829-52";
+import { openSearchPicker } from "./picker-ui.js?v=20260829-52";
+import { openModal } from "./modal-ui.js?v=20260829-52";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-52";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
@@ -745,7 +745,8 @@ export async function renderOrdersPage(container, initialFilter = null) {
     const order = orders.find((o) => o.id === orderId);
     const profit = order.lineItems.reduce((s, li) => s + (li.subtotal - li.unitCost * li.qty), 0);
     const received = order.amountReceived || 0;
-    const outstanding = order.totalAmount - received;
+    const returnedAmount = order.returnedAmount || 0;
+    const outstanding = getOutstandingBalance(order); // 正數:還要收；負數:該退還客戶；0:結清
     const payStatus = getPaymentStatus(order);
 
     function ledgerLine(label, value, opts = {}) {
@@ -793,18 +794,52 @@ export async function renderOrdersPage(container, initialFilter = null) {
           ${ledgerLine("商品小計", `$${order.itemsTotal}`)}
           ${ledgerLine("運費", `$${order.shippingFee}`)}
           ${ledgerLine("總金額", `$${order.totalAmount}`, { style: "margin-top:4px;", valueStyle: "font-weight:700;font-size:16px;" })}
+          ${returnedAmount > 0 ? ledgerLine("退貨金額", `-$${returnedAmount}`, { valueStyle: "color:var(--rose);" }) : ""}
           ${ledgerLine("已收", `$${received}`)}
           ${outstanding > 0 ? ledgerLine("尚欠", `$${outstanding}`, { valueStyle: "color:var(--rose);font-weight:700;" }) : ""}
+          ${outstanding < 0 ? ledgerLine("應退還客戶", `$${Math.abs(outstanding)}`, { valueStyle: "color:var(--rose);font-weight:700;" }) : ""}
           ${canSeeProfit() ? ledgerLine("毛利", `$${profit.toFixed(0)}`, { style: "margin-top:4px;", valueStyle: `color:${profit>=0?"var(--jade)":"var(--rose)"};font-weight:700;` }) : ""}
         </div>
       </div>
+
+      <div id="returns-card"></div>
 
       <div id="detail-actions-card" class="card"></div>
     `;
 
     wirePageNav(container, () => renderListView());
     wireNameResolution(container);
+    renderReturnsCard(order);
     renderOrderDetailActions(order);
+  }
+
+  // ---------- 退貨記錄卡片 ----------
+  async function renderReturnsCard(order) {
+    const cardEl = container.querySelector("#returns-card");
+    if (!cardEl) return;
+    let returns = [];
+    try {
+      returns = await listReturnsByOrder(order.id);
+    } catch (err) {
+      return; // 讀取失敗就安靜跳過，不影響訂單詳細頁其他部分正常顯示
+    }
+    if (returns.length === 0) { cardEl.innerHTML = ""; return; }
+    cardEl.innerHTML = `
+      <div class="card" style="margin-bottom:16px;">
+        <h3 style="font-size:15px;margin-bottom:10px;">退貨記錄</h3>
+        ${returns.map((r) => `
+          <div style="padding:10px 0;border-top:1px solid var(--paper-line);">
+            <div style="display:flex;justify-content:space-between;">
+              <span style="font-size:14px;color:var(--ink);">${r.items.map((i) => `${i.productName}x${i.qty}`).join("、")}</span>
+              <span style="font-family:var(--font-mono);color:var(--rose);">-$${r.refundAmount}</span>
+            </div>
+            ${r.note ? `<div class="hint">${r.note}</div>` : ""}
+            <div class="hint">${r.items.filter((i) => i.restocked).length > 0 ? "已加回庫存" : "未加回庫存"} · <span data-resolve-email="${r.performedBy || ""}">${r.performedByName || ""}</span></div>
+          </div>
+        `).join("")}
+      </div>
+    `;
+    wireNameResolution(cardEl);
   }
 
   // ---------- 登記收款 ----------
@@ -831,6 +866,127 @@ export async function renderOrdersPage(container, initialFilter = null) {
         overlay.remove();
         onSaved();
       } catch (err) {
+        showToast("失敗：" + err.message, "error");
+        btn.disabled = false;
+      }
+    });
+  }
+
+  // ---------- 登記退貨 ----------
+  // 只列出「已出貨」訂單裡的每一項商品，各自可以填退貨數量（自動扣掉
+  // 之前已經退過的量，避免退超過賣出的數量）跟「要不要加回庫存」；
+  // 退款金額即時算出來給使用者確認，不用自己心算。
+  async function openRegisterReturnModal(order, onSaved) {
+    let pastReturns = [];
+    try {
+      pastReturns = await listReturnsByOrder(order.id);
+    } catch (err) {
+      showToast("讀取退貨記錄失敗：" + err.message, "error");
+      return;
+    }
+    const alreadyReturnedByProduct = new Map();
+    for (const r of pastReturns) {
+      for (const ri of r.items || []) {
+        alreadyReturnedByProduct.set(ri.productId, (alreadyReturnedByProduct.get(ri.productId) || 0) + ri.qty);
+      }
+    }
+    const rows = order.lineItems.map((li) => {
+      const alreadyReturned = alreadyReturnedByProduct.get(li.productId) || 0;
+      const maxReturnable = li.qty - alreadyReturned;
+      return { ...li, alreadyReturned, maxReturnable };
+    }).filter((r) => r.maxReturnable > 0); // 已經整項退完的商品不用再列出來
+
+    if (rows.length === 0) {
+      showToast("這張訂單的商品都已經退完了", "error");
+      return;
+    }
+
+    const overlay = openModal(`
+      <h3 style="margin-bottom:4px;">登記退貨</h3>
+      <div class="hint" style="margin-bottom:16px;">${order.orderNumber}</div>
+
+      ${rows.map((r, idx) => `
+        <div style="padding:12px 0;${idx > 0 ? "border-top:1px solid var(--paper-line);" : ""}">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
+            <span style="font-size:15px;color:var(--ink);">${r.productName}</span>
+            <span class="hint">原賣出 ${r.qty}${r.alreadyReturned > 0 ? `，已退 ${r.alreadyReturned}` : ""}，最多可退 ${r.maxReturnable}</span>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <div class="field" style="margin:0;flex:1;min-width:100px;">
+              <label>退貨數量</label>
+              <input type="number" class="ret-qty" data-idx="${idx}" min="0" max="${r.maxReturnable}" value="0" />
+            </div>
+            <label style="display:flex;align-items:center;gap:6px;font-size:15px;color:var(--ink);white-space:nowrap;padding-top:18px;">
+              <input type="checkbox" class="ret-restock" data-idx="${idx}" checked style="width:18px;height:18px;" />
+              加回庫存
+            </label>
+          </div>
+        </div>
+      `).join("")}
+
+      <div class="field" style="margin-top:14px;"><label>備註（選填，例如退貨原因）</label><textarea id="ret-note" rows="2"></textarea></div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-top:1px solid var(--paper-line);margin-top:6px;margin-bottom:16px;">
+        <span class="hint">退款金額</span>
+        <span id="ret-total" style="font-family:var(--font-mono);font-weight:700;font-size:18px;color:var(--rose);">$0</span>
+      </div>
+
+      <div id="ret-msg" class="hint" style="color:var(--rose);margin-bottom:10px;"></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button class="btn btn-secondary" id="ret-cancel">取消</button>
+        <button class="btn btn-primary" id="ret-confirm">確認退貨</button>
+      </div>
+    `, 460);
+
+    function computeTotal() {
+      let total = 0;
+      overlay.querySelectorAll(".ret-qty").forEach((input) => {
+        const idx = Number(input.dataset.idx);
+        const qty = Math.max(0, Math.min(Number(input.value) || 0, rows[idx].maxReturnable));
+        total += qty * rows[idx].unitPrice;
+      });
+      overlay.querySelector("#ret-total").textContent = `$${total.toFixed(0)}`;
+      return total;
+    }
+    overlay.querySelectorAll(".ret-qty").forEach((input) => {
+      input.addEventListener("input", computeTotal);
+    });
+
+    overlay.querySelector("#ret-cancel").addEventListener("click", () => overlay.remove());
+    overlay.querySelector("#ret-confirm").addEventListener("click", async (e) => {
+      const btn = e.currentTarget; // 先存起來，等一下有 await，事件物件的 currentTarget 之後會被清空
+      const msgEl = overlay.querySelector("#ret-msg");
+      msgEl.textContent = "";
+
+      const returnItems = [];
+      overlay.querySelectorAll(".ret-qty").forEach((input) => {
+        const idx = Number(input.dataset.idx);
+        const qty = Math.max(0, Math.min(Number(input.value) || 0, rows[idx].maxReturnable));
+        if (qty <= 0) return;
+        const restock = overlay.querySelector(`.ret-restock[data-idx="${idx}"]`).checked;
+        returnItems.push({
+          productId: rows[idx].productId,
+          productName: rows[idx].productName,
+          qty,
+          unitPrice: rows[idx].unitPrice,
+          restock,
+        });
+      });
+
+      if (returnItems.length === 0) {
+        msgEl.textContent = "請至少填一項退貨數量";
+        return;
+      }
+
+      const note = overlay.querySelector("#ret-note").value.trim();
+      btn.disabled = true;
+      try {
+        const refundAmount = await registerReturn(order.id, { items: returnItems, note }, itemsById);
+        showToast(`已登記退貨，退款 $${refundAmount.toFixed(0)}`, "success");
+        overlay.remove();
+        onSaved();
+      } catch (err) {
+        msgEl.textContent = "失敗：" + err.message;
         showToast("失敗：" + err.message, "error");
         btn.disabled = false;
       }
@@ -965,6 +1121,13 @@ export async function renderOrdersPage(container, initialFilter = null) {
     if (canWrite()) {
       utilityBtns.push({ label: "編輯備註/地址", cls: "btn-secondary", handler: () => {
         openEditNoteAddressModal(order, async () => { await reload(); renderOrderDetailPage(order.id); });
+      }});
+    }
+    // 退貨只對「已出貨」的訂單開放——還沒出貨的訂單要取消，用「編輯訂單」
+    // 改數量或直接作廢就好，不需要走退貨這條路
+    if (canWrite() && normalizedStatus === "shipped" && !order.voided) {
+      utilityBtns.push({ label: "登記退貨", cls: "btn-secondary", handler: () => {
+        openRegisterReturnModal(order, async () => { await reload(); renderOrderDetailPage(order.id); });
       }});
     }
 
