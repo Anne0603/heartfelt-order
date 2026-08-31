@@ -3,22 +3,28 @@
 // Cloudinary 設定 / 待審核申請 / 成員
 // 品牌圖案改成「直接點側邊欄 Logo 上傳」，邏輯在 app.js
 // ============================================================
-import { db } from "./firebase-config.js?v=20260829-48";
+import { db } from "./firebase-config.js?v=20260829-49";
 import {
   doc, getDoc, setDoc, deleteDoc,
   collection, getDocs, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260829-48";
-import { currentSession, ROLE_LABELS } from "./auth.js?v=20260829-48";
-import { listCategories, createCategory, renameCategory, deleteCategory } from "./categories.js?v=20260829-48";
-import { listUnits, createUnit, renameUnit, deleteUnit } from "./units.js?v=20260829-48";
-import { confirmDialog, openModal } from "./modal-ui.js?v=20260829-48";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-48";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260829-49";
+import { currentSession, ROLE_LABELS } from "./auth.js?v=20260829-49";
+import { listCategories, createCategory, renameCategory, deleteCategory } from "./categories.js?v=20260829-49";
+import { listUnits, createUnit, renameUnit, deleteUnit } from "./units.js?v=20260829-49";
+import { confirmDialog, openModal } from "./modal-ui.js?v=20260829-49";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-49";
 
 const CLOUDINARY_DOC = doc(db, "publicSettings", "cloudinary");
 const BRAND_DOC = doc(db, "publicSettings", "brand");
 
-const ASSIGNABLE_ROLES = ["admin", "order_staff", "viewer"];
+// 可以在畫面上指派的角色。原本不含 superadmin，是刻意的保守設計——
+// 避免有人不小心把超級管理員權限開給不該開的人。現在加回來是因為
+// 使用者明確表示需要自己開一個備援帳號，且這個操作本來就限定只有
+// 現任超級管理員才看得到這個畫面（Firestore 規則也限定只有超級管理員
+// 能改角色），加上下面已經有「顯示舊角色→新角色、輸入確認才生效」的
+// 二次確認機制，风险在可接受範圍內。
+const ASSIGNABLE_ROLES = ["superadmin", "admin", "order_staff", "viewer"];
 
 export async function getCloudinarySettings() {
   const snap = await getDoc(CLOUDINARY_DOC);
