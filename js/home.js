@@ -3,10 +3,10 @@
 // 第一層：統計卡片（全部角色，不含金額）
 // 第二層：快速操作按鈕（依角色顯示）
 // ============================================================
-import { currentSession } from "./auth.js?v=20260829-44";
-import { lowStockItems } from "./items.js?v=20260829-44";
-import { listOrders, normalizeShipStatus } from "./orders.js?v=20260829-44";
-import { iconHtml } from "./icons.js?v=20260829-44";
+import { currentSession } from "./auth.js?v=20260829-45";
+import { lowStockItems } from "./items.js?v=20260829-45";
+import { listOrders, normalizeShipStatus } from "./orders.js?v=20260829-45";
+import { iconHtml } from "./icons.js?v=20260829-45";
 
 const QUICK_ACTIONS = [
   { id: "orders",    label: "新增訂單",     icon: "pencil", roles: ["superadmin","admin","order_staff"], filter: "openNew" },
@@ -43,14 +43,14 @@ export async function renderHomePage(container, navigateTo) {
         <span style="position:absolute;top:18px;right:18px;color:var(--text-muted);font-size:18px;">→</span>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;" id="quick-actions"></div>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:20px;" id="quick-actions"></div>
   `;
 
   const actionsEl = container.querySelector("#quick-actions");
   actionsEl.innerHTML = QUICK_ACTIONS.filter((a) => a.roles.includes(role)).map((a) => `
-    <button class="card" data-goto="${a.id}" data-filter="${a.filter || ""}" style="cursor:pointer;border:none;text-align:center;padding:24px 10px;font-family:var(--font-body);">
-      <div style="margin-bottom:10px;color:var(--gold-deep);">${iconHtml(a.icon, "--icon-size:34px;")}</div>
-      <div style="font-size:16px;font-weight:600;color:var(--ink);">${a.label}</div>
+    <button class="card" data-goto="${a.id}" data-filter="${a.filter || ""}" style="cursor:pointer;border:none;text-align:center;padding:26px 12px;font-family:var(--font-body);box-sizing:border-box;">
+      <div style="margin-bottom:12px;color:var(--gold-deep);">${iconHtml(a.icon, "--icon-size:38px;")}</div>
+      <div style="font-size:17px;font-weight:600;color:var(--ink);">${a.label}</div>
     </button>
   `).join("");
   actionsEl.querySelectorAll("[data-goto]").forEach((btn) => {
