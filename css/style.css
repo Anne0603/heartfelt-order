@@ -826,9 +826,11 @@ table.simple-table tr:last-child td { border-bottom: none; }
   .sidebar.collapsed .brand-text,
   .sidebar.collapsed .nav-label,
   .sidebar.collapsed .nav-item span:not(.nav-icon),
-  .sidebar.collapsed .user-meta { display: block; }
+  .sidebar.collapsed .user-meta,
+  .sidebar.collapsed .btn-logout-label { display: block; }
   .sidebar.collapsed .nav-item { justify-content: flex-start; }
   .sidebar.collapsed .user-chip { justify-content: flex-start; }
+  .sidebar.collapsed .btn-logout { justify-content: center; }
   .sidebar-footer { display: block; }
 
   .sidebar-backdrop {
