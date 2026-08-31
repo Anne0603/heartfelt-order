@@ -291,15 +291,23 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 
 /* ---------- 收合狀態（僅桌面） ---------- */
-.sidebar.collapsed { width: 68px; }
+.sidebar.collapsed { width: 88px; }
 .sidebar.collapsed .nav-label,
 .sidebar.collapsed .nav-item span:not(.nav-icon),
 .sidebar.collapsed .user-meta,
 .sidebar.collapsed .btn-logout-label {
   display: none;
 }
-.sidebar.collapsed .nav-item { justify-content: center; }
-.sidebar.collapsed .user-chip { justify-content: center; }
+.sidebar.collapsed .nav-item {
+  justify-content: center;
+  padding: 13px 10px;
+  box-sizing: border-box;
+}
+.sidebar.collapsed .user-chip {
+  justify-content: center;
+  padding: 8px 6px;
+  box-sizing: border-box;
+}
 .sidebar.collapsed .btn-logout { display: flex; align-items: center; justify-content: center; }
 
 /* brand-seal 用於上方常駐 Bar 的 Logo 圖示 */
@@ -336,6 +344,7 @@ input[type="number"]::-webkit-inner-spin-button {
   color: var(--text-on-ink);
   transition: background .12s ease;
   user-select: none;
+  box-sizing: border-box;
 }
 .nav-item:hover { background: var(--ink-soft); }
 .nav-item.active { background: var(--gold-deep); color: #fff; font-weight: 600; }
@@ -353,6 +362,7 @@ input[type="number"]::-webkit-inner-spin-button {
   padding: 10px 12px;
   border-radius: 9px;
   transition: background .12s ease;
+  box-sizing: border-box;
 }
 .user-chip:hover { background: var(--ink-soft); }
 .user-avatar {
