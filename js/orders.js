@@ -12,16 +12,29 @@
 // lineItems[].unitCost，之後商品成本再怎麼調整，都不會動到這張訂單
 // 已經算好的毛利。
 // ============================================================
-import { db } from "./firebase-config.js?v=20260829-46";
+import { db } from "./firebase-config.js?v=20260829-47";
 import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
   serverTimestamp, runTransaction, query, orderBy as fbOrderBy
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { currentSession, getDisplayName } from "./auth.js?v=20260829-46";
-import { addUsage, listUsagesByOrder, voidRecord, calcItemCost, permanentlyDelete } from "./items.js?v=20260829-46";
-import { logActivity } from "./activity-log.js?v=20260829-46";
+import { currentSession, getDisplayName } from "./auth.js?v=20260829-47";
+import { addUsage, listUsagesByOrder, voidRecord, calcItemCost, permanentlyDelete } from "./items.js?v=20260829-47";
+import { logActivity } from "./activity-log.js?v=20260829-47";
 
 const ordersCol = collection(db, "orders");
+
+// ---------- 短期記憶體快取 ----------
+// 同一份訂單清單常常在很短時間內被多個地方各自問一次（例如進首頁時
+// 「統計卡片」跟「通知鈴鐺」各自呼叫一次 listOrders），與其每次都重新
+// 打一次 Firestore，不如把結果先記住一小段時間直接重複使用。
+// 只要有任何寫入操作（新增/修改/刪除/出貨/作廢），快取會立刻失效，
+// 保證使用者永遠看到最新資料，不會有「改了但畫面沒更新」的問題。
+const ORDERS_CACHE_TTL_MS = 30_000;
+let ordersCache = null; // { data, expiresAt }
+
+function invalidateOrdersCache() {
+  ordersCache = null;
+}
 
 export const SHIP_STATUS_LABELS = { pending: "待處理", shipped: "已出貨" };
 export const PAYMENT_STATUS_LABELS = { unpaid: "未收款", deposit: "已收訂金", paid: "已付清" };
@@ -90,10 +103,14 @@ function buildLineItems(rawLineItems, itemsById) {
 
 // ---------- 查詢 ----------
 export async function listOrders() {
+  if (ordersCache && ordersCache.expiresAt > Date.now()) {
+    return ordersCache.data;
+  }
   const q = query(ordersCol, fbOrderBy("orderDate", "desc"));
   const snap = await getDocs(q);
   const list = [];
   snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
+  ordersCache = { data: list, expiresAt: Date.now() + ORDERS_CACHE_TTL_MS };
   return list;
 }
 
@@ -137,6 +154,7 @@ export async function createOrder(data, itemsById) {
     updatedAt: serverTimestamp(),
   });
   logActivity({ module: "orders", action: "create", summary: `新增訂單 ${orderNumber}` });
+  invalidateOrdersCache();
   return docRef.id;
 }
 
@@ -164,10 +182,12 @@ export async function updateOrderBeforeShip(orderId, data, itemsById) {
   });
   const order = await getOrder(orderId);
   logActivity({ module: "orders", action: "update", summary: `編輯訂單 ${order?.orderNumber || orderId}` });
+  invalidateOrdersCache();
 }
 
 export async function updateOrderNote(orderId, note) {
   await updateDoc(doc(db, "orders", orderId), { note, updatedAt: serverTimestamp() });
+  invalidateOrdersCache();
 }
 
 /**
@@ -183,6 +203,7 @@ export async function updateOrderNoteAndAddress(orderId, { note, contactAddress 
   });
   const order = await getOrder(orderId);
   logActivity({ module: "orders", action: "update", summary: `訂單 ${order?.orderNumber || orderId} 更新備註/收件地址` });
+  invalidateOrdersCache();
 }
 
 export async function updateAmountReceived(orderId, amount) {
@@ -195,6 +216,7 @@ export async function updateAmountReceived(orderId, amount) {
   });
   const order = await getOrder(orderId);
   logActivity({ module: "orders", action: "status", summary: `訂單 ${order?.orderNumber || orderId} 更新收款為 $${amount}` });
+  invalidateOrdersCache();
 }
 
 /**
@@ -240,6 +262,7 @@ export async function markShipped(orderId, itemsById) {
     updatedAt: serverTimestamp(),
   });
   logActivity({ module: "orders", action: "status", summary: `訂單 ${order.orderNumber} 標記已出貨` });
+  invalidateOrdersCache();
 }
 
 // ---------- 作廢（任何狀態都可以；已出貨的話自動還原庫存） ----------
@@ -264,6 +287,7 @@ export async function voidOrder(orderId) {
     updatedAt: serverTimestamp(),
   });
   logActivity({ module: "orders", action: "void", summary: `訂單 ${order.orderNumber} 已作廢` });
+  invalidateOrdersCache();
 }
 
 // ---------- 永久刪除（限超級管理員；只能刪已經作廢的訂單，避免誤刪還在使用中的資料） ----------
@@ -282,4 +306,5 @@ export async function deleteOrderPermanently(orderId) {
 
   await deleteDoc(doc(db, "orders", orderId));
   logActivity({ module: "orders", action: "delete", summary: `訂單 ${order.orderNumber} 已永久刪除` });
+  invalidateOrdersCache();
 }
