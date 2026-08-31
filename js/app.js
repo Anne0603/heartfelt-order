@@ -1,24 +1,24 @@
 // ============================================================
 // 主程式：登入流程 + 側邊導覽 + 簡易路由
 // ============================================================
-import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName, consumeRedirectResult } from "./auth.js?v=20260829-50";
-import { iconHtml } from "./icons.js?v=20260829-50";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-50";
-import { openProfileModal } from "./profile-ui.js?v=20260829-50";
-import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, getPendingCount } from "./settings.js?v=20260829-50";
-import { renderHomePage } from "./home.js?v=20260829-50";
-import { renderItemsPage } from "./items-ui.js?v=20260829-50";
-import { clearFab } from "./fab-ui.js?v=20260829-50";
-import { renderContactsPage } from "./contacts-ui.js?v=20260829-50";
-import { renderOrdersPage } from "./orders-ui.js?v=20260829-50";
-import { renderReportsPage } from "./reports-ui.js?v=20260829-50";
-import { renderProfitPage } from "./profit-ui.js?v=20260829-50";
-import { renderActivityLogPage } from "./activity-log-ui.js?v=20260829-50";
-import { renderExpensesPage } from "./expenses-ui.js?v=20260829-50";
-import { lowStockItems } from "./items.js?v=20260829-50";
-import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260829-50";
-import { showToast } from "./utils.js?v=20260829-50";
-import { db } from "./firebase-config.js?v=20260829-50";
+import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName, consumeRedirectResult } from "./auth.js?v=20260829-51";
+import { iconHtml } from "./icons.js?v=20260829-51";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-51";
+import { openProfileModal } from "./profile-ui.js?v=20260829-51";
+import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, renderBackupPage, getPendingCount } from "./settings.js?v=20260829-51";
+import { renderHomePage } from "./home.js?v=20260829-51";
+import { renderItemsPage } from "./items-ui.js?v=20260829-51";
+import { clearFab } from "./fab-ui.js?v=20260829-51";
+import { renderContactsPage } from "./contacts-ui.js?v=20260829-51";
+import { renderOrdersPage } from "./orders-ui.js?v=20260829-51";
+import { renderReportsPage } from "./reports-ui.js?v=20260829-51";
+import { renderProfitPage } from "./profit-ui.js?v=20260829-51";
+import { renderActivityLogPage } from "./activity-log-ui.js?v=20260829-51";
+import { renderExpensesPage } from "./expenses-ui.js?v=20260829-51";
+import { lowStockItems } from "./items.js?v=20260829-51";
+import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260829-51";
+import { showToast } from "./utils.js?v=20260829-51";
+import { db } from "./firebase-config.js?v=20260829-51";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 // ---------- 品牌圖案：統一套用在登入頁 / 側邊欄 / 每個人的頭像位置 ----------
@@ -71,6 +71,7 @@ const MODULES = [
   { id: "cloudinary", label: "Cloudinary",   icon: "cloud", group: "超級管理員", roles: ["superadmin"] },
   { id: "categories", label: "分類管理",       icon: "tag", group: "超級管理員", roles: ["superadmin"] },
   { id: "units",      label: "單位管理",       icon: "ruler", group: "超級管理員", roles: ["superadmin"] },
+  { id: "backup",     label: "資料備份",       icon: "download", group: "超級管理員", roles: ["superadmin"] },
   { id: "activity",  label: "操作紀錄",       icon: "scroll", group: "超級管理員", roles: ["superadmin"] },
   { id: "pending",    label: "待審核申請",     icon: "clock", group: "超級管理員", roles: ["superadmin"] },
   { id: "members",    label: "成員",         icon: "users", group: "超級管理員", roles: ["superadmin"] },
@@ -249,6 +250,7 @@ async function renderCurrentModule() {
   if (currentModule === "cloudinary") return renderCloudinaryPage(mainContent);
   if (currentModule === "categories") return renderCategoriesPage(mainContent);
   if (currentModule === "units") return renderUnitsPage(mainContent);
+  if (currentModule === "backup") return renderBackupPage(mainContent);
   if (currentModule === "pending") {
     await renderPendingPage(mainContent);
     if (myRole === "superadmin") refreshNotifBell();

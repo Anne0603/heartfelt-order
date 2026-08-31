@@ -5,7 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>心意 · 訂單系統</title>
 <link rel="stylesheet" href="css/style.css" />
+
+<!-- 可加到手機主畫面、像 App 一樣獨立開啟 -->
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#3D4356" />
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="心意訂單" />
 </head>
+
 <body>
 
   <!-- ============ 登入畫面 ============ -->
@@ -78,6 +88,19 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=20260829-50"></script>
+  <script type="module" src="js/app.js?v=20260829-51"></script>
+  <script>
+    // 註冊 Service Worker，讓瀏覽器判定這個網站可以「加到主畫面」。
+    // 這個 service-worker.js 本身不快取任何東西（見檔案內註解），
+    // 所以不受主程式那套版本號機制影響，不用每次部署跟著改版本號。
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("service-worker.js").catch(() => {
+          // 註冊失敗（例如較舊的瀏覽器不支援）安靜忽略，不影響網站正常使用，
+          // 只是那個裝置沒辦法把網站加到主畫面而已。
+        });
+      });
+    }
+  </script>
 </body>
 </html>

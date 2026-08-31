@@ -3,17 +3,17 @@
 // Cloudinary 設定 / 待審核申請 / 成員
 // 品牌圖案改成「直接點側邊欄 Logo 上傳」，邏輯在 app.js
 // ============================================================
-import { db } from "./firebase-config.js?v=20260829-50";
+import { db } from "./firebase-config.js?v=20260829-51";
 import {
   doc, getDoc, setDoc, deleteDoc,
   collection, getDocs, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260829-50";
-import { currentSession, ROLE_LABELS } from "./auth.js?v=20260829-50";
-import { listCategories, createCategory, renameCategory, deleteCategory } from "./categories.js?v=20260829-50";
-import { listUnits, createUnit, renameUnit, deleteUnit } from "./units.js?v=20260829-50";
-import { confirmDialog, openModal } from "./modal-ui.js?v=20260829-50";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-50";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260829-51";
+import { currentSession, ROLE_LABELS } from "./auth.js?v=20260829-51";
+import { listCategories, createCategory, renameCategory, deleteCategory } from "./categories.js?v=20260829-51";
+import { listUnits, createUnit, renameUnit, deleteUnit } from "./units.js?v=20260829-51";
+import { confirmDialog, openModal } from "./modal-ui.js?v=20260829-51";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-51";
 
 const CLOUDINARY_DOC = doc(db, "publicSettings", "cloudinary");
 const BRAND_DOC = doc(db, "publicSettings", "brand");
@@ -166,6 +166,95 @@ function roleOptionsHtml(selected) {
 }
 
 // ---------- Cloudinary ----------
+// ---------- 資料備份 ----------
+// 把資料庫裡所有集合（訂單、商品、客戶、支出、分類、單位、成員…）整份
+// 讀出來，包成一個 JSON 檔案讓瀏覽器下載。這是超級管理員專用的功能，
+// 用意是留一份「萬一資料出問題時」可以自己保存的完整快照。
+//
+// 技術備註：publicProfiles（暱稱資料）這個集合因為 Firestore 規則設計成
+// 完全禁止「列出全部」（即使是超級管理員也一樣，是為了防止有心人士掃出
+// 全部成員信箱清單），所以沒辦法透過這個備份功能匯出，只有暱稱資料會
+// 缺席，其餘商業資料（訂單/商品/客戶/支出等）都完整包含在內。
+const BACKUP_COLLECTIONS = [
+  "orders", "items", "itemPurchases", "itemUsages", "itemStocktakes",
+  "contacts", "categories", "units", "expenses", "activityLog", "members",
+];
+
+async function collectAllDataForBackup(onProgress) {
+  const result = {};
+  for (const name of BACKUP_COLLECTIONS) {
+    onProgress && onProgress(name);
+    const snap = await getDocs(collection(db, name));
+    const docs = [];
+    snap.forEach((d) => docs.push({ id: d.id, ...d.data() }));
+    result[name] = docs;
+  }
+  return result;
+}
+
+function downloadJsonFile(filename, dataObj) {
+  const json = JSON.stringify(dataObj, (key, value) => {
+    // Firestore 的 Timestamp 物件轉成人看得懂的日期字串，不然存出來的
+    // JSON 會是一堆看不懂的內部欄位
+    if (value && typeof value === "object" && typeof value.toDate === "function") {
+      return value.toDate().toISOString();
+    }
+    return value;
+  }, 2);
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+export async function renderBackupPage(container) {
+  container.innerHTML = `
+    ${pageNavHtml("資料備份")}
+    <div class="card">
+      <p style="margin:0 0 14px;color:var(--text-primary);">
+        一鍵把訂單、商品、客戶、支出、分類、單位、成員等全部資料下載成一個
+        JSON 檔案，存在自己的電腦或雲端硬碟，當作萬一資料出問題時的備份。
+      </p>
+      <p class="hint" style="margin:0 0 18px;">
+        暱稱資料因為系統設計上的限制無法一併匯出，其餘資料都完整包含在內。
+        建議定期（例如每個月）備份一次，存在系統以外的地方比較安心。
+      </p>
+      <button class="btn btn-primary" id="btn-run-backup" style="display:flex;align-items:center;gap:8px;">
+        下載完整備份
+      </button>
+      <div id="backup-progress" class="hint" style="margin-top:12px;"></div>
+    </div>
+  `;
+  wirePageNav(container);
+
+  container.querySelector("#btn-run-backup").addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    const progressEl = container.querySelector("#backup-progress");
+    btn.disabled = true;
+    btn.textContent = "備份中…";
+    try {
+      const data = await collectAllDataForBackup((name) => {
+        progressEl.textContent = `正在讀取「${name}」…`;
+      });
+      const todayStr = new Date().toISOString().slice(0, 10);
+      downloadJsonFile(`heartfelt-order-backup-${todayStr}.json`, data);
+      progressEl.textContent = "備份完成，檔案已開始下載";
+      showToast("備份完成", "success");
+    } catch (err) {
+      progressEl.textContent = "";
+      showToast("備份失敗：" + err.message, "error");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "下載完整備份";
+    }
+  });
+}
+
 export async function renderCloudinaryPage(container) {
   const cloudSettings = await getCloudinarySettings();
   container.innerHTML = `
