@@ -23,14 +23,14 @@
 //   itemUsages/{id}      領用/消耗記錄（含出貨自動扣、手動例外）
 //   itemStocktakes/{id}  盤點記錄
 // ============================================================
-import { db } from "./firebase-config.js?v=20260829-47";
+import { db } from "./firebase-config.js?v=20260829-48";
 import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, runTransaction,
   serverTimestamp, query, where
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { currentSession, getDisplayName } from "./auth.js?v=20260829-47";
-import { logActivity } from "./activity-log.js?v=20260829-47";
-import { addExpense } from "./expenses.js?v=20260829-47";
+import { currentSession, getDisplayName } from "./auth.js?v=20260829-48";
+import { logActivity } from "./activity-log.js?v=20260829-48";
+import { addExpense } from "./expenses.js?v=20260829-48";
 
 const itemsCol = collection(db, "items");
 const purchasesCol = collection(db, "itemPurchases");

@@ -1,21 +1,21 @@
 // ============================================================
 // 訂單管理頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260829-47";
-import { currentSession, wireNameResolution } from "./auth.js?v=20260829-47";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260829-48";
+import { currentSession, wireNameResolution } from "./auth.js?v=20260829-48";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, updateOrderNoteAndAddress, getPaymentStatus,
   markShipped, voidOrder, deleteOrderPermanently,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel, normalizeShipStatus,
-} from "./orders.js?v=20260829-47";
-import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260829-47";
-import { listContacts, createContact } from "./contacts.js?v=20260829-47";
-import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260829-47";
-import { exportOrders } from "./export-xlsx.js?v=20260829-47";
-import { setFab, clearFab } from "./fab-ui.js?v=20260829-47";
-import { openSearchPicker } from "./picker-ui.js?v=20260829-47";
-import { openModal } from "./modal-ui.js?v=20260829-47";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-47";
+} from "./orders.js?v=20260829-48";
+import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260829-48";
+import { listContacts, createContact } from "./contacts.js?v=20260829-48";
+import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260829-48";
+import { exportOrders } from "./export-xlsx.js?v=20260829-48";
+import { setFab, clearFab } from "./fab-ui.js?v=20260829-48";
+import { openSearchPicker } from "./picker-ui.js?v=20260829-48";
+import { openModal } from "./modal-ui.js?v=20260829-48";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-48";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
@@ -53,6 +53,25 @@ export async function renderOrdersPage(container, initialFilter = null) {
   let selectMode = false;
   let selectedIds = new Set();
 
+  // ---------- 預設只載入近3個月訂單 ----------
+  // 訂單量大了之後，如果每次進這頁都把「有史以來全部訂單」抓回來，
+  // 會讓載入變慢、也白白增加資料庫的讀取次數（大部分時候大家只需要
+  // 看最近的訂單）。這裡改成預設只抓近3個月，有需要查更早的資料時
+  // 再讓使用者主動點「顯示全部歷史訂單」展開，那時才真的去抓全部。
+  //
+  // 但如果是帶著特定篩選條件進來的（例如從首頁「已逾期未出貨」卡片、
+  // 或通知鈴鐺點進來），代表要看的是「所有符合條件的訂單」，這種情況
+  // 不能只看近3個月——萬一有一張逾期超過3個月都沒人處理的舊訂單，
+  // 反而會被這個「省流量」的優化不小心藏起來看不到。所以只有單純從
+  // 側邊欄點進來、沒有帶任何篩選條件時，才套用3個月的預設範圍。
+  function threeMonthsAgoStr() {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 3);
+    return d.toISOString().slice(0, 10);
+  }
+  const hasInitialFilter = !!(initialFilter && (initialFilter.search || initialFilter.shipStatus || (initialFilter.quick && initialFilter.quick !== "all")));
+  let loadedFrom = hasInitialFilter ? null : threeMonthsAgoStr(); // null 代表目前已載入全部歷史
+
   function renderListView() {
     container.innerHTML = `
       ${pageNavHtml("訂單管理", `
@@ -81,6 +100,12 @@ export async function renderOrdersPage(container, initialFilter = null) {
           <input type="date" id="filter-date-end" value="${filterDateEnd}" style="flex:1;min-width:0;padding:9px 8px;border:1px solid var(--paper-line);border-radius:8px;font-size:16px;" />
         </div>
       </div>
+      ${loadedFrom ? `
+        <div class="card" style="margin-bottom:16px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:var(--paper);">
+          <span class="hint" style="margin:0;">目前只顯示近3個月的訂單，加快載入速度</span>
+          <button class="btn btn-secondary" id="btn-load-full-history" style="padding:7px 12px;font-size:13.5px;flex-shrink:0;">顯示全部歷史訂單</button>
+        </div>
+      ` : ""}
       <div id="orders-list"></div>
     `;
 
@@ -91,22 +116,43 @@ export async function renderOrdersPage(container, initialFilter = null) {
       searchText = e.target.value.trim().toLowerCase();
       renderList();
     });
-    container.querySelector("#filter-status").addEventListener("change", (e) => {
+    container.querySelector("#filter-status").addEventListener("change", async (e) => {
       filterShipStatus = e.target.value;
+      // 「待處理」可能包含很久以前一直沒處理的舊訂單，只看近3個月會漏掉，
+      // 這裡也一併自動展開全部歷史，理由跟上面的日期篩選一樣
+      if (loadedFrom && filterShipStatus === "pending") {
+        await expandToFullHistory();
+        return;
+      }
       renderList();
     });
-    container.querySelector("#filter-quick").addEventListener("change", (e) => {
+    container.querySelector("#filter-quick").addEventListener("change", async (e) => {
       filterQuick = e.target.value;
+      // 「已逾期未出貨」「已出貨但未收款」都需要看全部歷史才不會漏掉舊資料
+      if (loadedFrom && (filterQuick === "overdue" || filterQuick === "unpaid_shipped")) {
+        await expandToFullHistory();
+        return;
+      }
       renderList();
     });
-    container.querySelector("#filter-date-start").addEventListener("change", (e) => {
+    container.querySelector("#filter-date-start").addEventListener("change", async (e) => {
       filterDateStart = e.target.value;
+      // 選的日期比目前已載入的範圍還早，代表要看的資料還沒抓回來，
+      // 這裡自動展開抓取全部歷史，避免「明明選了日期卻找不到訂單」的情況
+      if (loadedFrom && filterDateStart && filterDateStart < loadedFrom) {
+        await expandToFullHistory();
+        return;
+      }
       renderList();
     });
     container.querySelector("#filter-date-end").addEventListener("change", (e) => {
       filterDateEnd = e.target.value;
       renderList();
     });
+    const btnLoadFullHistory = container.querySelector("#btn-load-full-history");
+    if (btnLoadFullHistory) {
+      btnLoadFullHistory.addEventListener("click", () => expandToFullHistory());
+    }
     updateFab();
     updateBatchActionBar();
     container.querySelector("#btn-export-orders").addEventListener("click", () => {
@@ -266,12 +312,32 @@ export async function renderOrdersPage(container, initialFilter = null) {
 
     overlay.querySelector("#exp-status").value = filterShipStatus;
 
-    overlay.querySelector("#exp-confirm").addEventListener("click", () => {
+    overlay.querySelector("#exp-confirm").addEventListener("click", async () => {
       const status = overlay.querySelector("#exp-status").value;
       const start = overlay.querySelector("#exp-start").value;
       const end = overlay.querySelector("#exp-end").value;
 
-      let filtered = orders;
+      // 目前頁面可能只載入了近3個月的訂單（見上方「預設只載入近3個月」的說明）。
+      // 如果使用者要匯出的範圍比這個更早（或沒指定起始日、代表要全部），
+      // 這裡要先把完整歷史抓回來才能匯出，不然會在使用者不知情的狀況下
+      // 匯出一份「其實少了舊訂單」的 Excel，這種靜默漏資料的問題比較嚴重。
+      const needsFullHistory = loadedFrom && (!start || start < loadedFrom);
+      let sourceOrders = orders;
+      if (needsFullHistory) {
+        const confirmBtn = overlay.querySelector("#exp-confirm");
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = "載入完整資料中…";
+        try {
+          sourceOrders = await listOrders({});
+        } catch (err) {
+          showToast("匯出所需的完整訂單資料載入失敗：" + err.message, "error");
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = "確認匯出";
+          return;
+        }
+      }
+
+      let filtered = sourceOrders;
       if (status !== "all") filtered = filtered.filter((o) => o.shipStatus === status);
       if (start) filtered = filtered.filter((o) => o.orderDate >= start);
       if (end) filtered = filtered.filter((o) => o.orderDate <= end);
@@ -307,11 +373,24 @@ export async function renderOrdersPage(container, initialFilter = null) {
 
   async function fetchOrdersData() {
     [orders, allItems, contacts] = await Promise.all([
-      listOrders(),
+      listOrders(loadedFrom ? { startDate: loadedFrom } : {}),
       listItems({ includeArchived: true }),
       listContacts(),
     ]);
     itemsById = buildItemsIndex(allItems);
+  }
+
+  // 使用者主動要求看更早的資料時，才真的去抓全部歷史訂單
+  async function expandToFullHistory() {
+    loadedFrom = null;
+    const listEl = container.querySelector("#orders-list");
+    if (listEl) listEl.innerHTML = `<div class="card" style="color:var(--text-muted);">載入全部歷史訂單中…</div>`;
+    try {
+      await fetchOrdersData();
+      renderListView(); // 完整重繪，讓「只顯示近3個月」的提示列正確消失
+    } catch (err) {
+      showToast("載入失敗：" + err.message, "error");
+    }
   }
 
   async function reload() {

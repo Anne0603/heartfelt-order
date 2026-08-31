@@ -12,14 +12,14 @@
 // lineItems[].unitCost，之後商品成本再怎麼調整，都不會動到這張訂單
 // 已經算好的毛利。
 // ============================================================
-import { db } from "./firebase-config.js?v=20260829-47";
+import { db } from "./firebase-config.js?v=20260829-48";
 import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
-  serverTimestamp, runTransaction, query, orderBy as fbOrderBy
+  serverTimestamp, runTransaction, query, where, orderBy as fbOrderBy
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { currentSession, getDisplayName } from "./auth.js?v=20260829-47";
-import { addUsage, listUsagesByOrder, voidRecord, calcItemCost, permanentlyDelete } from "./items.js?v=20260829-47";
-import { logActivity } from "./activity-log.js?v=20260829-47";
+import { currentSession, getDisplayName } from "./auth.js?v=20260829-48";
+import { addUsage, listUsagesByOrder, voidRecord, calcItemCost, permanentlyDelete } from "./items.js?v=20260829-48";
+import { logActivity } from "./activity-log.js?v=20260829-48";
 
 const ordersCol = collection(db, "orders");
 
@@ -29,11 +29,14 @@ const ordersCol = collection(db, "orders");
 // 打一次 Firestore，不如把結果先記住一小段時間直接重複使用。
 // 只要有任何寫入操作（新增/修改/刪除/出貨/作廢），快取會立刻失效，
 // 保證使用者永遠看到最新資料，不會有「改了但畫面沒更新」的問題。
+//
+// 快取依查詢範圍（startDate）分開存放：抓「全部」跟抓「近3個月」
+// 是兩份不同的快取資料，避免互相蓋掉造成資料範圍搞混。
 const ORDERS_CACHE_TTL_MS = 30_000;
-let ordersCache = null; // { data, expiresAt }
+const ordersCacheByRange = new Map(); // key: startDate || '__all__' -> { data, expiresAt }
 
 function invalidateOrdersCache() {
-  ordersCache = null;
+  ordersCacheByRange.clear();
 }
 
 export const SHIP_STATUS_LABELS = { pending: "待處理", shipped: "已出貨" };
@@ -102,15 +105,32 @@ function buildLineItems(rawLineItems, itemsById) {
 }
 
 // ---------- 查詢 ----------
-export async function listOrders() {
-  if (ordersCache && ordersCache.expiresAt > Date.now()) {
-    return ordersCache.data;
+/**
+ * 查詢訂單清單。
+ * @param {Object} [options]
+ * @param {string} [options.startDate] - 選填，格式 YYYY-MM-DD。有帶的話，
+ *   會直接在 Firestore 查詢端限縮範圍（where orderDate >= startDate），
+ *   只下載這個日期之後的訂單，不是「抓全部再篩掉」——訂單量大的時候
+ *   能大幅減少下載的資料量跟等待時間。不帶就維持原本「抓全部」的行為
+ *   （首頁統計/通知鈴鐺需要看到所有歷史訂單，繼續用這個預設值）。
+ *
+ *   技術備註：這裡只用單一欄位（orderDate）同時做範圍篩選跟排序，
+ *   Firestore 對這種「同一欄位」的組合會自動建好索引，不需要额外
+ *   手動去 Firebase 後台建立複合索引，可以安全部署。
+ */
+export async function listOrders({ startDate } = {}) {
+  const cacheKey = startDate || "__all__";
+  const cached = ordersCacheByRange.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.data;
   }
-  const q = query(ordersCol, fbOrderBy("orderDate", "desc"));
+  const q = startDate
+    ? query(ordersCol, where("orderDate", ">=", startDate), fbOrderBy("orderDate", "desc"))
+    : query(ordersCol, fbOrderBy("orderDate", "desc"));
   const snap = await getDocs(q);
   const list = [];
   snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
-  ordersCache = { data: list, expiresAt: Date.now() + ORDERS_CACHE_TTL_MS };
+  ordersCacheByRange.set(cacheKey, { data: list, expiresAt: Date.now() + ORDERS_CACHE_TTL_MS });
   return list;
 }
 

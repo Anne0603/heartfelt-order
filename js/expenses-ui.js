@@ -2,15 +2,15 @@
 // 支出管理頁面（獨立功能區）
 // 每筆支出分「銷貨成本」或「營業費用」，各自有自己的分類清單
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260829-47";
-import { currentSession } from "./auth.js?v=20260829-47";
-import { listExpenses, addExpense, updateExpense, deleteExpense, PAYMENT_METHODS, COST_TYPE_LABELS } from "./expenses.js?v=20260829-47";
-import { listCategories } from "./categories.js?v=20260829-47";
-import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260829-47";
-import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js?v=20260829-47";
-import { setFab } from "./fab-ui.js?v=20260829-47";
-import { iconHtml } from "./icons.js?v=20260829-47";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-47";
+import { showToast, linkifyErrorMessage } from "./utils.js?v=20260829-48";
+import { currentSession } from "./auth.js?v=20260829-48";
+import { listExpenses, addExpense, updateExpense, deleteExpense, PAYMENT_METHODS, COST_TYPE_LABELS } from "./expenses.js?v=20260829-48";
+import { listCategories } from "./categories.js?v=20260829-48";
+import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260829-48";
+import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js?v=20260829-48";
+import { setFab } from "./fab-ui.js?v=20260829-48";
+import { iconHtml } from "./icons.js?v=20260829-48";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-48";
 
 function canWrite() {
   return ["superadmin", "admin"].includes(currentSession.member?.role);
