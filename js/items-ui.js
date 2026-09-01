@@ -1,8 +1,8 @@
 // ============================================================
 // 商品與庫存頁面 UI（合併版）
 // ============================================================
-import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-57";
-import { currentSession, wireNameResolution } from "./auth.js?v=20260830-57";
+import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-58";
+import { currentSession, wireNameResolution } from "./auth.js?v=20260830-58";
 import {
   listItems, createItem, updateItem, setItemArchived, deleteItemPermanently,
   addPurchaseBatch, stocktakeAdjust, disposeStock,
@@ -10,16 +10,16 @@ import {
   voidRecord, permanentlyDelete,
   computeStock, computeAvgCost, calcItemCost, buildItemsIndex,
   TYPE_LABELS, ORDERABLE_TYPES, STOCK_TRACKED_TYPES,
-} from "./items.js?v=20260830-57";
-import { listCategories } from "./categories.js?v=20260830-57";
-import { listUnits } from "./units.js?v=20260830-57";
-import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js?v=20260830-57";
-import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260830-57";
-import { openSearchPicker } from "./picker-ui.js?v=20260830-57";
-import { exportItems } from "./export-xlsx.js?v=20260830-57";
-import { setFab } from "./fab-ui.js?v=20260830-57";
-import { iconHtml } from "./icons.js?v=20260830-57";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-57";
+} from "./items.js?v=20260830-58";
+import { listCategories } from "./categories.js?v=20260830-58";
+import { listUnits } from "./units.js?v=20260830-58";
+import { uploadImageToCloudinary } from "./settings.js?v=20260830-58";
+import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260830-58";
+import { openSearchPicker } from "./picker-ui.js?v=20260830-58";
+import { exportItems } from "./export-xlsx.js?v=20260830-58";
+import { setFab } from "./fab-ui.js?v=20260830-58";
+import { iconHtml } from "./icons.js?v=20260830-58";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-58";
 
 const TYPE_HINTS = {
   self_made: "自己現做的東西，客戶可訂購。不追蹤庫存量，成本 = 配方裡每一項包材的成本加總（原料/人工每月算在「利潤總覽」）。",
@@ -699,8 +699,10 @@ export async function renderItemsPage(container, initialFilter = null) {
       if (!file) return;
       photoBox.innerHTML = `<div style="font-size:11px;color:var(--text-muted);">上傳中…</div>`;
       try {
-        const cloud = await getCloudinarySettings();
-        if (!cloud.cloudName || !cloud.uploadPreset) throw new Error("尚未設定 Cloudinary");
+        // 不在這裡自己先查一次 Cloudinary 設定再檢查——uploadImageToCloudinary
+        // 內部本來就會查、也會檢查，多查一次除了浪費一次資料庫請求，
+        // 手機網路不穩時還多一個環節可能出錯（曾經在手機上出現過
+        // 「明明有設定卻被當作沒設定」的情況，拿掉這次重複查詢就穩定了）。
         uploadedPhotoUrl = await uploadImageToCloudinary(file);
         photoBox.innerHTML = `<img src="${uploadedPhotoUrl}" style="width:100%;height:100%;object-fit:cover;">`;
       } catch (err) {

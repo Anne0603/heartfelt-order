@@ -2,15 +2,15 @@
 // 支出管理頁面（獨立功能區）
 // 每筆支出分「銷貨成本」或「營業費用」，各自有自己的分類清單
 // ============================================================
-import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-57";
-import { currentSession } from "./auth.js?v=20260830-57";
-import { listExpenses, addExpense, updateExpense, deleteExpense, PAYMENT_METHODS, COST_TYPE_LABELS } from "./expenses.js?v=20260830-57";
-import { listCategories } from "./categories.js?v=20260830-57";
-import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260830-57";
-import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js?v=20260830-57";
-import { setFab } from "./fab-ui.js?v=20260830-57";
-import { iconHtml } from "./icons.js?v=20260830-57";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-57";
+import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-58";
+import { currentSession } from "./auth.js?v=20260830-58";
+import { listExpenses, addExpense, updateExpense, deleteExpense, PAYMENT_METHODS, COST_TYPE_LABELS } from "./expenses.js?v=20260830-58";
+import { listCategories } from "./categories.js?v=20260830-58";
+import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260830-58";
+import { uploadImageToCloudinary } from "./settings.js?v=20260830-58";
+import { setFab } from "./fab-ui.js?v=20260830-58";
+import { iconHtml } from "./icons.js?v=20260830-58";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-58";
 
 function canWrite() {
   return ["superadmin", "admin"].includes(currentSession.member?.role);
@@ -248,8 +248,9 @@ export async function renderExpensesPage(container, initialFilter = null) {
       if (!file) return;
       photoBox.innerHTML = `<div style="font-size:11px;color:var(--text-muted);">上傳中…</div>`;
       try {
-        const cloud = await getCloudinarySettings();
-        if (!cloud.cloudName || !cloud.uploadPreset) throw new Error("尚未設定 Cloudinary");
+        // 不在這裡自己先查一次 Cloudinary 設定再檢查——uploadImageToCloudinary
+        // 內部本來就會查、也會檢查，多查一次除了浪費一次資料庫請求，
+        // 手機網路不穩時還多一個環節可能出錯。
         uploadedReceiptUrl = await uploadImageToCloudinary(file);
         photoBox.innerHTML = `<img src="${uploadedReceiptUrl}" style="width:100%;height:100%;object-fit:cover;">`;
       } catch (err) {
