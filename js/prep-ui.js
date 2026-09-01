@@ -1,0 +1,165 @@
+// ============================================================
+// 備料清單
+// 把「還沒出貨」的訂單彙總起來，算出：
+//   1. 每個商品總共要準備幾份
+//   2. 自製商品配方展開後，包材/原料總共要用多少，
+//      跟現有庫存比對，直接告訴你還缺多少要補
+// 用意是幫忙回答「我要準備多少原料」這個問題，不用自己一張一張訂單
+// 累加計算。
+// ============================================================
+import { listOrders, normalizeShipStatus } from "./orders.js?v=20260830-64";
+import { listItems, buildItemsIndex, computeStock, STOCK_TRACKED_TYPES } from "./items.js?v=20260830-64";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-64";
+import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-64";
+
+export async function renderPrepListPage(container) {
+  let orders = [];
+  let itemsById = new Map();
+  let filterStart = "";
+  let filterEnd = "";
+
+  async function loadData() {
+    const [allOrders, allItems] = await Promise.all([
+      listOrders(),
+      listItems({ includeArchived: true }),
+    ]);
+    orders = allOrders;
+    itemsById = buildItemsIndex(allItems);
+  }
+
+  function computeSummary() {
+    // 只算「還沒出貨、沒作廢」的訂單——已經出貨的東西不用再準備了。
+    // 如果有設定日期區間，只算「預計出貨/取貨日期」落在區間內的訂單，
+    // 沒設定的話就是全部還沒出貨的訂單一起算。
+    const relevant = orders.filter((o) => {
+      if (o.voided) return false;
+      if (normalizeShipStatus(o.shipStatus) === "shipped") return false;
+      if (filterStart && (!o.expectedDate || o.expectedDate < filterStart)) return false;
+      if (filterEnd && (!o.expectedDate || o.expectedDate > filterEnd)) return false;
+      return true;
+    });
+
+    const productNeeds = new Map(); // productId -> { name, unit, qty }
+    const materialNeeds = new Map(); // itemId -> { name, unit, qty }
+
+    relevant.forEach((o) => {
+      o.lineItems.forEach((li) => {
+        const item = itemsById.get(li.productId);
+        const name = item ? item.name : li.productName;
+        const unit = item?.unit || "個";
+        const pKey = li.productId || li.productName;
+        const pCur = productNeeds.get(pKey) || { name, unit, qty: 0 };
+        pCur.name = name;
+        pCur.qty += li.qty;
+        productNeeds.set(pKey, pCur);
+
+        // 自製商品要把配方展開，算出包材/原料的總需求量
+        if (item && item.type === "self_made" && Array.isArray(item.recipe)) {
+          item.recipe.forEach((r) => {
+            const matItem = itemsById.get(r.itemId);
+            const matName = matItem ? matItem.name : "（已刪除的項目）";
+            const matUnit = matItem?.unit || "個";
+            const needQty = (Number(r.qty) || 1) * li.qty;
+            const mCur = materialNeeds.get(r.itemId) || { name: matName, unit: matUnit, qty: 0 };
+            mCur.name = matName;
+            mCur.qty += needQty;
+            materialNeeds.set(r.itemId, mCur);
+          });
+        }
+      });
+    });
+
+    // 包材/原料需求要跟現有庫存比對，算出還缺多少
+    const materials = [...materialNeeds.entries()].map(([itemId, m]) => {
+      const matItem = itemsById.get(itemId);
+      const currentStock = matItem && STOCK_TRACKED_TYPES.includes(matItem.type) ? computeStock(matItem) : null;
+      const shortfall = currentStock !== null ? Math.max(0, m.qty - currentStock) : null;
+      return { ...m, currentStock, shortfall };
+    }).sort((a, b) => (b.shortfall || 0) - (a.shortfall || 0) || b.qty - a.qty);
+
+    const products = [...productNeeds.values()].sort((a, b) => b.qty - a.qty);
+
+    return { orderCount: relevant.length, products, materials };
+  }
+
+  function render() {
+    const { orderCount, products, materials } = computeSummary();
+    const shortfallCount = materials.filter((m) => (m.shortfall || 0) > 0).length;
+
+    container.innerHTML = `
+      ${pageNavHtml("備料清單")}
+      <div class="card" style="margin-bottom:16px;">
+        <p class="hint" style="margin:0 0 12px;">
+          彙總「還沒出貨」的訂單，算出每個商品總共要準備幾份，
+          自製商品也會展開配方，直接告訴你包材/原料還缺多少要補。
+        </p>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <div class="field" style="margin:0;flex:1;min-width:130px;">
+            <label>預計出貨/取貨日期（選填）</label>
+            <input type="date" id="pl-date-start" value="${filterStart}" />
+          </div>
+          <span class="hint" style="padding-top:20px;">～</span>
+          <div class="field" style="margin:0;flex:1;min-width:130px;">
+            <label>&nbsp;</label>
+            <input type="date" id="pl-date-end" value="${filterEnd}" />
+          </div>
+          <button class="btn btn-secondary" id="pl-clear-dates" style="flex-shrink:0;margin-top:18px;">清除</button>
+        </div>
+        <div class="hint" style="margin-top:8px;">不填日期＝統計全部還沒出貨的訂單。共 ${orderCount} 張訂單符合條件。</div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <h3 style="font-size:15px;margin-bottom:10px;">商品需求（要準備幾份）</h3>
+        ${products.length === 0 ? `<div class="hint" style="text-align:center;padding:16px 0;">沒有符合條件的訂單</div>` : `
+          <table class="simple-table">
+            <thead><tr><th>商品</th><th style="text-align:right;">需要準備</th></tr></thead>
+            <tbody>
+              ${products.map((p) => `
+                <tr><td>${p.name}</td><td style="text-align:right;font-family:var(--font-mono);font-weight:700;">${p.qty} ${p.unit}</td></tr>
+              `).join("")}
+            </tbody>
+          </table>
+        `}
+      </div>
+
+      ${materials.length > 0 ? `
+        <div class="card">
+          <h3 style="font-size:15px;margin-bottom:4px;">包材／原料需求</h3>
+          <div class="hint" style="margin-bottom:10px;">
+            自製商品依配方展開後的總用量，已經跟目前庫存比對過。
+            ${shortfallCount > 0 ? `<span style="color:var(--rose);font-weight:600;">有 ${shortfallCount} 項庫存不夠，需要補貨。</span>` : `目前庫存都夠用，不用額外採購。`}
+          </div>
+          <table class="simple-table">
+            <thead><tr><th>項目</th><th style="text-align:right;">需要用量</th><th style="text-align:right;">目前庫存</th><th style="text-align:right;">還缺</th></tr></thead>
+            <tbody>
+              ${materials.map((m) => `
+                <tr>
+                  <td>${m.name}</td>
+                  <td style="text-align:right;font-family:var(--font-mono);">${m.qty} ${m.unit}</td>
+                  <td style="text-align:right;font-family:var(--font-mono);color:var(--text-muted);">${m.currentStock !== null ? m.currentStock : "—"}</td>
+                  <td style="text-align:right;font-family:var(--font-mono);font-weight:700;color:${(m.shortfall || 0) > 0 ? "var(--rose)" : "var(--jade)"};">${m.shortfall !== null ? (m.shortfall > 0 ? m.shortfall : "夠用") : "—"}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      ` : ""}
+    `;
+    wirePageNav(container);
+
+    container.querySelector("#pl-date-start").addEventListener("change", (e) => { filterStart = e.target.value; render(); });
+    container.querySelector("#pl-date-end").addEventListener("change", (e) => { filterEnd = e.target.value; render(); });
+    container.querySelector("#pl-clear-dates").addEventListener("click", () => { filterStart = ""; filterEnd = ""; render(); });
+  }
+
+  container.innerHTML = `${pageNavHtml("備料清單")}<div class="card"><div class="hint">載入中…</div></div>`;
+  wirePageNav(container);
+  try {
+    await loadData();
+    render();
+  } catch (err) {
+    container.innerHTML = `${pageNavHtml("備料清單")}<div class="card" style="color:var(--rose);">載入失敗：${friendlyErrorMessage(err)}</div>`;
+    wirePageNav(container);
+    showToast("載入失敗：" + friendlyErrorMessage(err), "error");
+  }
+}
