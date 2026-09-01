@@ -12,14 +12,14 @@
 // lineItems[].unitCost，之後商品成本再怎麼調整，都不會動到這張訂單
 // 已經算好的毛利。
 // ============================================================
-import { db } from "./firebase-config.js?v=20260830-62";
+import { db } from "./firebase-config.js?v=20260830-63";
 import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
   serverTimestamp, runTransaction, query, where, orderBy as fbOrderBy
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { currentSession, getDisplayName } from "./auth.js?v=20260830-62";
-import { addUsage, listUsagesByOrder, voidRecord, calcItemCost, permanentlyDelete, restockFromReturn } from "./items.js?v=20260830-62";
-import { logActivity } from "./activity-log.js?v=20260830-62";
+import { currentSession, getDisplayName } from "./auth.js?v=20260830-63";
+import { addUsage, listUsagesByOrder, voidRecord, calcItemCost, permanentlyDelete, restockFromReturn } from "./items.js?v=20260830-63";
+import { logActivity } from "./activity-log.js?v=20260830-63";
 
 const ordersCol = collection(db, "orders");
 
@@ -175,6 +175,8 @@ export async function createOrder(data, itemsById) {
     totalAmount,
     pickupMethod: data.pickupMethod || "",
     expectedDate: data.expectedDate || "",
+    needsConfirmation: !!data.needsConfirmation,
+    confirmationNote: data.confirmationNote || "",
     shipStatus: "pending",
     amountReceived: 0,
     voided: false,
@@ -211,6 +213,8 @@ export async function updateOrderBeforeShip(orderId, data, itemsById) {
     totalAmount,
     pickupMethod: data.pickupMethod || "",
     expectedDate: data.expectedDate || "",
+    needsConfirmation: !!data.needsConfirmation,
+    confirmationNote: data.confirmationNote || "",
     note: data.note || "",
     updatedAt: serverTimestamp(),
   });
@@ -221,6 +225,19 @@ export async function updateOrderBeforeShip(orderId, data, itemsById) {
 
 export async function updateOrderNote(orderId, note) {
   await updateDoc(doc(db, "orders", orderId), { note, updatedAt: serverTimestamp() });
+  invalidateOrdersCache();
+}
+
+/**
+ * 快速切換「待確認」狀態，例如跟客戶核對完取貨時間後直接打勾取消，
+ * 不用整張訂單重新走一次編輯表單。
+ */
+export async function updateConfirmationStatus(orderId, { needsConfirmation, confirmationNote }) {
+  await updateDoc(doc(db, "orders", orderId), {
+    needsConfirmation: !!needsConfirmation,
+    confirmationNote: confirmationNote || "",
+    updatedAt: serverTimestamp(),
+  });
   invalidateOrdersCache();
 }
 

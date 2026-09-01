@@ -1,21 +1,22 @@
 // ============================================================
 // 訂單管理頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-62";
-import { currentSession, wireNameResolution } from "./auth.js?v=20260830-62";
+import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-63";
+import { currentSession, wireNameResolution } from "./auth.js?v=20260830-63";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, updateOrderNoteAndAddress, getPaymentStatus,
   markShipped, voidOrder, deleteOrderPermanently, registerReturn, listReturnsByOrder, getOutstandingBalance,
+  updateConfirmationStatus,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel, normalizeShipStatus,
-} from "./orders.js?v=20260830-62";
-import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260830-62";
-import { listContacts, createContact, ORDER_CHANNELS } from "./contacts.js?v=20260830-62";
-import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260830-62";
-import { exportOrders } from "./export-xlsx.js?v=20260830-62";
-import { setFab, clearFab } from "./fab-ui.js?v=20260830-62";
-import { openSearchPicker } from "./picker-ui.js?v=20260830-62";
-import { openModal, openCustomTextModal } from "./modal-ui.js?v=20260830-62";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-62";
+} from "./orders.js?v=20260830-63";
+import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260830-63";
+import { listContacts, createContact, ORDER_CHANNELS } from "./contacts.js?v=20260830-63";
+import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260830-63";
+import { exportOrders } from "./export-xlsx.js?v=20260830-63";
+import { setFab, clearFab } from "./fab-ui.js?v=20260830-63";
+import { openSearchPicker } from "./picker-ui.js?v=20260830-63";
+import { openModal, openCustomTextModal } from "./modal-ui.js?v=20260830-63";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-63";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
@@ -93,6 +94,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
           <option value="today">今天應出貨</option>
           <option value="overdue">已逾期未出貨</option>
           <option value="unpaid_shipped">已出貨但未收款</option>
+          <option value="needs_confirmation">待確認資訊</option>
         </select>
         <div style="display:flex;gap:8px;align-items:center;">
           <input type="date" id="filter-date-start" value="${filterDateStart}" style="flex:1;min-width:0;padding:9px 8px;border:1px solid var(--paper-line);border-radius:8px;font-size:16px;" />
@@ -128,8 +130,9 @@ export async function renderOrdersPage(container, initialFilter = null) {
     });
     container.querySelector("#filter-quick").addEventListener("change", async (e) => {
       filterQuick = e.target.value;
-      // 「已逾期未出貨」「已出貨但未收款」都需要看全部歷史才不會漏掉舊資料
-      if (loadedFrom && (filterQuick === "overdue" || filterQuick === "unpaid_shipped")) {
+      // 「已逾期未出貨」「已出貨但未收款」「待確認資訊」都需要看全部歷史
+      // 才不會漏掉舊資料——待確認的訂單也可能是很久以前建立、忘記確認的
+      if (loadedFrom && (filterQuick === "overdue" || filterQuick === "unpaid_shipped" || filterQuick === "needs_confirmation")) {
         await expandToFullHistory();
         return;
       }
@@ -358,6 +361,8 @@ export async function renderOrdersPage(container, initialFilter = null) {
       filtered = filtered.filter((o) => !o.voided && o.expectedDate && o.expectedDate < today && normalizeShipStatus(o.shipStatus) !== "shipped");
     } else if (filterQuick === "unpaid_shipped") {
       filtered = filtered.filter((o) => !o.voided && normalizeShipStatus(o.shipStatus) === "shipped" && getPaymentStatus(o) !== "paid");
+    } else if (filterQuick === "needs_confirmation") {
+      filtered = filtered.filter((o) => !o.voided && o.needsConfirmation);
     }
     if (filterDateStart) filtered = filtered.filter((o) => o.orderDate >= filterDateStart);
     if (filterDateEnd) filtered = filtered.filter((o) => o.orderDate <= filterDateEnd);
@@ -440,6 +445,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
             <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
               <span class="seal-badge ${shipBadgeClass(o.shipStatus)}"><span class="dot"></span>${getShipStatusLabel(o.shipStatus)}</span>
               <span class="seal-badge ${paymentBadgeClass(getPaymentStatus(o))}"><span class="dot"></span>${PAYMENT_STATUS_LABELS[getPaymentStatus(o)]}</span>
+              ${o.needsConfirmation ? `<span class="seal-badge warn"><span class="dot"></span>待確認${o.confirmationNote ? "：" + o.confirmationNote : ""}</span>` : ""}
             </div>
           </div>
         </div>
@@ -521,6 +527,16 @@ export async function renderOrdersPage(container, initialFilter = null) {
         <div class="field"><label>預計出貨/取貨日期</label><input type="date" id="o-expected" value="${order?.expectedDate || new Date().toISOString().slice(0,10)}" /></div>
         <div class="field"><label>備註（選填）</label><textarea id="o-note" rows="3" style="resize:vertical;">${order?.note || ""}</textarea></div>
 
+        <div class="field" style="background:var(--paper);border-radius:8px;padding:12px;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:0;">
+            <input type="checkbox" id="o-need-confirm" style="width:20px;height:20px;flex-shrink:0;" ${order?.needsConfirmation ? "checked" : ""} />
+            <span>這張訂單有資訊還沒確認，需要之後跟客戶再核對</span>
+          </label>
+          <div id="o-confirm-note-wrap" class="field" style="margin-top:10px;margin-bottom:0;${order?.needsConfirmation ? "" : "display:none;"}">
+            <input type="text" id="o-confirm-note" placeholder="例如：取貨時間還沒確定" value="${order?.confirmationNote || ""}" />
+          </div>
+        </div>
+
         <div id="o-total-preview" style="text-align:right;font-size:15px;font-weight:700;margin:10px 0;"></div>
 
         <div style="display:flex;justify-content:flex-end;">
@@ -554,6 +570,11 @@ export async function renderOrdersPage(container, initialFilter = null) {
     });
 
     let pickupMethodValue = order?.pickupMethod || "";
+
+    container.querySelector("#o-need-confirm").addEventListener("change", (e) => {
+      container.querySelector("#o-confirm-note-wrap").style.display = e.target.checked ? "block" : "none";
+    });
+
     container.querySelector("#o-pickup-btn").addEventListener("click", () => {
       openSearchPicker({
         title: "選擇取貨方式",
@@ -658,6 +679,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
 
       const pickupMethod = pickupMethodValue;
       const orderChannel = orderChannelValue;
+      const needsConfirmation = container.querySelector("#o-need-confirm").checked;
 
       const data = {
         orderDate: container.querySelector("#o-date").value,
@@ -671,6 +693,8 @@ export async function renderOrdersPage(container, initialFilter = null) {
         pickupMethod,
         expectedDate,
         note: container.querySelector("#o-note").value,
+        needsConfirmation,
+        confirmationNote: needsConfirmation ? container.querySelector("#o-confirm-note").value.trim() : "",
       };
 
       btn.disabled = true;
@@ -743,8 +767,19 @@ export async function renderOrdersPage(container, initialFilter = null) {
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
         <span class="seal-badge ${shipBadgeClass(order.shipStatus)}"><span class="dot"></span>${getShipStatusLabel(order.shipStatus)}</span>
         <span class="seal-badge ${paymentBadgeClass(payStatus)}"><span class="dot"></span>${PAYMENT_STATUS_LABELS[payStatus]}</span>
+        ${order.needsConfirmation ? `<span class="seal-badge warn"><span class="dot"></span>待確認</span>` : ""}
         ${order.voided ? `<span class="seal-badge bad"><span class="dot"></span>已作廢</span>` : ""}
       </div>
+
+      ${order.needsConfirmation ? `
+        <div class="card" style="margin-bottom:16px;background:var(--gold-pale);border-color:var(--gold-deep);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+          <div>
+            <div style="font-weight:700;color:var(--gold-deep);">這張訂單還有資訊要跟客戶確認</div>
+            ${order.confirmationNote ? `<div style="font-size:14px;color:var(--ink);margin-top:4px;">${order.confirmationNote}</div>` : ""}
+          </div>
+          ${canWrite() ? `<button class="btn btn-secondary" id="btn-mark-confirmed" style="flex-shrink:0;">已跟客戶確認，取消標記</button>` : ""}
+        </div>
+      ` : ""}
 
       <div class="card" style="margin-bottom:16px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px;">
@@ -795,6 +830,20 @@ export async function renderOrdersPage(container, initialFilter = null) {
     wireNameResolution(container);
     renderReturnsCard(order);
     renderOrderDetailActions(order);
+
+    container.querySelector("#btn-mark-confirmed")?.addEventListener("click", async (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      try {
+        await updateConfirmationStatus(order.id, { needsConfirmation: false, confirmationNote: "" });
+        showToast("已取消待確認標記", "success");
+        await reload();
+        renderOrderDetailPage(order.id);
+      } catch (err) {
+        showToast("失敗：" + friendlyErrorMessage(err), "error");
+        btn.disabled = false;
+      }
+    });
   }
 
   // ---------- 退貨記錄卡片 ----------
