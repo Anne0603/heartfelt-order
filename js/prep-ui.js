@@ -7,10 +7,10 @@
 // 用意是幫忙回答「我要準備多少原料」這個問題，不用自己一張一張訂單
 // 累加計算。
 // ============================================================
-import { listOrders, normalizeShipStatus } from "./orders.js?v=20260830-64";
-import { listItems, buildItemsIndex, computeStock, STOCK_TRACKED_TYPES } from "./items.js?v=20260830-64";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-64";
-import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-64";
+import { listOrders, normalizeShipStatus } from "./orders.js?v=20260830-65";
+import { listItems, buildItemsIndex, computeStock, STOCK_TRACKED_TYPES } from "./items.js?v=20260830-65";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-65";
+import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-65";
 
 export async function renderPrepListPage(container) {
   let orders = [];
@@ -89,23 +89,18 @@ export async function renderPrepListPage(container) {
     container.innerHTML = `
       ${pageNavHtml("備料清單")}
       <div class="card" style="margin-bottom:16px;">
-        <p class="hint" style="margin:0 0 12px;">
+        <p class="hint" style="margin:0 0 14px;">
           彙總「還沒出貨」的訂單，算出每個商品總共要準備幾份，
           自製商品也會展開配方，直接告訴你包材/原料還缺多少要補。
         </p>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <div class="field" style="margin:0;flex:1;min-width:130px;">
-            <label>預計出貨/取貨日期（選填）</label>
-            <input type="date" id="pl-date-start" value="${filterStart}" />
-          </div>
-          <span class="hint" style="padding-top:20px;">～</span>
-          <div class="field" style="margin:0;flex:1;min-width:130px;">
-            <label>&nbsp;</label>
-            <input type="date" id="pl-date-end" value="${filterEnd}" />
-          </div>
-          <button class="btn btn-secondary" id="pl-clear-dates" style="flex-shrink:0;margin-top:18px;">清除</button>
+        <label style="display:block;font-size:14.5px;font-weight:600;color:var(--ink);margin-bottom:8px;">預計出貨/取貨日期範圍（選填）</label>
+        <div style="display:flex;gap:8px;align-items:center;justify-content:center;">
+          <input type="date" id="pl-date-start" value="${filterStart}" style="flex:1;min-width:0;max-width:150px;padding:9px 8px;border:1px solid var(--paper-line);border-radius:8px;" />
+          <span class="hint">～</span>
+          <input type="date" id="pl-date-end" value="${filterEnd}" style="flex:1;min-width:0;max-width:150px;padding:9px 8px;border:1px solid var(--paper-line);border-radius:8px;" />
         </div>
-        <div class="hint" style="margin-top:8px;">不填日期＝統計全部還沒出貨的訂單。共 ${orderCount} 張訂單符合條件。</div>
+        ${(filterStart || filterEnd) ? `<div style="text-align:center;margin-top:8px;"><button type="button" id="pl-clear-dates" class="hint" style="background:none;border:none;text-decoration:underline;cursor:pointer;color:var(--gold-deep);">清除日期，看全部</button></div>` : ""}
+        <div class="hint" style="margin-top:12px;text-align:center;">${(filterStart || filterEnd) ? "" : "不填日期＝統計全部還沒出貨的訂單。"}共 ${orderCount} 張訂單符合條件。</div>
       </div>
 
       <div class="card" style="margin-bottom:16px;">
@@ -149,7 +144,7 @@ export async function renderPrepListPage(container) {
 
     container.querySelector("#pl-date-start").addEventListener("change", (e) => { filterStart = e.target.value; render(); });
     container.querySelector("#pl-date-end").addEventListener("change", (e) => { filterEnd = e.target.value; render(); });
-    container.querySelector("#pl-clear-dates").addEventListener("click", () => { filterStart = ""; filterEnd = ""; render(); });
+    container.querySelector("#pl-clear-dates")?.addEventListener("click", () => { filterStart = ""; filterEnd = ""; render(); });
   }
 
   container.innerHTML = `${pageNavHtml("備料清單")}<div class="card"><div class="hint">載入中…</div></div>`;
