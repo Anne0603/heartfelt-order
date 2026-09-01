@@ -9,12 +9,12 @@
 // 版面採用會計報表慣例：項目靠左、金額靠右，明細緊接在對應的
 // 總額下面；每一行明細都能點看更細的拆解。
 // ============================================================
-import { listOrders } from "./orders.js?v=20260829-52";
-import { listItems, computeStock, computeAvgCost, STOCK_TRACKED_TYPES } from "./items.js?v=20260829-52";
-import { listExpensesInRange } from "./expenses.js?v=20260829-52";
-import { renderDateRangePicker } from "./date-range-ui.js?v=20260829-52";
-import { linkifyErrorMessage } from "./utils.js?v=20260829-52";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-52";
+import { listOrders, listAllReturns } from "./orders.js?v=20260829-53";
+import { listItems, computeStock, computeAvgCost, STOCK_TRACKED_TYPES } from "./items.js?v=20260829-53";
+import { listExpensesInRange } from "./expenses.js?v=20260829-53";
+import { renderDateRangePicker } from "./date-range-ui.js?v=20260829-53";
+import { linkifyErrorMessage } from "./utils.js?v=20260829-53";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-53";
 
 export async function renderProfitPage(container, navigateTo) {
   function renderSummaryShell(initialRange) {
@@ -74,14 +74,43 @@ export async function renderProfitPage(container, navigateTo) {
     return d.toISOString().slice(0, 10);
   }
 
+  // 把「退貨且有加回庫存」的部分，做成 orderId -> Map(productId -> qty) 的
+  // 對照表。這裡抽成共用函式，是因為「利潤總覽總金額」跟「點進去看明細」
+  // 這兩個地方都要用同一套邏輯扣退貨，才能保證總金額跟明細加總對得起來。
+  function buildRestockedQtyMap(allReturns) {
+    const map = new Map();
+    (allReturns || []).forEach((r) => {
+      (r.items || []).forEach((ri) => {
+        if (!ri.restocked) return;
+        if (!map.has(r.orderId)) map.set(r.orderId, new Map());
+        const m = map.get(r.orderId);
+        m.set(ri.productId, (m.get(ri.productId) || 0) + ri.qty);
+      });
+    });
+    return map;
+  }
+  function effectiveQty(order, li, restockedMap) {
+    const restockedQty = restockedMap.get(order.id)?.get(li.productId) || 0;
+    return Math.max(0, li.qty - restockedQty);
+  }
+
   // 算一段區間的營收/成本/毛利/淨利，抽出來讓「這段期間」跟「去年同期」共用同一套邏輯
-  function computeStats(ordersInRange, expensesInRange) {
+  function computeStats(ordersInRange, expensesInRange, allReturns) {
     // 營收要扣掉退貨金額，不然退過貨的訂單會虛報營收
     const revenue = ordersInRange.reduce((s, o) => s + (o.totalAmount - (o.returnedAmount || 0)), 0);
+
+    // 退貨如果有勾選「加回庫存」，代表這批商品又回到可以賣的狀態，
+    // 當初出貨時認列的成本也要跟著沖銷一部分，不然毛利會被低估
+    // （東西明明還在庫存裡，成本卻已經被算成「賣出去的成本」）。
+    // 只有「加回庫存」的部分才沖銷——如果商品已經壞了沒辦法賣
+    // （沒勾加回庫存），成本本來就該繼續算，不能沖銷。
+    const restockedQtyByOrderProduct = buildRestockedQtyMap(allReturns);
+
     let packagingCost = 0, resaleCost = 0;
     ordersInRange.forEach((o) => {
       o.lineItems.forEach((li) => {
-        const cost = li.unitCost * li.qty;
+        const qty = effectiveQty(o, li, restockedQtyByOrderProduct);
+        const cost = li.unitCost * qty;
         if (li.productType === "resale") resaleCost += cost;
         else packagingCost += cost;
       });
@@ -110,11 +139,12 @@ export async function renderProfitPage(container, navigateTo) {
     summaryEl.innerHTML = `<div class="card" style="color:var(--text-muted);">載入中…</div>`;
     try {
       const lastYearRange = { start: shiftYear(range.start, -1), end: shiftYear(range.end, -1) };
-      const [orders, expenses, lastYearExpenses, allItems] = await Promise.all([
+      const [orders, expenses, lastYearExpenses, allItems, allReturns] = await Promise.all([
         listOrders(),
         listExpensesInRange(range.start, range.end),
         listExpensesInRange(lastYearRange.start, lastYearRange.end),
         listItems(),
+        listAllReturns(),
       ]);
       const ordersInRange = orders.filter((o) => !o.voided && o.orderDate >= range.start && o.orderDate <= range.end);
       const lastYearOrders = orders.filter((o) => !o.voided && o.orderDate >= lastYearRange.start && o.orderDate <= lastYearRange.end);
@@ -122,8 +152,8 @@ export async function renderProfitPage(container, navigateTo) {
       const stockValueItems = allItems.filter((i) => STOCK_TRACKED_TYPES.includes(i.type) && i.status !== "archived" && computeStock(i) > 0);
       const totalStockValue = stockValueItems.reduce((s, i) => s + computeStock(i) * computeAvgCost(i), 0);
 
-      const stats = computeStats(ordersInRange, expenses);
-      const lastYearStats = lastYearOrders.length > 0 ? computeStats(lastYearOrders, lastYearExpenses) : null;
+      const stats = computeStats(ordersInRange, expenses, allReturns);
+      const lastYearStats = lastYearOrders.length > 0 ? computeStats(lastYearOrders, lastYearExpenses, allReturns) : null;
       const { revenue, packagingCost, resaleCost, cogsExpenses, opexExpenses, totalCOGS, opexTotal, grossProfit, netProfit } = stats;
 
       const grossMarginText = revenue > 0 ? `${((grossProfit / revenue) * 100).toFixed(1)}%` : "—";
@@ -169,10 +199,10 @@ export async function renderProfitPage(container, navigateTo) {
       `;
 
       summaryEl.querySelector("#btn-packaging-detail").addEventListener("click", () => {
-        renderPackagingDetailPage(range, ordersInRange);
+        renderPackagingDetailPage(range, ordersInRange, allReturns);
       });
       summaryEl.querySelector("#btn-resale-detail").addEventListener("click", () => {
-        renderResaleDetailPage(range, ordersInRange);
+        renderResaleDetailPage(range, ordersInRange, allReturns);
       });
       summaryEl.querySelectorAll(".expense-cat-row").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -275,7 +305,8 @@ export async function renderProfitPage(container, navigateTo) {
     renderTabContent();
   }
 
-  function renderPackagingDetailPage(range, ordersInRange) {
+  function renderPackagingDetailPage(range, ordersInRange, allReturns) {
+    const restockedQtyByOrderProduct = buildRestockedQtyMap(allReturns);
     const byProduct = new Map();
     const byMaterial = new Map();
     const byOrder = new Map();
@@ -285,7 +316,8 @@ export async function renderProfitPage(container, navigateTo) {
       let orderCost = 0;
       o.lineItems.forEach((li) => {
         if (li.productType === "resale") return;
-        const lineCost = li.unitCost * li.qty;
+        const qty = effectiveQty(o, li, restockedQtyByOrderProduct);
+        const lineCost = li.unitCost * qty;
         if (lineCost <= 0) return;
         byProduct.set(li.productName, (byProduct.get(li.productName) || 0) + lineCost);
         orderCost += lineCost;
@@ -293,10 +325,10 @@ export async function renderProfitPage(container, navigateTo) {
         (li.costBreakdown || []).forEach((b) => {
           if (!b.itemId) return;
           hasAnyBreakdown = true;
-          const cost = b.amount * li.qty;
-          const qty = (b.qty || 0) * li.qty;
+          const cost = b.amount * qty;
+          const matQty = (b.qty || 0) * qty;
           const cur = byMaterial.get(b.itemId) || { itemName: b.itemName, qty: 0, cost: 0 };
-          cur.qty += qty;
+          cur.qty += matQty;
           cur.cost += cost;
           byMaterial.set(b.itemId, cur);
         });
@@ -333,14 +365,16 @@ export async function renderProfitPage(container, navigateTo) {
     });
   }
 
-  function renderResaleDetailPage(range, ordersInRange) {
+  function renderResaleDetailPage(range, ordersInRange, allReturns) {
+    const restockedQtyByOrderProduct = buildRestockedQtyMap(allReturns);
     const byProduct = new Map();
     const byOrder = new Map();
     ordersInRange.forEach((o) => {
       let orderCost = 0;
       o.lineItems.forEach((li) => {
         if (li.productType !== "resale") return;
-        const cost = li.unitCost * li.qty;
+        const qty = effectiveQty(o, li, restockedQtyByOrderProduct);
+        const cost = li.unitCost * qty;
         if (cost <= 0) return;
         byProduct.set(li.productName, (byProduct.get(li.productName) || 0) + cost);
         orderCost += cost;

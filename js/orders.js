@@ -12,14 +12,14 @@
 // lineItems[].unitCost，之後商品成本再怎麼調整，都不會動到這張訂單
 // 已經算好的毛利。
 // ============================================================
-import { db } from "./firebase-config.js?v=20260829-52";
+import { db } from "./firebase-config.js?v=20260829-53";
 import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
   serverTimestamp, runTransaction, query, where, orderBy as fbOrderBy
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { currentSession, getDisplayName } from "./auth.js?v=20260829-52";
-import { addUsage, listUsagesByOrder, voidRecord, calcItemCost, permanentlyDelete, restockFromReturn } from "./items.js?v=20260829-52";
-import { logActivity } from "./activity-log.js?v=20260829-52";
+import { currentSession, getDisplayName } from "./auth.js?v=20260829-53";
+import { addUsage, listUsagesByOrder, voidRecord, calcItemCost, permanentlyDelete, restockFromReturn } from "./items.js?v=20260829-53";
+import { logActivity } from "./activity-log.js?v=20260829-53";
 
 const ordersCol = collection(db, "orders");
 
@@ -438,5 +438,16 @@ export async function listReturnsByOrder(orderId) {
   const list = [];
   snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
   list.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+  return list;
+}
+
+/**
+ * 抓「全部」退貨記錄（不限特定訂單），給報表/利潤總覽這種需要跨訂單
+ * 統計的地方用。退貨記錄的量通常遠少於訂單本身，直接整份抓不會有效能問題。
+ */
+export async function listAllReturns() {
+  const snap = await getDocs(collection(db, "orderReturns"));
+  const list = [];
+  snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
   return list;
 }

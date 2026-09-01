@@ -2,8 +2,8 @@
 // 匯出 Excel（純前端，點擊直接下載，不需要後端伺服器）
 // ============================================================
 import * as XLSX from "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm";
-import { SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getPaymentStatus, getShipStatusLabel } from "./orders.js?v=20260829-52";
-import { TYPE_LABELS, ORDERABLE_TYPES, STOCK_TRACKED_TYPES, computeStock, computeAvgCost, calcItemCost, buildItemsIndex } from "./items.js?v=20260829-52";
+import { SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getPaymentStatus, getShipStatusLabel } from "./orders.js?v=20260829-53";
+import { TYPE_LABELS, ORDERABLE_TYPES, STOCK_TRACKED_TYPES, computeStock, computeAvgCost, calcItemCost, buildItemsIndex } from "./items.js?v=20260829-53";
 
 function downloadWorkbook(sheets, filename) {
   const wb = XLSX.utils.book_new();

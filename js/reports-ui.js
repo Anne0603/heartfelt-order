@@ -1,11 +1,11 @@
 // ============================================================
 // 統計報表：分成「總覽」「銷售分析」「客戶分析」「出貨趨勢」四個分頁籤
 // ============================================================
-import { listOrders, getPaymentStatus, getOutstandingBalance, normalizeShipStatus } from "./orders.js?v=20260829-52";
-import { listItems, buildItemsIndex } from "./items.js?v=20260829-52";
-import { renderDateRangePicker } from "./date-range-ui.js?v=20260829-52";
-import { linkifyErrorMessage } from "./utils.js?v=20260829-52";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-52";
+import { listOrders, getPaymentStatus, getOutstandingBalance, normalizeShipStatus, listAllReturns } from "./orders.js?v=20260829-53";
+import { listItems, buildItemsIndex } from "./items.js?v=20260829-53";
+import { renderDateRangePicker } from "./date-range-ui.js?v=20260829-53";
+import { linkifyErrorMessage } from "./utils.js?v=20260829-53";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-53";
 
 function barRow(label, value, maxValue, formatValue) {
   const pct = maxValue > 0 ? Math.max(4, (value / maxValue) * 100) : 0;
@@ -63,8 +63,8 @@ export async function renderReportsPage(container) {
   async function load(range) {
     contentEl.innerHTML = `<div class="card" style="color:var(--text-muted);">載入中…</div>`;
     try {
-      const [allOrders, items] = await Promise.all([listOrders(), listItems({ includeArchived: true })]);
-      currentStats = computeStats(allOrders, items, range);
+      const [allOrders, items, allReturns] = await Promise.all([listOrders(), listItems({ includeArchived: true }), listAllReturns()]);
+      currentStats = computeStats(allOrders, items, range, allReturns);
       renderTabButtons();
       renderTabContent();
     } catch (err) {
@@ -72,34 +72,53 @@ export async function renderReportsPage(container) {
     }
   }
 
-  function computeStats(allOrders, items, range) {
+  function computeStats(allOrders, items, range, allReturns) {
     const itemsById = buildItemsIndex(items);
     const inRange = allOrders.filter((o) => !o.voided && o.orderDate >= range.start && o.orderDate <= range.end);
+
+    // 每張訂單、每個商品，退了多少件——商品/分類銷售排行要扣掉這些，
+    // 不然退過貨的商品還是會算進「賣得最好」的排行裡
+    const returnedQtyByOrderProduct = new Map(); // orderId -> Map(productId -> qty)
+    (allReturns || []).forEach((r) => {
+      if (!returnedQtyByOrderProduct.has(r.orderId)) returnedQtyByOrderProduct.set(r.orderId, new Map());
+      const m = returnedQtyByOrderProduct.get(r.orderId);
+      (r.items || []).forEach((ri) => {
+        m.set(ri.productId, (m.get(ri.productId) || 0) + ri.qty);
+      });
+    });
+    function effectiveQtyOf(order, li) {
+      const returned = returnedQtyByOrderProduct.get(order.id)?.get(li.productId) || 0;
+      return Math.max(0, li.qty - returned);
+    }
 
     // 營收要扣掉退貨金額，不然退過貨的訂單會虛報營收
     const revenue = inRange.reduce((s, o) => s + (o.totalAmount - (o.returnedAmount || 0)), 0);
     const avgOrderValue = inRange.length > 0 ? revenue / inRange.length : 0;
 
-    // 商品銷售排行
+    // 商品銷售排行（扣除退貨數量）
     const productStats = new Map();
     inRange.forEach((o) => {
       o.lineItems.forEach((li) => {
+        const effectiveQty = effectiveQtyOf(o, li);
+        if (effectiveQty <= 0) return;
         const cur = productStats.get(li.productName) || { qty: 0, revenue: 0, cost: 0 };
-        cur.qty += li.qty;
-        cur.revenue += li.subtotal;
-        cur.cost += li.unitCost * li.qty;
+        cur.qty += effectiveQty;
+        cur.revenue += effectiveQty * li.unitPrice;
+        cur.cost += effectiveQty * li.unitCost;
         productStats.set(li.productName, cur);
       });
     });
     const topProducts = [...productStats.entries()].sort((a, b) => b[1].qty - a[1].qty);
 
-    // 商品分類銷售占比
+    // 商品分類銷售占比（扣除退貨數量）
     const categoryStats = new Map();
     inRange.forEach((o) => {
       o.lineItems.forEach((li) => {
+        const effectiveQty = effectiveQtyOf(o, li);
+        if (effectiveQty <= 0) return;
         const item = itemsById.get(li.productId);
         const cat = item?.category || "未分類";
-        categoryStats.set(cat, (categoryStats.get(cat) || 0) + li.subtotal);
+        categoryStats.set(cat, (categoryStats.get(cat) || 0) + effectiveQty * li.unitPrice);
       });
     });
     const topCategories = [...categoryStats.entries()].sort((a, b) => b[1] - a[1]);
