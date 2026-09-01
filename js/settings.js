@@ -3,17 +3,17 @@
 // Cloudinary 設定 / 待審核申請 / 成員
 // 品牌圖案改成「直接點側邊欄 Logo 上傳」，邏輯在 app.js
 // ============================================================
-import { db } from "./firebase-config.js?v=20260830-58";
+import { db } from "./firebase-config.js?v=20260830-59";
 import {
   doc, getDoc, setDoc, deleteDoc,
   collection, getDocs, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-58";
-import { currentSession, ROLE_LABELS } from "./auth.js?v=20260830-58";
-import { listCategories, createCategory, renameCategory, deleteCategory } from "./categories.js?v=20260830-58";
-import { listUnits, createUnit, renameUnit, deleteUnit } from "./units.js?v=20260830-58";
-import { confirmDialog, openModal } from "./modal-ui.js?v=20260830-58";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-58";
+import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-59";
+import { currentSession, ROLE_LABELS } from "./auth.js?v=20260830-59";
+import { listCategories, createCategory, renameCategory, deleteCategory } from "./categories.js?v=20260830-59";
+import { listUnits, createUnit, renameUnit, deleteUnit } from "./units.js?v=20260830-59";
+import { confirmDialog, openModal } from "./modal-ui.js?v=20260830-59";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-59";
 
 const CLOUDINARY_DOC = doc(db, "publicSettings", "cloudinary");
 const BRAND_DOC = doc(db, "publicSettings", "brand");
@@ -312,7 +312,7 @@ export async function renderPendingPage(container) {
     <div class="card" style="margin-bottom:10px;">
       <label style="font-size:13px;color:var(--text-muted);margin-bottom:6px;display:block;">手動封鎖信箱（不用等對方申請過，直接輸入信箱就能先擋起來）</label>
       <div style="display:flex;gap:8px;">
-        <input type="email" id="manual-block-email" placeholder="example@gmail.com" style="flex:1;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;" />
+        <input type="email" id="manual-block-email" placeholder="example@gmail.com" style="flex:1;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:16px;" />
         <button class="btn btn-danger" id="manual-block-btn" style="padding:9px 16px;">封鎖</button>
       </div>
     </div>
@@ -501,7 +501,7 @@ export async function renderCategoriesPage(container) {
       <h3 style="font-size:15px;margin-bottom:10px;">自製商品分類</h3>
       <div id="cat-selfmade-list"></div>
       <div style="display:flex;gap:8px;margin-top:10px;">
-        <input type="text" id="cat-selfmade-input" placeholder="新增分類名稱，例如：月餅" style="flex:1;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;" />
+        <input type="text" id="cat-selfmade-input" placeholder="新增分類名稱，例如：月餅" style="flex:1;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:16px;" />
         <button class="btn btn-primary" id="cat-selfmade-add" style="padding:9px 16px;">新增</button>
       </div>
     </div>
@@ -509,7 +509,7 @@ export async function renderCategoriesPage(container) {
       <h3 style="font-size:15px;margin-bottom:10px;">現貨商品分類</h3>
       <div id="cat-resale-list"></div>
       <div style="display:flex;gap:8px;margin-top:10px;">
-        <input type="text" id="cat-resale-input" placeholder="新增分類名稱" style="flex:1;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;" />
+        <input type="text" id="cat-resale-input" placeholder="新增分類名稱" style="flex:1;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:16px;" />
         <button class="btn btn-primary" id="cat-resale-add" style="padding:9px 16px;">新增</button>
       </div>
     </div>
@@ -517,7 +517,7 @@ export async function renderCategoriesPage(container) {
       <h3 style="font-size:15px;margin-bottom:10px;">包材分類</h3>
       <div id="cat-packaging-list"></div>
       <div style="display:flex;gap:8px;margin-top:10px;">
-        <input type="text" id="cat-packaging-input" placeholder="新增分類名稱，例如：盒子" style="flex:1;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;" />
+        <input type="text" id="cat-packaging-input" placeholder="新增分類名稱，例如：盒子" style="flex:1;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:16px;" />
         <button class="btn btn-primary" id="cat-packaging-add" style="padding:9px 16px;">新增</button>
       </div>
     </div>
@@ -526,7 +526,7 @@ export async function renderCategoriesPage(container) {
       <div class="hint" style="margin-bottom:10px;">跟著訂單/產量變動的成本，例如原料、不追蹤數量的小包材。</div>
       <div id="cat-cogs-list"></div>
       <div style="display:flex;gap:8px;margin-top:10px;">
-        <input type="text" id="cat-cogs-input" placeholder="新增類別名稱，例如：原料" style="flex:1;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;" />
+        <input type="text" id="cat-cogs-input" placeholder="新增類別名稱，例如：原料" style="flex:1;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:16px;" />
         <button class="btn btn-primary" id="cat-cogs-add" style="padding:9px 16px;">新增</button>
       </div>
     </div>
@@ -535,7 +535,7 @@ export async function renderCategoriesPage(container) {
       <div class="hint" style="margin-bottom:10px;">不管有沒有訂單都要付的固定支出，例如電費、房租、設備。</div>
       <div id="cat-opex-list"></div>
       <div style="display:flex;gap:8px;margin-top:10px;">
-        <input type="text" id="cat-opex-input" placeholder="新增類別名稱，例如：電費" style="flex:1;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;" />
+        <input type="text" id="cat-opex-input" placeholder="新增類別名稱，例如：電費" style="flex:1;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:16px;" />
         <button class="btn btn-primary" id="cat-opex-add" style="padding:9px 16px;">新增</button>
       </div>
     </div>
@@ -625,7 +625,7 @@ export async function renderUnitsPage(container) {
       <h3 style="font-size:15px;margin-bottom:10px;">數量單位</h3>
       <div id="unit-list"></div>
       <div style="display:flex;gap:8px;margin-top:10px;">
-        <input type="text" id="unit-input" placeholder="新增單位，例如：捲、公斤" style="flex:1;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;" />
+        <input type="text" id="unit-input" placeholder="新增單位，例如：捲、公斤" style="flex:1;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:16px;" />
         <button class="btn btn-primary" id="unit-add" style="padding:9px 16px;">新增</button>
       </div>
     </div>

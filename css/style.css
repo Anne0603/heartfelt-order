@@ -69,6 +69,19 @@ input, select, textarea, button {
   box-sizing: border-box;
 }
 
+/* 保底規則：只要是輸入框/下拉選單/多行文字框，字級一律至少 16px。
+   iOS Safari 有個規則——輸入框字級只要小於 16px，點下去 focus 時
+   會自動放大整個網頁畫面（想讓文字看清楚），體驗起來就像網頁在跳動，
+   很不像一般 App。這個問題之前抓過好幾次、每次都是漏了某個角落的
+   輸入框沒設定字級才犯病，與其每次個別修，不如在這裡設一個保底值，
+   之後不管新增什麼輸入框，只要沒有特別覆寫，都至少有 16px 安全。
+   （個別元素如果有自己指定 font-size，一樣會照舊覆蓋這裡的值。） */
+input[type="text"], input[type="email"], input[type="number"],
+input[type="date"], input[type="tel"], input[type="password"],
+input[type="search"], select, textarea {
+  font-size: 16px;
+}
+
 /* 全站數字輸入框拿掉瀏覽器內建的上下箭頭，看起來更像一般金額/數量輸入框 */
 input[type="number"] {
   -moz-appearance: textfield;
