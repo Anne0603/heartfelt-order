@@ -7,10 +7,10 @@
 // 用意是幫忙回答「我要準備多少原料」這個問題，不用自己一張一張訂單
 // 累加計算。
 // ============================================================
-import { listOrders, normalizeShipStatus } from "./orders.js?v=20260830-65";
-import { listItems, buildItemsIndex, computeStock, STOCK_TRACKED_TYPES } from "./items.js?v=20260830-65";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-65";
-import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-65";
+import { listOrders, normalizeShipStatus } from "./orders.js?v=20260830-66";
+import { listItems, buildItemsIndex, computeStock, STOCK_TRACKED_TYPES } from "./items.js?v=20260830-66";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-66";
+import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-66";
 
 export async function renderPrepListPage(container) {
   let orders = [];
@@ -39,18 +39,24 @@ export async function renderPrepListPage(container) {
       return true;
     });
 
-    const productNeeds = new Map(); // productId -> { name, unit, qty }
-    const materialNeeds = new Map(); // itemId -> { name, unit, qty }
+    const productNeeds = new Map(); // productId -> { name, unit, qty, type, pendingQty }
+    const materialNeeds = new Map(); // itemId -> { name, unit, qty, pendingQty }
 
     relevant.forEach((o) => {
+      // 這張訂單如果還「待確認」，代表資訊可能還會變動——需求量裡要
+      // 額外標出「這裡面有多少其實還不確定」，避免使用者照著數字備料，
+      // 結果客戶後來改單，白白準備錯份量。
+      const isPending = !!o.needsConfirmation;
+
       o.lineItems.forEach((li) => {
         const item = itemsById.get(li.productId);
         const name = item ? item.name : li.productName;
         const unit = item?.unit || "個";
         const pKey = li.productId || li.productName;
-        const pCur = productNeeds.get(pKey) || { name, unit, qty: 0 };
+        const pCur = productNeeds.get(pKey) || { name, unit, qty: 0, pendingQty: 0, productId: li.productId, type: item?.type };
         pCur.name = name;
         pCur.qty += li.qty;
+        if (isPending) pCur.pendingQty += li.qty;
         productNeeds.set(pKey, pCur);
 
         // 自製商品要把配方展開，算出包材/原料的總需求量
@@ -60,9 +66,10 @@ export async function renderPrepListPage(container) {
             const matName = matItem ? matItem.name : "（已刪除的項目）";
             const matUnit = matItem?.unit || "個";
             const needQty = (Number(r.qty) || 1) * li.qty;
-            const mCur = materialNeeds.get(r.itemId) || { name: matName, unit: matUnit, qty: 0 };
+            const mCur = materialNeeds.get(r.itemId) || { name: matName, unit: matUnit, qty: 0, pendingQty: 0 };
             mCur.name = matName;
             mCur.qty += needQty;
+            if (isPending) mCur.pendingQty += needQty;
             materialNeeds.set(r.itemId, mCur);
           });
         }
@@ -77,7 +84,15 @@ export async function renderPrepListPage(container) {
       return { ...m, currentStock, shortfall };
     }).sort((a, b) => (b.shortfall || 0) - (a.shortfall || 0) || b.qty - a.qty);
 
-    const products = [...productNeeds.values()].sort((a, b) => b.qty - a.qty);
+    // 商品需求也要跟庫存比對——現貨商品（resale）本身就有庫存追蹤，
+    // 之前漏掉沒有跟包材用同一套邏輯比對，導致看不出現貨商品夠不夠賣。
+    // 自製商品（self_made）沒有庫存概念（做多少賣多少），比對欄位顯示「—」。
+    const products = [...productNeeds.values()].map((p) => {
+      const item = p.productId ? itemsById.get(p.productId) : null;
+      const currentStock = item && STOCK_TRACKED_TYPES.includes(item.type) ? computeStock(item) : null;
+      const shortfall = currentStock !== null ? Math.max(0, p.qty - currentStock) : null;
+      return { ...p, currentStock, shortfall };
+    }).sort((a, b) => (b.shortfall || 0) - (a.shortfall || 0) || b.qty - a.qty);
 
     return { orderCount: relevant.length, products, materials };
   }
@@ -104,13 +119,19 @@ export async function renderPrepListPage(container) {
       </div>
 
       <div class="card" style="margin-bottom:16px;">
-        <h3 style="font-size:15px;margin-bottom:10px;">商品需求（要準備幾份）</h3>
+        <h3 style="font-size:15px;margin-bottom:4px;">商品需求（要準備幾份）</h3>
+        <div class="hint" style="margin-bottom:10px;">現貨商品已經跟目前庫存比對過；自製商品做多少賣多少，沒有庫存概念，比對欄位顯示「—」。</div>
         ${products.length === 0 ? `<div class="hint" style="text-align:center;padding:16px 0;">沒有符合條件的訂單</div>` : `
           <table class="simple-table">
-            <thead><tr><th>商品</th><th style="text-align:right;">需要準備</th></tr></thead>
+            <thead><tr><th>商品</th><th style="text-align:right;">需要準備</th><th style="text-align:right;">目前庫存</th><th style="text-align:right;">還缺</th></tr></thead>
             <tbody>
               ${products.map((p) => `
-                <tr><td>${p.name}</td><td style="text-align:right;font-family:var(--font-mono);font-weight:700;">${p.qty} ${p.unit}</td></tr>
+                <tr>
+                  <td>${p.name}${p.pendingQty > 0 ? `<div class="hint">其中 ${p.pendingQty} ${p.unit} 來自尚待確認的訂單</div>` : ""}</td>
+                  <td style="text-align:right;font-family:var(--font-mono);font-weight:700;">${p.qty} ${p.unit}</td>
+                  <td style="text-align:right;font-family:var(--font-mono);color:var(--text-muted);">${p.currentStock !== null ? p.currentStock : "—"}</td>
+                  <td style="text-align:right;font-family:var(--font-mono);font-weight:700;color:${(p.shortfall || 0) > 0 ? "var(--rose)" : "var(--jade)"};">${p.shortfall !== null ? (p.shortfall > 0 ? p.shortfall : "夠用") : "—"}</td>
+                </tr>
               `).join("")}
             </tbody>
           </table>
@@ -129,7 +150,7 @@ export async function renderPrepListPage(container) {
             <tbody>
               ${materials.map((m) => `
                 <tr>
-                  <td>${m.name}</td>
+                  <td>${m.name}${m.pendingQty > 0 ? `<div class="hint">其中 ${m.pendingQty} ${m.unit} 來自尚待確認的訂單</div>` : ""}</td>
                   <td style="text-align:right;font-family:var(--font-mono);">${m.qty} ${m.unit}</td>
                   <td style="text-align:right;font-family:var(--font-mono);color:var(--text-muted);">${m.currentStock !== null ? m.currentStock : "—"}</td>
                   <td style="text-align:right;font-family:var(--font-mono);font-weight:700;color:${(m.shortfall || 0) > 0 ? "var(--rose)" : "var(--jade)"};">${m.shortfall !== null ? (m.shortfall > 0 ? m.shortfall : "夠用") : "—"}</td>
