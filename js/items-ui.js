@@ -1,8 +1,8 @@
 // ============================================================
 // 商品與庫存頁面 UI（合併版）
 // ============================================================
-import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-54";
-import { currentSession, wireNameResolution } from "./auth.js?v=20260830-54";
+import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-55";
+import { currentSession, wireNameResolution } from "./auth.js?v=20260830-55";
 import {
   listItems, createItem, updateItem, setItemArchived, deleteItemPermanently,
   addPurchaseBatch, stocktakeAdjust, disposeStock,
@@ -10,16 +10,16 @@ import {
   voidRecord, permanentlyDelete,
   computeStock, computeAvgCost, calcItemCost, buildItemsIndex,
   TYPE_LABELS, ORDERABLE_TYPES, STOCK_TRACKED_TYPES,
-} from "./items.js?v=20260830-54";
-import { listCategories } from "./categories.js?v=20260830-54";
-import { listUnits } from "./units.js?v=20260830-54";
-import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js?v=20260830-54";
-import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260830-54";
-import { openSearchPicker } from "./picker-ui.js?v=20260830-54";
-import { exportItems } from "./export-xlsx.js?v=20260830-54";
-import { setFab } from "./fab-ui.js?v=20260830-54";
-import { iconHtml } from "./icons.js?v=20260830-54";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-54";
+} from "./items.js?v=20260830-55";
+import { listCategories } from "./categories.js?v=20260830-55";
+import { listUnits } from "./units.js?v=20260830-55";
+import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js?v=20260830-55";
+import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260830-55";
+import { openSearchPicker } from "./picker-ui.js?v=20260830-55";
+import { exportItems } from "./export-xlsx.js?v=20260830-55";
+import { setFab } from "./fab-ui.js?v=20260830-55";
+import { iconHtml } from "./icons.js?v=20260830-55";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-55";
 
 const TYPE_HINTS = {
   self_made: "自己現做的東西，客戶可訂購。不追蹤庫存量，成本 = 配方裡每一項包材的成本加總（原料/人工每月算在「利潤總覽」）。",
@@ -213,18 +213,18 @@ export async function renderItemsPage(container, initialFilter = null) {
 
       return `
         <div class="card" style="margin-bottom:10px;cursor:pointer;" data-open="${item.id}">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
-            <div style="display:flex;gap:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+            <div style="display:flex;gap:12px;min-width:0;flex:1;">
               ${item.photoUrl ? `<img src="${item.photoUrl}" data-preview="${item.photoUrl}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0;cursor:pointer;">` : `<div style="width:44px;height:44px;border-radius:8px;background:var(--paper);flex-shrink:0;"></div>`}
-              <div>
-                <div style="font-weight:700;font-size:16px;color:var(--ink);">${item.name}</div>
+              <div style="min-width:0;">
+                <div style="font-weight:700;font-size:16px;color:var(--ink);word-break:break-word;">${item.name}</div>
                 <div style="font-size:13px;color:var(--text-muted);margin-top:2px;">${TYPE_LABELS[item.type]}${item.category ? " · " + item.category : ""}</div>
               </div>
             </div>
-            <div style="text-align:right;">
-              ${ORDERABLE_TYPES.includes(item.type) ? `<div style="font-family:var(--font-mono);font-size:18px;font-weight:700;color:var(--ink);">$${item.price}</div>` : ""}
-              ${STOCK_TRACKED_TYPES.includes(item.type) ? `<div style="font-family:var(--font-mono);font-size:${ORDERABLE_TYPES.includes(item.type) ? "12px" : "18px"};font-weight:700;color:${isLow ? "var(--rose)" : "var(--ink)"};">庫存 ${stock} ${item.unit || "個"}</div>` : ""}
-              ${canSeeProfit() && calc ? `<div style="font-size:12px;color:${calc.profit >= 0 ? "var(--jade)" : "var(--rose)"};">毛利 $${calc.profit.toFixed(1)}${calc.isFullCost ? "" : "*"}</div>` : ""}
+            <div style="text-align:right;flex-shrink:0;">
+              ${ORDERABLE_TYPES.includes(item.type) ? `<div style="font-family:var(--font-mono);font-size:18px;font-weight:700;color:var(--ink);white-space:nowrap;">$${item.price}</div>` : ""}
+              ${STOCK_TRACKED_TYPES.includes(item.type) ? `<div style="font-family:var(--font-mono);font-size:${ORDERABLE_TYPES.includes(item.type) ? "12px" : "18px"};font-weight:700;color:${isLow ? "var(--rose)" : "var(--ink)"};white-space:nowrap;">庫存 ${stock} ${item.unit || "個"}</div>` : ""}
+              ${canSeeProfit() && calc ? `<div style="font-size:12px;color:${calc.profit >= 0 ? "var(--jade)" : "var(--rose)"};white-space:nowrap;">毛利 $${calc.profit.toFixed(1)}${calc.isFullCost ? "" : "*"}</div>` : ""}
             </div>
           </div>
           ${isLow ? `<div class="seal-badge bad" style="margin-top:8px;"><span class="dot"></span>低於庫存門檻(${item.lowStockThreshold})</div>` : ""}

@@ -6,7 +6,7 @@
 // 改名會連動更新所有正在使用這個分類的資料，不留孤兒分類。
 // 刪除前會檢查有沒有東西在用，有的話擋下來、告訴你有幾筆在用。
 // ============================================================
-import { db } from "./firebase-config.js?v=20260830-54";
+import { db } from "./firebase-config.js?v=20260830-55";
 import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
   query, where, serverTimestamp, writeBatch

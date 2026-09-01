@@ -1,21 +1,21 @@
 // ============================================================
 // 訂單管理頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-54";
-import { currentSession, wireNameResolution } from "./auth.js?v=20260830-54";
+import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-55";
+import { currentSession, wireNameResolution } from "./auth.js?v=20260830-55";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, updateOrderNoteAndAddress, getPaymentStatus,
   markShipped, voidOrder, deleteOrderPermanently, registerReturn, listReturnsByOrder, getOutstandingBalance,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel, normalizeShipStatus,
-} from "./orders.js?v=20260830-54";
-import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260830-54";
-import { listContacts, createContact } from "./contacts.js?v=20260830-54";
-import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260830-54";
-import { exportOrders } from "./export-xlsx.js?v=20260830-54";
-import { setFab, clearFab } from "./fab-ui.js?v=20260830-54";
-import { openSearchPicker } from "./picker-ui.js?v=20260830-54";
-import { openModal } from "./modal-ui.js?v=20260830-54";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-54";
+} from "./orders.js?v=20260830-55";
+import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260830-55";
+import { listContacts, createContact } from "./contacts.js?v=20260830-55";
+import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260830-55";
+import { exportOrders } from "./export-xlsx.js?v=20260830-55";
+import { setFab, clearFab } from "./fab-ui.js?v=20260830-55";
+import { openSearchPicker } from "./picker-ui.js?v=20260830-55";
+import { openModal } from "./modal-ui.js?v=20260830-55";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-55";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
