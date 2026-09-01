@@ -3,17 +3,17 @@
 // Cloudinary 設定 / 待審核申請 / 成員
 // 品牌圖案改成「直接點側邊欄 Logo 上傳」，邏輯在 app.js
 // ============================================================
-import { db } from "./firebase-config.js?v=20260830-56";
+import { db } from "./firebase-config.js?v=20260830-57";
 import {
   doc, getDoc, setDoc, deleteDoc,
   collection, getDocs, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-56";
-import { currentSession, ROLE_LABELS } from "./auth.js?v=20260830-56";
-import { listCategories, createCategory, renameCategory, deleteCategory } from "./categories.js?v=20260830-56";
-import { listUnits, createUnit, renameUnit, deleteUnit } from "./units.js?v=20260830-56";
-import { confirmDialog, openModal } from "./modal-ui.js?v=20260830-56";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-56";
+import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-57";
+import { currentSession, ROLE_LABELS } from "./auth.js?v=20260830-57";
+import { listCategories, createCategory, renameCategory, deleteCategory } from "./categories.js?v=20260830-57";
+import { listUnits, createUnit, renameUnit, deleteUnit } from "./units.js?v=20260830-57";
+import { confirmDialog, openModal } from "./modal-ui.js?v=20260830-57";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-57";
 
 const CLOUDINARY_DOC = doc(db, "publicSettings", "cloudinary");
 const BRAND_DOC = doc(db, "publicSettings", "brand");
@@ -52,7 +52,17 @@ export async function uploadImageToCloudinary(file) {
     method: "POST",
     body: formData,
   });
-  if (!res.ok) throw new Error("上傳失敗");
+  if (!res.ok) {
+    // 把 Cloudinary 實際回傳的失敗原因顯示出來（例如檔案格式不允許、
+    // 檔案太大等），不要只丟一句籠統的「上傳失敗」——不然使用者跟
+    // 開發者都沒辦法知道真正卡在哪裡，很難排查。
+    let detail = "";
+    try {
+      const errData = await res.json();
+      detail = errData?.error?.message || "";
+    } catch (e) { /* 讀不到細節就算了，至少還有下面的狀態碼 */ }
+    throw new Error(`上傳失敗（${res.status}）${detail ? "：" + detail : ""}`);
+  }
   const data = await res.json();
   return data.secure_url;
 }
