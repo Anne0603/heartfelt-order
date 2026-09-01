@@ -12,14 +12,14 @@
 // lineItems[].unitCost，之後商品成本再怎麼調整，都不會動到這張訂單
 // 已經算好的毛利。
 // ============================================================
-import { db } from "./firebase-config.js?v=20260830-66";
+import { db } from "./firebase-config.js?v=20260830-67";
 import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
   serverTimestamp, runTransaction, query, where, orderBy as fbOrderBy
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { currentSession, getDisplayName } from "./auth.js?v=20260830-66";
-import { addUsage, listUsagesByOrder, voidRecord, calcItemCost, permanentlyDelete, restockFromReturn } from "./items.js?v=20260830-66";
-import { logActivity } from "./activity-log.js?v=20260830-66";
+import { currentSession, getDisplayName } from "./auth.js?v=20260830-67";
+import { addUsage, listUsagesByOrder, voidRecord, calcItemCost, permanentlyDelete, restockFromReturn, expandRecipe } from "./items.js?v=20260830-67";
+import { logActivity } from "./activity-log.js?v=20260830-67";
 
 const ordersCol = collection(db, "orders");
 
@@ -285,10 +285,14 @@ export async function markShipped(orderId, itemsById) {
     const item = itemsById.get(li.productId);
     if (!item) continue;
     if (item.type === "self_made") {
-      for (const r of item.recipe || []) {
+      // 配方裡如果引用到其他自製商品（例如禮盒裝了單顆蛋黃酥），要
+      // 完全展開到最終的包材才能扣庫存——自製商品本身沒有庫存概念，
+      // 直接對它扣庫存會出錯。
+      const { packagingNeeds } = expandRecipe(item, li.qty, itemsById);
+      for (const [materialItemId, qty] of packagingNeeds) {
         await addUsage({
-          itemId: r.itemId,
-          qty: (r.qty || 1) * li.qty,
+          itemId: materialItemId,
+          qty,
           note: `訂單 ${order.orderNumber} 出貨自動扣`,
           source: "order",
           orderId,
@@ -404,10 +408,14 @@ export async function registerReturn(orderId, { items, note }, itemsById) {
     // 跟出貨扣庫存（markShipped）用同一套「自製商品扣配方包材／現貨商品
     // 扣自己」的邏輯，只是方向相反：退貨時把當初扣掉的加回去。
     if (item.type === "self_made") {
-      for (const r of item.recipe || []) {
+      // 跟出貨扣庫存（markShipped）用同一套展開邏輯，只是方向相反：
+      // 退貨時把當初扣掉的包材加回去。配方裡如果引用到其他自製商品，
+      // 一樣要完全展開到最終包材才能回補。
+      const { packagingNeeds } = expandRecipe(item, ri.qty, itemsById);
+      for (const [materialItemId, qty] of packagingNeeds) {
         await restockFromReturn({
-          itemId: r.itemId,
-          qty: (r.qty || 1) * ri.qty,
+          itemId: materialItemId,
+          qty,
           note: `訂單 ${order.orderNumber} 退貨回補`,
           orderId,
         });

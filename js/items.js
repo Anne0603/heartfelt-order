@@ -23,14 +23,14 @@
 //   itemUsages/{id}      領用/消耗記錄（含出貨自動扣、手動例外）
 //   itemStocktakes/{id}  盤點記錄
 // ============================================================
-import { db } from "./firebase-config.js?v=20260830-66";
+import { db } from "./firebase-config.js?v=20260830-67";
 import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, runTransaction,
   serverTimestamp, query, where
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { currentSession, getDisplayName } from "./auth.js?v=20260830-66";
-import { logActivity } from "./activity-log.js?v=20260830-66";
-import { addExpense } from "./expenses.js?v=20260830-66";
+import { currentSession, getDisplayName } from "./auth.js?v=20260830-67";
+import { logActivity } from "./activity-log.js?v=20260830-67";
+import { addExpense } from "./expenses.js?v=20260830-67";
 
 const itemsCol = collection(db, "items");
 const purchasesCol = collection(db, "itemPurchases");
@@ -68,10 +68,17 @@ export function computeAvgCost(item) {
 
 /**
  * 算出商品的成本/毛利（只有 self_made / resale 有意義）。
- * self_made：成本 = 配方裡每一項包材成本加總（不含原料/人工，那些每月算在利潤總覽）
- * resale：成本 = 自己的加權平均進貨成本
+ * self_made：成本 = 配方裡每一項的成本加總。配方項目可以是包材
+ * （用進貨均價），也可以是其他自製商品（例如禮盒裡裝了單顆蛋黃酥，
+ * 這時候要遞迴算出那個自製商品自己的成本）。不含原料/人工，
+ * 那些每月算在「利潤總覽」。
+ *
+ * _visiting 參數是內部用的循環引用偵測——如果 A 的配方用到 B、
+ * B 的配方又繞回用到 A，遞迴算成本會沒完沒了讓網頁卡死，這裡
+ * 記錄「目前正在算誰的成本」，發現繞回自己就直接停止，回傳一個
+ * 明確的警告訊息，不會讓畫面卡住或算出奇怪的數字。
  */
-export function calcItemCost(item, itemsById) {
+export function calcItemCost(item, itemsById, _visiting) {
   if (item.type === "resale") {
     const cost = computeAvgCost(item);
     const profit = item.price - cost;
@@ -83,10 +90,27 @@ export function calcItemCost(item, itemsById) {
     };
   }
   if (item.type === "self_made") {
+    const visiting = _visiting || new Set();
+    if (visiting.has(item.id)) {
+      return {
+        cost: 0, profit: item.price,
+        margin: 1, isFullCost: false,
+        breakdown: [{ label: "⚠️ 配方形成循環引用，成本無法計算，請檢查配方設定", amount: 0 }],
+      };
+    }
+    const nextVisiting = new Set(visiting);
+    nextVisiting.add(item.id);
+
     const recipe = item.recipe || [];
     const breakdown = recipe.map((r) => {
       const comp = itemsById?.get(r.itemId);
-      const amount = comp ? computeAvgCost(comp) * r.qty : 0;
+      let unitCost = 0;
+      if (comp) {
+        unitCost = comp.type === "self_made"
+          ? calcItemCost(comp, itemsById, nextVisiting).cost
+          : computeAvgCost(comp);
+      }
+      const amount = unitCost * r.qty;
       return {
         label: comp ? `${comp.name} x${r.qty}` : "（找不到項目）",
         amount,
@@ -281,7 +305,45 @@ export async function addUsage({ itemId, qty, note, source = "manual", orderId =
 }
 
 /**
- * 退貨回補庫存：客戶退回的商品狀況良好、可以繼續賣，就用這個把庫存加
+ * 把自製商品的配方完全展開——配方裡如果引用到「其他自製商品」
+ * （例如禮盒裡裝了單顆蛋黃酥），會繼續往下展開那個自製商品自己的
+ * 配方，一路展開到全部變成包材為止。
+ *
+ * 回傳兩份 Map：
+ *   selfMadeNeeds：展開過程中遇到的每一層自製商品需要幾份
+ *                  （例如禮盒展開後，蛋黃酥需要幾顆）
+ *   packagingNeeds：最終真正的包材需求（出貨扣庫存/退貨回補都是
+ *                   扣這份，不是扣自製商品——自製商品沒有庫存概念）
+ *
+ * 有循環引用保護：如果 A 的配方繞回用到自己（或透過 B 繞回來），
+ * 遇到就停止展開那個分支，不會卡死。
+ */
+export function expandRecipe(item, multiplier, itemsById) {
+  const selfMadeNeeds = new Map();
+  const packagingNeeds = new Map();
+
+  function walk(curItem, curMultiplier, visiting) {
+    if (visiting.has(curItem.id)) return;
+    const nextVisiting = new Set(visiting);
+    nextVisiting.add(curItem.id);
+    for (const r of curItem.recipe || []) {
+      const comp = itemsById.get(r.itemId);
+      if (!comp) continue;
+      const qty = (r.qty || 0) * curMultiplier;
+      if (qty <= 0) continue;
+      if (comp.type === "self_made") {
+        selfMadeNeeds.set(comp.id, (selfMadeNeeds.get(comp.id) || 0) + qty);
+        walk(comp, qty, nextVisiting);
+      } else {
+        packagingNeeds.set(r.itemId, (packagingNeeds.get(r.itemId) || 0) + qty);
+      }
+    }
+  }
+  walk(item, multiplier, new Set());
+  return { selfMadeNeeds, packagingNeeds };
+}
+
+
  * 回去。跟 addUsage 是相反方向的操作，故意獨立成一個函式而不是共用
  * 「傳負數 qty 給 addUsage」這種寫法——避免在領用記錄列表裡看到一筆
  * 「領用 -3 個」這種容易誤讀的紀錄，這裡用獨立的 source: 'return'，

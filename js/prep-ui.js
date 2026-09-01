@@ -7,10 +7,10 @@
 // 用意是幫忙回答「我要準備多少原料」這個問題，不用自己一張一張訂單
 // 累加計算。
 // ============================================================
-import { listOrders, normalizeShipStatus } from "./orders.js?v=20260830-66";
-import { listItems, buildItemsIndex, computeStock, STOCK_TRACKED_TYPES } from "./items.js?v=20260830-66";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-66";
-import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-66";
+import { listOrders, normalizeShipStatus } from "./orders.js?v=20260830-67";
+import { listItems, buildItemsIndex, computeStock, STOCK_TRACKED_TYPES, expandRecipe } from "./items.js?v=20260830-67";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-67";
+import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-67";
 
 export async function renderPrepListPage(container) {
   let orders = [];
@@ -59,19 +59,34 @@ export async function renderPrepListPage(container) {
         if (isPending) pCur.pendingQty += li.qty;
         productNeeds.set(pKey, pCur);
 
-        // 自製商品要把配方展開，算出包材/原料的總需求量
-        if (item && item.type === "self_made" && Array.isArray(item.recipe)) {
-          item.recipe.forEach((r) => {
-            const matItem = itemsById.get(r.itemId);
+        // 自製商品要把配方完全展開：包材需求算進「包材/原料需求」表，
+        // 如果配方裡引用到「其他自製商品」（例如禮盒裝了單顆蛋黃酥），
+        // 那些單顆商品的需求量也要一併加進「商品需求」表——不然像禮盒
+        // 這種組合商品賣出去，系統會完全不知道裡面裝的東西也要多做。
+        if (item && item.type === "self_made") {
+          const { selfMadeNeeds, packagingNeeds } = expandRecipe(item, li.qty, itemsById);
+
+          for (const [subItemId, subQty] of selfMadeNeeds) {
+            const subItem = itemsById.get(subItemId);
+            const subName = subItem ? subItem.name : "（已刪除的項目）";
+            const subUnit = subItem?.unit || "個";
+            const sCur = productNeeds.get(subItemId) || { name: subName, unit: subUnit, qty: 0, pendingQty: 0, productId: subItemId, type: subItem?.type };
+            sCur.name = subName;
+            sCur.qty += subQty;
+            if (isPending) sCur.pendingQty += subQty;
+            productNeeds.set(subItemId, sCur);
+          }
+
+          for (const [matItemId, matQty] of packagingNeeds) {
+            const matItem = itemsById.get(matItemId);
             const matName = matItem ? matItem.name : "（已刪除的項目）";
             const matUnit = matItem?.unit || "個";
-            const needQty = (Number(r.qty) || 1) * li.qty;
-            const mCur = materialNeeds.get(r.itemId) || { name: matName, unit: matUnit, qty: 0, pendingQty: 0 };
+            const mCur = materialNeeds.get(matItemId) || { name: matName, unit: matUnit, qty: 0, pendingQty: 0 };
             mCur.name = matName;
-            mCur.qty += needQty;
-            if (isPending) mCur.pendingQty += needQty;
-            materialNeeds.set(r.itemId, mCur);
-          });
+            mCur.qty += matQty;
+            if (isPending) mCur.pendingQty += matQty;
+            materialNeeds.set(matItemId, mCur);
+          }
         }
       });
     });

@@ -1,8 +1,8 @@
 // ============================================================
 // 商品與庫存頁面 UI（合併版）
 // ============================================================
-import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-66";
-import { currentSession, wireNameResolution } from "./auth.js?v=20260830-66";
+import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-67";
+import { currentSession, wireNameResolution } from "./auth.js?v=20260830-67";
 import {
   listItems, createItem, updateItem, setItemArchived, deleteItemPermanently,
   addPurchaseBatch, stocktakeAdjust, disposeStock,
@@ -10,16 +10,16 @@ import {
   voidRecord, permanentlyDelete,
   computeStock, computeAvgCost, calcItemCost, buildItemsIndex,
   TYPE_LABELS, ORDERABLE_TYPES, STOCK_TRACKED_TYPES,
-} from "./items.js?v=20260830-66";
-import { listCategories } from "./categories.js?v=20260830-66";
-import { listUnits } from "./units.js?v=20260830-66";
-import { uploadImageToCloudinary } from "./settings.js?v=20260830-66";
-import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260830-66";
-import { openSearchPicker } from "./picker-ui.js?v=20260830-66";
-import { exportItems } from "./export-xlsx.js?v=20260830-66";
-import { setFab } from "./fab-ui.js?v=20260830-66";
-import { iconHtml } from "./icons.js?v=20260830-66";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-66";
+} from "./items.js?v=20260830-67";
+import { listCategories } from "./categories.js?v=20260830-67";
+import { listUnits } from "./units.js?v=20260830-67";
+import { uploadImageToCloudinary } from "./settings.js?v=20260830-67";
+import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260830-67";
+import { openSearchPicker } from "./picker-ui.js?v=20260830-67";
+import { exportItems } from "./export-xlsx.js?v=20260830-67";
+import { setFab } from "./fab-ui.js?v=20260830-67";
+import { iconHtml } from "./icons.js?v=20260830-67";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-67";
 
 const TYPE_HINTS = {
   self_made: "自己現做的東西，客戶可訂購。不追蹤庫存量，成本 = 配方裡每一項包材的成本加總（原料/人工每月算在「利潤總覽」）。",
@@ -563,7 +563,15 @@ export async function renderItemsPage(container, initialFilter = null) {
   function openItemModal(item = null) {
     const isEdit = !!item;
     const initialType = item?.type || "self_made";
-    const packagingItems = items.filter((i) => i.type === "packaging" && i.status !== "archived");
+    // 配方可以選「包材」或「其他自製商品」（例如禮盒裡面裝了哪些單顆
+    // 商品），但不能選自己——排除自己是為了避免最單純的「直接自我引用」
+    // 這種一眼就看得出來的循環設定；更深層的循環（A用到B、B又用到A）
+    // 這裡沒辦法完全防住，交給 calcItemCost 算成本時的循環偵測機制擋下來。
+    const recipeOptions = items.filter((i) =>
+      (i.type === "packaging" || i.type === "self_made") &&
+      i.status !== "archived" &&
+      i.id !== item?.id
+    );
     let recipeRows = isEdit && item.type === "self_made"
       ? (item.recipe || []).map((r) => ({ itemId: r.itemId, qty: r.qty }))
       : [{ itemId: "", qty: 1 }];
@@ -613,9 +621,9 @@ export async function renderItemsPage(container, initialFilter = null) {
       </div>
 
       <div id="m-recipe-section" style="display:${initialType === "self_made" ? "block" : "none"};">
-        <label style="display:block;font-size:14.5px;font-weight:600;color:var(--ink);margin-bottom:6px;">配方（選填，可以列好幾種包材）</label>
+        <label style="display:block;font-size:14.5px;font-weight:600;color:var(--ink);margin-bottom:6px;">配方（選填，可以列包材，也可以列其他自製商品——例如禮盒裡裝了哪些單顆商品）</label>
         <div style="display:flex;gap:6px;padding:0 2px;margin-bottom:4px;">
-          <div style="flex:2;font-size:12px;color:var(--text-muted);">包材</div>
+          <div style="flex:2;font-size:12px;color:var(--text-muted);">包材／自製商品</div>
           <div style="width:80px;font-size:12px;color:var(--text-muted);">用幾個</div>
         </div>
         <div id="m-recipe-rows"></div>
@@ -655,10 +663,11 @@ export async function renderItemsPage(container, initialFilter = null) {
       const rowsEl = overlay.querySelector("#m-recipe-rows");
       if (!rowsEl) return;
       rowsEl.innerHTML = recipeRows.map((r, idx) => {
-        const comp = packagingItems.find((i) => i.id === r.itemId);
+        const comp = recipeOptions.find((i) => i.id === r.itemId);
+        const compLabel = comp ? `${comp.name}${comp.type === "self_made" ? "（自製）" : ""}` : "點選項目";
         return `
           <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;" data-rrow="${idx}">
-            <button type="button" class="r-item-btn picker-trigger compact" style="flex:2;">${comp ? comp.name : "點選包材"}</button>
+            <button type="button" class="r-item-btn picker-trigger compact" style="flex:2;">${compLabel}</button>
             <input type="number" class="r-qty" placeholder="用量" value="${r.qty}" style="width:80px;padding:8px;border:1px solid var(--paper-line);border-radius:8px;" />
             ${recipeRows.length > 1 ? `<button class="btn btn-danger r-remove" type="button" style="padding:6px 10px;font-size:12px;">刪</button>` : ""}
           </div>
@@ -668,12 +677,12 @@ export async function renderItemsPage(container, initialFilter = null) {
         const idx = Number(rowEl.getAttribute("data-rrow"));
         rowEl.querySelector(".r-item-btn").addEventListener("click", () => {
           openSearchPicker({
-            title: "選擇包材",
-            items: packagingItems,
+            title: "選擇包材或自製商品",
+            items: recipeOptions,
             renderLabel: (i) => i.name,
-            renderSub: (i) => `庫存 ${computeStock(i)} ${i.unit || "個"}`,
+            renderSub: (i) => i.type === "self_made" ? "自製商品" : `包材・庫存 ${computeStock(i)} ${i.unit || "個"}`,
             renderThumb: (i) => i.photoUrl || null,
-            emptyText: "還沒有任何包材，請先新增",
+            emptyText: "還沒有可以選的包材或自製商品，請先新增",
             onSelect: (i) => { recipeRows[idx].itemId = i.id; renderRecipeRows(); },
           });
         });
