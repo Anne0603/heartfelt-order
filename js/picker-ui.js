@@ -2,6 +2,8 @@
 // 共用的「可搜尋、置中彈跳」選擇視窗
 // 取代普通下拉選單，選項多的時候（客戶、商品）比較好用
 // ============================================================
+import { mountOverlay } from "./modal-ui.js?v=20260830-60";
+
 export function openSearchPicker({ title, items, renderLabel, renderSub, renderThumb, onSelect, emptyText = "沒有可選的項目" }) {
   const overlay = document.createElement("div");
   overlay.style.cssText = "position:fixed;inset:0;background:rgba(20,22,28,0.5);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;";
@@ -13,7 +15,11 @@ export function openSearchPicker({ title, items, renderLabel, renderSub, renderT
       <div id="picker-list" style="overflow-y:auto;flex:1;"></div>
     </div>
   `;
-  document.body.appendChild(overlay);
+  // 背景頁面捲動鎖定的邏輯統一放在 modal-ui.js 的 mountOverlay 裡，
+  // 這裡直接用，跟全站其他彈窗共用同一套機制、同一個計數器，
+  // 才能正確處理「彈窗疊彈窗」的情況（例如這個選擇視窗如果剛好是從
+  // 另一個表單彈窗裡開出來的）。
+  mountOverlay(overlay);
   overlay.querySelector("#picker-close-x").addEventListener("click", () => overlay.remove());
 
   const searchInput = overlay.querySelector("#picker-search");

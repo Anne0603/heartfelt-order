@@ -1,6 +1,63 @@
 // ============================================================
 // 共用彈跳視窗：右上角 X 關閉（不會因為誤觸外部而清空表單內容）
 // ============================================================
+
+// ---------- 背景頁面捲動鎖定 ----------
+// 彈窗開著的時候，把背後那頁的捲動鎖住——不然在彈窗裡面滑動（例如
+// 搜尋清單）時，手指劃過的地方如果不小心壓到背景，背景會跟著一起
+// 滑動，感覺很不像原生 App。
+//
+// 用「數一數目前開著幾層彈窗」的方式處理，因為有些情境是彈窗疊彈窗
+// （例如表單彈窗上面又跳出一個確認對話框），要等最外層也關掉、
+// 完全沒有任何彈窗開著了，才真的解鎖背景捲動，不然裡面那層一關，
+// 背景就會提早解鎖，外層彈窗還開著卻可以滑動背景，一樣不對。
+//
+// 用 MutationObserver 自動偵測彈窗何時從畫面上被移除（不管是哪個
+// 按鈕觸發的 remove()），呼叫端完全不用自己記得要解鎖，避免像之前
+// 輸入框字級問題一樣，因為到處都有呼叫點，一個一個改容易漏掉。
+let scrollLockCount = 0;
+let savedScrollY = 0;
+
+function lockBodyScroll() {
+  if (scrollLockCount === 0) {
+    savedScrollY = window.scrollY;
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${savedScrollY}px`;
+    document.body.style.left = "0";
+    document.body.style.right = "0";
+  }
+  scrollLockCount++;
+}
+
+function unlockBodyScroll() {
+  scrollLockCount = Math.max(0, scrollLockCount - 1);
+  if (scrollLockCount === 0) {
+    document.body.style.position = "";
+    document.body.style.top = "";
+    document.body.style.left = "";
+    document.body.style.right = "";
+    window.scrollTo(0, savedScrollY);
+  }
+}
+
+/**
+ * 掛上這個彈窗：鎖住背景捲動，並自動盯著這個彈窗元素，
+ * 一旦它從畫面上消失（不管誰呼叫 .remove()），就自動解鎖。
+ * 所有會跳出全螢幕遮罩彈窗的地方都要呼叫這個，取代自己手動
+ * append 到 document.body。
+ */
+export function mountOverlay(overlay) {
+  lockBodyScroll();
+  document.body.appendChild(overlay);
+  const observer = new MutationObserver(() => {
+    if (!document.body.contains(overlay)) {
+      unlockBodyScroll();
+      observer.disconnect();
+    }
+  });
+  observer.observe(document.body, { childList: true });
+}
+
 /**
  * 圖片放大預覽（點縮圖看清楚用），點外面或 X 都能關閉。
  */
@@ -13,7 +70,7 @@ export function openImageLightbox(url) {
   `;
   overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
   overlay.querySelector("#lb-close").addEventListener("click", () => overlay.remove());
-  document.body.appendChild(overlay);
+  mountOverlay(overlay);
 }
 
 export function openModal(innerHtml, width = 560) {
@@ -26,7 +83,7 @@ export function openModal(innerHtml, width = 560) {
     </div>
   `;
   overlay.querySelector("#modal-close-x").addEventListener("click", () => overlay.remove());
-  document.body.appendChild(overlay);
+  mountOverlay(overlay);
   return overlay;
 }
 
@@ -46,7 +103,7 @@ export function confirmDialog(message, { confirmLabel = "確定", danger = false
         </div>
       </div>
     `;
-    document.body.appendChild(overlay);
+    mountOverlay(overlay);
     overlay.querySelector("#cf-cancel").addEventListener("click", () => { overlay.remove(); resolve(false); });
     overlay.querySelector("#cf-ok").addEventListener("click", () => { overlay.remove(); resolve(true); });
   });
@@ -67,7 +124,7 @@ export function alertDialog(message) {
         </div>
       </div>
     `;
-    document.body.appendChild(overlay);
+    mountOverlay(overlay);
     overlay.querySelector("#al-ok").addEventListener("click", () => { overlay.remove(); resolve(); });
   });
 }
