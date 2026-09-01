@@ -3,15 +3,19 @@
 // 一份聯絡人清單，用 roles 陣列區分身份（可以同時是客戶+廠商）：
 //   roles: ['customer'] | ['supplier'] | ['customer','supplier']
 // ============================================================
-import { db } from "./firebase-config.js?v=20260830-55";
+import { db } from "./firebase-config.js?v=20260830-56";
 import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { currentSession, getDisplayName } from "./auth.js?v=20260830-55";
-import { logActivity } from "./activity-log.js?v=20260830-55";
+import { currentSession, getDisplayName } from "./auth.js?v=20260830-56";
+import { logActivity } from "./activity-log.js?v=20260830-56";
 
 const contactsCol = collection(db, "contacts");
+
+// 訂購管道選項，訂單頁面跟客戶資料頁面共用同一份清單，避免同一個管道
+// 兩邊寫法不一致（例如一邊打「LINE」一邊打「line」），之後才能正確統計。
+export const ORDER_CHANNELS = ["LINE", "IG", "FB", "現場", "其他"];
 
 function whoAmI() {
   return {

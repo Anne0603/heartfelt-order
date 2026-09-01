@@ -71,3 +71,23 @@ export function alertDialog(message) {
     overlay.querySelector("#al-ok").addEventListener("click", () => { overlay.remove(); resolve(); });
   });
 }
+
+/**
+ * 簡單的單行文字輸入彈窗（例如選單裡選「其他」時用來輸入自訂文字）。
+ * 原本只在訂單頁面用，現在客戶資料頁的訂購管道也要用同一套，
+ * 移到這裡變成共用元件，避免兩邊各自維護一份重複的程式碼。
+ */
+export function openCustomTextModal(title, initialValue, onConfirm) {
+  const overlay = openModal(`
+    <h3 style="margin-bottom:16px;">${title}</h3>
+    <div class="field"><input type="text" id="ct-input" value="${initialValue}" /></div>
+    <div style="display:flex;justify-content:flex-end;">
+      <button class="btn btn-primary" id="ct-confirm">確定</button>
+    </div>
+  `, 360);
+  overlay.querySelector("#ct-confirm").addEventListener("click", () => {
+    const val = overlay.querySelector("#ct-input").value.trim();
+    overlay.remove();
+    onConfirm(val);
+  });
+}

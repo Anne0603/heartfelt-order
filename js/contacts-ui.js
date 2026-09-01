@@ -1,12 +1,13 @@
 // ============================================================
 // 客戶與廠商頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-55";
-import { currentSession } from "./auth.js?v=20260830-55";
-import { openModal, confirmDialog } from "./modal-ui.js?v=20260830-55";
-import { listContacts, createContact, updateContact, setContactArchived } from "./contacts.js?v=20260830-55";
-import { listOrders, getPaymentStatus } from "./orders.js?v=20260830-55";
-import { listCategories } from "./categories.js?v=20260830-55";
+import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-56";
+import { currentSession } from "./auth.js?v=20260830-56";
+import { openModal, confirmDialog, openCustomTextModal } from "./modal-ui.js?v=20260830-56";
+import { openSearchPicker } from "./picker-ui.js?v=20260830-56";
+import { listContacts, createContact, updateContact, setContactArchived, ORDER_CHANNELS } from "./contacts.js?v=20260830-56";
+import { listOrders, getPaymentStatus } from "./orders.js?v=20260830-56";
+import { listCategories } from "./categories.js?v=20260830-56";
 
 async function listMergedSupplyCategories() {
   // 廠商供應的通常是現貨商品或包材，不是自製商品，所以合併這兩種分類清單
@@ -18,10 +19,10 @@ async function listMergedSupplyCategories() {
   [...resale, ...packaging].forEach((c) => { if (!seen.has(c.name)) seen.set(c.name, c); });
   return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
-import { exportContacts } from "./export-xlsx.js?v=20260830-55";
-import { setFab } from "./fab-ui.js?v=20260830-55";
-import { iconHtml } from "./icons.js?v=20260830-55";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-55";
+import { exportContacts } from "./export-xlsx.js?v=20260830-56";
+import { setFab } from "./fab-ui.js?v=20260830-56";
+import { iconHtml } from "./icons.js?v=20260830-56";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-56";
 
 const ROLE_LABELS = { customer: "客戶", supplier: "廠商" };
 
@@ -266,7 +267,8 @@ export async function renderContactsPage(container) {
       <div class="field"><label>聯絡電話（選填）</label><input type="text" id="c-phone" value="${contact?.phone || ""}" /></div>
       <div class="field"><label>地址（選填）</label><input type="text" id="c-address" value="${contact?.address || ""}" /></div>
       <div class="field" id="c-channel-field" style="display:${roles.includes("customer") ? "block" : "none"};">
-        <label>訂購管道（選填）</label><input type="text" id="c-channel" placeholder="例如 LINE / IG / FB" value="${contact?.orderChannel || ""}" />
+        <label>訂購管道（選填）</label>
+        <button type="button" id="c-channel-btn" class="picker-trigger">${contact?.orderChannel || "不指定"}</button>
       </div>
       <div class="field" id="c-supply-field" style="display:${roles.includes("supplier") ? "block" : "none"};">
         <label>主要供應類別（選填）</label>
@@ -286,6 +288,26 @@ export async function renderContactsPage(container) {
       overlay.querySelector("#c-channel-field").style.display = selectedRoles.includes("customer") ? "block" : "none";
       overlay.querySelector("#c-supply-field").style.display = selectedRoles.includes("supplier") ? "block" : "none";
     }
+
+    let orderChannelValue = contact?.orderChannel || "";
+    overlay.querySelector("#c-channel-btn").addEventListener("click", () => {
+      openSearchPicker({
+        title: "選擇訂購管道",
+        items: [{ id: "", name: "不指定" }, ...ORDER_CHANNELS.map((c) => ({ id: c, name: c }))],
+        renderLabel: (c) => c.name,
+        onSelect: (c) => {
+          if (c.id === "其他") {
+            openCustomTextModal("請輸入訂購管道", orderChannelValue && !ORDER_CHANNELS.includes(orderChannelValue) ? orderChannelValue : "", (val) => {
+              orderChannelValue = val;
+              overlay.querySelector("#c-channel-btn").textContent = val || "不指定";
+            });
+          } else {
+            orderChannelValue = c.id;
+            overlay.querySelector("#c-channel-btn").textContent = c.name;
+          }
+        },
+      });
+    });
 
     overlay.querySelectorAll("[data-role]").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -333,7 +355,7 @@ export async function renderContactsPage(container) {
         phone: overlay.querySelector("#c-phone").value,
         address: overlay.querySelector("#c-address").value,
         note: overlay.querySelector("#c-note").value,
-        orderChannel: overlay.querySelector("#c-channel")?.value || "",
+        orderChannel: orderChannelValue || "",
         supplyCategory: overlay.querySelector("#c-supply-category")?.value || "",
       };
 

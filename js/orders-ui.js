@@ -1,21 +1,21 @@
 // ============================================================
 // 訂單管理頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-55";
-import { currentSession, wireNameResolution } from "./auth.js?v=20260830-55";
+import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-56";
+import { currentSession, wireNameResolution } from "./auth.js?v=20260830-56";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, updateOrderNoteAndAddress, getPaymentStatus,
   markShipped, voidOrder, deleteOrderPermanently, registerReturn, listReturnsByOrder, getOutstandingBalance,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel, normalizeShipStatus,
-} from "./orders.js?v=20260830-55";
-import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260830-55";
-import { listContacts, createContact } from "./contacts.js?v=20260830-55";
-import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260830-55";
-import { exportOrders } from "./export-xlsx.js?v=20260830-55";
-import { setFab, clearFab } from "./fab-ui.js?v=20260830-55";
-import { openSearchPicker } from "./picker-ui.js?v=20260830-55";
-import { openModal } from "./modal-ui.js?v=20260830-55";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-55";
+} from "./orders.js?v=20260830-56";
+import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260830-56";
+import { listContacts, createContact, ORDER_CHANNELS } from "./contacts.js?v=20260830-56";
+import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260830-56";
+import { exportOrders } from "./export-xlsx.js?v=20260830-56";
+import { setFab, clearFab } from "./fab-ui.js?v=20260830-56";
+import { openSearchPicker } from "./picker-ui.js?v=20260830-56";
+import { openModal, openCustomTextModal } from "./modal-ui.js?v=20260830-56";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-56";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
@@ -472,7 +472,6 @@ export async function renderOrdersPage(container, initialFilter = null) {
 
   // ---------- 新增 / 編輯訂單（出貨前） ----------
   const PICKUP_METHODS = ["自取", "宅配", "郵寄", "超商取貨", "其他"];
-  const ORDER_CHANNELS = ["LINE", "IG", "FB", "現場", "其他"];
 
   function renderOrderFormPage(order = null) {
     clearFab();
@@ -689,21 +688,6 @@ export async function renderOrdersPage(container, initialFilter = null) {
   }
 
   // ---------- 快速新增客戶（訂單表單內用） ----------
-  // ---------- 自訂文字輸入（訂購管道/取貨方式選「其他」時用） ----------
-  function openCustomTextModal(title, initialValue, onConfirm) {
-    const overlay = openModal(`
-      <h3 style="margin-bottom:16px;">${title}</h3>
-      <div class="field"><input type="text" id="ct-input" value="${initialValue}" /></div>
-      <div style="display:flex;justify-content:flex-end;">
-        <button class="btn btn-primary" id="ct-confirm">確定</button>
-      </div>
-    `, 360);
-    overlay.querySelector("#ct-confirm").addEventListener("click", () => {
-      const val = overlay.querySelector("#ct-input").value.trim();
-      overlay.remove();
-      onConfirm(val);
-    });
-  }
 
   function openQuickContactModal(onCreated) {
     const overlay = openModal(`
