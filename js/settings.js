@@ -3,17 +3,17 @@
 // Cloudinary 設定 / 待審核申請 / 成員
 // 品牌圖案改成「直接點側邊欄 Logo 上傳」，邏輯在 app.js
 // ============================================================
-import { db } from "./firebase-config.js?v=20260829-53";
+import { db } from "./firebase-config.js?v=20260830-54";
 import {
   doc, getDoc, setDoc, deleteDoc,
   collection, getDocs, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260829-53";
-import { currentSession, ROLE_LABELS } from "./auth.js?v=20260829-53";
-import { listCategories, createCategory, renameCategory, deleteCategory } from "./categories.js?v=20260829-53";
-import { listUnits, createUnit, renameUnit, deleteUnit } from "./units.js?v=20260829-53";
-import { confirmDialog, openModal } from "./modal-ui.js?v=20260829-53";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-53";
+import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-54";
+import { currentSession, ROLE_LABELS } from "./auth.js?v=20260830-54";
+import { listCategories, createCategory, renameCategory, deleteCategory } from "./categories.js?v=20260830-54";
+import { listUnits, createUnit, renameUnit, deleteUnit } from "./units.js?v=20260830-54";
+import { confirmDialog, openModal } from "./modal-ui.js?v=20260830-54";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-54";
 
 const CLOUDINARY_DOC = doc(db, "publicSettings", "cloudinary");
 const BRAND_DOC = doc(db, "publicSettings", "brand");
@@ -247,7 +247,7 @@ export async function renderBackupPage(container) {
       showToast("備份完成", "success");
     } catch (err) {
       progressEl.textContent = "";
-      showToast("備份失敗：" + err.message, "error");
+      showToast("備份失敗：" + friendlyErrorMessage(err), "error");
     } finally {
       btn.disabled = false;
       btn.textContent = "下載完整備份";
@@ -285,7 +285,7 @@ export async function renderCloudinaryPage(container) {
       await saveCloudinarySettings(cloudName, uploadPreset);
       showToast("已儲存", "success");
     } catch (err) {
-      showToast("儲存失敗：" + err.message, "error");
+      showToast("儲存失敗：" + friendlyErrorMessage(err), "error");
     } finally {
       btn.disabled = false;
     }
@@ -321,7 +321,7 @@ export async function renderPendingPage(container) {
       container.querySelector("#manual-block-email").value = "";
       refresh();
     } catch (err) {
-      showToast("失敗：" + err.message, "error");
+      showToast("失敗：" + friendlyErrorMessage(err), "error");
     }
   });
   await refresh();
@@ -370,7 +370,7 @@ export async function renderPendingPage(container) {
             showToast("已核准", "success");
             refresh();
           } catch (err) {
-            showToast("失敗：" + err.message, "error");
+            showToast("失敗：" + friendlyErrorMessage(err), "error");
           }
         });
       });
@@ -383,7 +383,7 @@ export async function renderPendingPage(container) {
             showToast("已拒絕", "success");
             refresh();
           } catch (err) {
-            showToast("失敗：" + err.message, "error");
+            showToast("失敗：" + friendlyErrorMessage(err), "error");
           }
         });
       });
@@ -396,7 +396,7 @@ export async function renderPendingPage(container) {
             showToast("已解除封鎖", "success");
             refresh();
           } catch (err) {
-            showToast("失敗：" + err.message, "error");
+            showToast("失敗：" + friendlyErrorMessage(err), "error");
           }
         });
       });
@@ -454,7 +454,7 @@ export async function renderMembersPage(container) {
                 showToast("已更新角色", "success");
                 refresh();
               } catch (err) {
-                showToast("失敗：" + err.message, "error");
+                showToast("失敗：" + friendlyErrorMessage(err), "error");
                 refresh();
               }
             },
@@ -473,7 +473,7 @@ export async function renderMembersPage(container) {
             showToast("已移除", "success");
             refresh();
           } catch (err) {
-            showToast("失敗：" + err.message, "error");
+            showToast("失敗：" + friendlyErrorMessage(err), "error");
           }
         });
       });
@@ -568,7 +568,7 @@ export async function renderCategoriesPage(container) {
               showToast("已更新分類名稱", "success");
               refresh();
             } catch (err) {
-              showToast("失敗：" + err.message, "error");
+              showToast("失敗：" + friendlyErrorMessage(err), "error");
             }
           });
         });
@@ -581,12 +581,12 @@ export async function renderCategoriesPage(container) {
               showToast("已刪除", "success");
               refresh();
             } catch (err) {
-              showToast(err.message, "error");
+              showToast(friendlyErrorMessage(err), "error");
             }
           });
         });
       } catch (err) {
-        listEl.innerHTML = `<div style="color:var(--rose);">載入失敗：${linkifyErrorMessage(err.message)}</div>`;
+        listEl.innerHTML = `<div style="color:var(--rose);">載入失敗：${linkifyErrorMessage(friendlyErrorMessage(err))}</div>`;
       }
     }
 
@@ -599,7 +599,7 @@ export async function renderCategoriesPage(container) {
         showToast("已新增", "success");
         refresh();
       } catch (err) {
-        showToast("失敗：" + err.message, "error");
+        showToast("失敗：" + friendlyErrorMessage(err), "error");
       }
     });
 
@@ -650,7 +650,7 @@ export async function renderUnitsPage(container) {
             showToast("已更新單位名稱", "success");
             refresh();
           } catch (err) {
-            showToast("失敗：" + err.message, "error");
+            showToast("失敗：" + friendlyErrorMessage(err), "error");
           }
         });
       });
@@ -663,12 +663,12 @@ export async function renderUnitsPage(container) {
             showToast("已刪除", "success");
             refresh();
           } catch (err) {
-            showToast(err.message, "error");
+            showToast(friendlyErrorMessage(err), "error");
           }
         });
       });
     } catch (err) {
-      listEl.innerHTML = `<div style="color:var(--rose);">載入失敗：${linkifyErrorMessage(err.message)}</div>`;
+      listEl.innerHTML = `<div style="color:var(--rose);">載入失敗：${linkifyErrorMessage(friendlyErrorMessage(err))}</div>`;
     }
   }
 
@@ -681,7 +681,7 @@ export async function renderUnitsPage(container) {
       showToast("已新增", "success");
       refresh();
     } catch (err) {
-      showToast("失敗：" + err.message, "error");
+      showToast("失敗：" + friendlyErrorMessage(err), "error");
     }
   });
 

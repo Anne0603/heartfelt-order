@@ -1,8 +1,8 @@
 // ============================================================
 // 商品與庫存頁面 UI（合併版）
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260829-53";
-import { currentSession, wireNameResolution } from "./auth.js?v=20260829-53";
+import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-54";
+import { currentSession, wireNameResolution } from "./auth.js?v=20260830-54";
 import {
   listItems, createItem, updateItem, setItemArchived, deleteItemPermanently,
   addPurchaseBatch, stocktakeAdjust, disposeStock,
@@ -10,16 +10,16 @@ import {
   voidRecord, permanentlyDelete,
   computeStock, computeAvgCost, calcItemCost, buildItemsIndex,
   TYPE_LABELS, ORDERABLE_TYPES, STOCK_TRACKED_TYPES,
-} from "./items.js?v=20260829-53";
-import { listCategories } from "./categories.js?v=20260829-53";
-import { listUnits } from "./units.js?v=20260829-53";
-import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js?v=20260829-53";
-import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260829-53";
-import { openSearchPicker } from "./picker-ui.js?v=20260829-53";
-import { exportItems } from "./export-xlsx.js?v=20260829-53";
-import { setFab } from "./fab-ui.js?v=20260829-53";
-import { iconHtml } from "./icons.js?v=20260829-53";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-53";
+} from "./items.js?v=20260830-54";
+import { listCategories } from "./categories.js?v=20260830-54";
+import { listUnits } from "./units.js?v=20260830-54";
+import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js?v=20260830-54";
+import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260830-54";
+import { openSearchPicker } from "./picker-ui.js?v=20260830-54";
+import { exportItems } from "./export-xlsx.js?v=20260830-54";
+import { setFab } from "./fab-ui.js?v=20260830-54";
+import { iconHtml } from "./icons.js?v=20260830-54";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-54";
 
 const TYPE_HINTS = {
   self_made: "自己現做的東西，客戶可訂購。不追蹤庫存量，成本 = 配方裡每一項包材的成本加總（原料/人工每月算在「利潤總覽」）。",
@@ -192,7 +192,7 @@ export async function renderItemsPage(container, initialFilter = null) {
       await loadData();
       renderList();
     } catch (err) {
-      if (listEl) listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${linkifyErrorMessage(err.message)}</div>`;
+      if (listEl) listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${linkifyErrorMessage(friendlyErrorMessage(err))}</div>`;
     }
   }
 
@@ -378,7 +378,7 @@ export async function renderItemsPage(container, initialFilter = null) {
           await loadData();
           renderDetailView(itemId);
         } catch (err) {
-          showToast("操作失敗：" + err.message, "error");
+          showToast("操作失敗：" + friendlyErrorMessage(err), "error");
         }
       });
     }
@@ -416,7 +416,7 @@ export async function renderItemsPage(container, initialFilter = null) {
         await loadData();
         renderListView();
       } catch (err) {
-        showToast("失敗：" + err.message, "error");
+        showToast("失敗：" + friendlyErrorMessage(err), "error");
         btn.disabled = false;
       }
     });
@@ -532,7 +532,7 @@ export async function renderItemsPage(container, initialFilter = null) {
               await loadData();
               renderDetailView(itemId);
             } catch (err) {
-              showToast("失敗：" + err.message, "error");
+              showToast("失敗：" + friendlyErrorMessage(err), "error");
             }
           });
         });
@@ -546,7 +546,7 @@ export async function renderItemsPage(container, initialFilter = null) {
               await loadData();
               renderDetailView(itemId);
             } catch (err) {
-              showToast("失敗：" + err.message, "error");
+              showToast("失敗：" + friendlyErrorMessage(err), "error");
             }
           });
         });
@@ -704,7 +704,7 @@ export async function renderItemsPage(container, initialFilter = null) {
         uploadedPhotoUrl = await uploadImageToCloudinary(file);
         photoBox.innerHTML = `<img src="${uploadedPhotoUrl}" style="width:100%;height:100%;object-fit:cover;">`;
       } catch (err) {
-        showToast("照片上傳失敗：" + err.message, "error");
+        showToast("照片上傳失敗：" + friendlyErrorMessage(err), "error");
         photoBox.innerHTML = `<div style="color:var(--text-muted);">${iconHtml("camera", "--icon-size:28px;")}</div><div style="font-size:11px;color:var(--text-muted);margin-top:4px;">點擊上傳</div>`;
       }
     });
@@ -747,7 +747,7 @@ export async function renderItemsPage(container, initialFilter = null) {
         if (isEdit) renderDetailView(item.id);
         else renderList();
       } catch (err) {
-        showToast("失敗：" + err.message, "error");
+        showToast("失敗：" + friendlyErrorMessage(err), "error");
         btn.disabled = false;
       }
     });
@@ -830,7 +830,7 @@ export async function renderItemsPage(container, initialFilter = null) {
         overlay.remove();
         await reload();
       } catch (err) {
-        showToast("失敗：" + err.message, "error");
+        showToast("失敗：" + friendlyErrorMessage(err), "error");
         btn.disabled = false;
       }
     });
@@ -907,7 +907,7 @@ export async function renderItemsPage(container, initialFilter = null) {
         overlay.remove();
         await reload();
       } catch (err) {
-        showToast("失敗：" + err.message, "error");
+        showToast("失敗：" + friendlyErrorMessage(err), "error");
         btn.disabled = false;
       }
     });
@@ -967,7 +967,7 @@ export async function renderItemsPage(container, initialFilter = null) {
         overlay.remove();
         await reload();
       } catch (err) {
-        showToast("失敗：" + err.message, "error");
+        showToast("失敗：" + friendlyErrorMessage(err), "error");
         btn.disabled = false;
       }
     });

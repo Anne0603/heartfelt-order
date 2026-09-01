@@ -1,12 +1,12 @@
 // ============================================================
 // 客戶與廠商頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260829-53";
-import { currentSession } from "./auth.js?v=20260829-53";
-import { openModal, confirmDialog } from "./modal-ui.js?v=20260829-53";
-import { listContacts, createContact, updateContact, setContactArchived } from "./contacts.js?v=20260829-53";
-import { listOrders, getPaymentStatus } from "./orders.js?v=20260829-53";
-import { listCategories } from "./categories.js?v=20260829-53";
+import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-54";
+import { currentSession } from "./auth.js?v=20260830-54";
+import { openModal, confirmDialog } from "./modal-ui.js?v=20260830-54";
+import { listContacts, createContact, updateContact, setContactArchived } from "./contacts.js?v=20260830-54";
+import { listOrders, getPaymentStatus } from "./orders.js?v=20260830-54";
+import { listCategories } from "./categories.js?v=20260830-54";
 
 async function listMergedSupplyCategories() {
   // 廠商供應的通常是現貨商品或包材，不是自製商品，所以合併這兩種分類清單
@@ -18,10 +18,10 @@ async function listMergedSupplyCategories() {
   [...resale, ...packaging].forEach((c) => { if (!seen.has(c.name)) seen.set(c.name, c); });
   return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
-import { exportContacts } from "./export-xlsx.js?v=20260829-53";
-import { setFab } from "./fab-ui.js?v=20260829-53";
-import { iconHtml } from "./icons.js?v=20260829-53";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-53";
+import { exportContacts } from "./export-xlsx.js?v=20260830-54";
+import { setFab } from "./fab-ui.js?v=20260830-54";
+import { iconHtml } from "./icons.js?v=20260830-54";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-54";
 
 const ROLE_LABELS = { customer: "客戶", supplier: "廠商" };
 
@@ -144,8 +144,8 @@ export async function renderContactsPage(container) {
       await fetchContactsData();
       if (container.querySelector("#contacts-list")) renderList();
     } catch (err) {
-      if (listEl) listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${linkifyErrorMessage(err.message)}</div>`;
-      else showToast("載入失敗：" + err.message, "error");
+      if (listEl) listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${linkifyErrorMessage(friendlyErrorMessage(err))}</div>`;
+      else showToast("載入失敗：" + friendlyErrorMessage(err), "error");
     }
   }
 
@@ -309,7 +309,7 @@ export async function renderContactsPage(container) {
         if (updated) renderContactDetailPage(updated);
         else renderListView();
       } catch (err) {
-        showToast("操作失敗：" + err.message, "error");
+        showToast("操作失敗：" + friendlyErrorMessage(err), "error");
       }
     });
 
@@ -351,7 +351,7 @@ export async function renderContactsPage(container) {
           renderListView();
         }
       } catch (err) {
-        showToast("失敗：" + err.message, "error");
+        showToast("失敗：" + friendlyErrorMessage(err), "error");
         btn.disabled = false;
       }
     });

@@ -31,6 +31,26 @@ export function toJSDate(val) {
 }
 
 /**
+ * 把常見的技術性錯誤（特別是 Firestore 權限被拒）轉成使用者看得懂的
+ * 中文說明，而不是直接把英文的技術錯誤代碼丟給使用者看。
+ *
+ * 「權限不足」是最容易讓人誤會「系統壞了」的一種錯誤——實際上是規則
+ * 正常運作、正確地擋下了這個角色不該做的操作，只是原始錯誤訊息完全
+ * 沒說明原因，所以特別處理這一種。其他錯誤维持顯示原本的訊息
+ * （通常已經是我們自己 throw 出來、寫成中文的提示，不用再轉一次）。
+ */
+export function friendlyErrorMessage(err) {
+  const raw = (err?.message || String(err) || "").toLowerCase();
+  if (err?.code === "permission-denied" || raw.includes("missing or insufficient permissions")) {
+    return "你目前的帳號角色沒有權限執行這個操作，如果覺得應該要有權限，請洽詢管理員確認角色設定。";
+  }
+  if (raw.includes("network") || raw.includes("failed to fetch") || raw.includes("unavailable")) {
+    return "網路連線異常，請確認網路狀況後再試一次。";
+  }
+  return err?.message || String(err);
+}
+
+/**
  * 顯示底部 toast 提示。type: 'default' | 'success' | 'error'
  */
 export function showToast(message, type = "default", duration = 2600) {

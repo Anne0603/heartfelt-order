@@ -1,21 +1,21 @@
 // ============================================================
 // 訂單管理頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260829-53";
-import { currentSession, wireNameResolution } from "./auth.js?v=20260829-53";
+import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-54";
+import { currentSession, wireNameResolution } from "./auth.js?v=20260830-54";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, updateOrderNoteAndAddress, getPaymentStatus,
   markShipped, voidOrder, deleteOrderPermanently, registerReturn, listReturnsByOrder, getOutstandingBalance,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel, normalizeShipStatus,
-} from "./orders.js?v=20260829-53";
-import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260829-53";
-import { listContacts, createContact } from "./contacts.js?v=20260829-53";
-import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260829-53";
-import { exportOrders } from "./export-xlsx.js?v=20260829-53";
-import { setFab, clearFab } from "./fab-ui.js?v=20260829-53";
-import { openSearchPicker } from "./picker-ui.js?v=20260829-53";
-import { openModal } from "./modal-ui.js?v=20260829-53";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-53";
+} from "./orders.js?v=20260830-54";
+import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260830-54";
+import { listContacts, createContact } from "./contacts.js?v=20260830-54";
+import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260830-54";
+import { exportOrders } from "./export-xlsx.js?v=20260830-54";
+import { setFab, clearFab } from "./fab-ui.js?v=20260830-54";
+import { openSearchPicker } from "./picker-ui.js?v=20260830-54";
+import { openModal } from "./modal-ui.js?v=20260830-54";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-54";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
@@ -243,7 +243,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
         await reload();
         renderListView();
       } catch (err) {
-        showToast("批次收款失敗：" + err.message, "error");
+        showToast("批次收款失敗：" + friendlyErrorMessage(err), "error");
         btn.disabled = false;
       }
     });
@@ -330,7 +330,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
         try {
           sourceOrders = await listOrders({});
         } catch (err) {
-          showToast("匯出所需的完整訂單資料載入失敗：" + err.message, "error");
+          showToast("匯出所需的完整訂單資料載入失敗：" + friendlyErrorMessage(err), "error");
           confirmBtn.disabled = false;
           confirmBtn.textContent = "確認匯出";
           return;
@@ -389,7 +389,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
       await fetchOrdersData();
       renderListView(); // 完整重繪，讓「只顯示近3個月」的提示列正確消失
     } catch (err) {
-      showToast("載入失敗：" + err.message, "error");
+      showToast("載入失敗：" + friendlyErrorMessage(err), "error");
     }
   }
 
@@ -400,8 +400,8 @@ export async function renderOrdersPage(container, initialFilter = null) {
       await fetchOrdersData();
       if (container.querySelector("#orders-list")) renderList();
     } catch (err) {
-      if (listEl) listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${linkifyErrorMessage(err.message)}</div>`;
-      else showToast("載入失敗：" + err.message, "error");
+      if (listEl) listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${linkifyErrorMessage(friendlyErrorMessage(err))}</div>`;
+      else showToast("載入失敗：" + friendlyErrorMessage(err), "error");
     }
   }
 
@@ -682,7 +682,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
         backToList();
         await reload();
       } catch (err) {
-        showToast("失敗：" + err.message, "error");
+        showToast("失敗：" + friendlyErrorMessage(err), "error");
         btn.disabled = false;
       }
     });
@@ -734,7 +734,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
         overlay.remove();
         onCreated(created);
       } catch (err) {
-        showToast("失敗：" + err.message, "error");
+        showToast("失敗：" + friendlyErrorMessage(err), "error");
         btn.disabled = false;
       }
     });
@@ -866,7 +866,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
         overlay.remove();
         onSaved();
       } catch (err) {
-        showToast("失敗：" + err.message, "error");
+        showToast("失敗：" + friendlyErrorMessage(err), "error");
         btn.disabled = false;
       }
     });
@@ -881,7 +881,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
     try {
       pastReturns = await listReturnsByOrder(order.id);
     } catch (err) {
-      showToast("讀取退貨記錄失敗：" + err.message, "error");
+      showToast("讀取退貨記錄失敗：" + friendlyErrorMessage(err), "error");
       return;
     }
     const alreadyReturnedByProduct = new Map();
@@ -986,8 +986,8 @@ export async function renderOrdersPage(container, initialFilter = null) {
         overlay.remove();
         onSaved();
       } catch (err) {
-        msgEl.textContent = "失敗：" + err.message;
-        showToast("失敗：" + err.message, "error");
+        msgEl.textContent = "失敗：" + friendlyErrorMessage(err);
+        showToast("失敗：" + friendlyErrorMessage(err), "error");
         btn.disabled = false;
       }
     });
@@ -1026,7 +1026,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
         overlay.remove();
         onSaved();
       } catch (err) {
-        showToast("失敗：" + err.message, "error");
+        showToast("失敗：" + friendlyErrorMessage(err), "error");
         btn.disabled = false;
       }
     }
@@ -1084,7 +1084,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
           await reload();
           renderListView();
         } catch (err) {
-          showToast("失敗：" + err.message, "error");
+          showToast("失敗：" + friendlyErrorMessage(err), "error");
           btn.disabled = false;
         }
       });
@@ -1104,8 +1104,8 @@ export async function renderOrdersPage(container, initialFilter = null) {
           await reload();
           renderOrderDetailPage(order.id);
         } catch (err) {
-          msgEl.textContent = "失敗：" + err.message;
-          showToast("失敗：" + err.message, "error");
+          msgEl.textContent = "失敗：" + friendlyErrorMessage(err);
+          showToast("失敗：" + friendlyErrorMessage(err), "error");
           btn.disabled = false;
         }
       }});
@@ -1201,7 +1201,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
         await reload();
         renderOrderDetailPage(order.id);
       } catch (err) {
-        showToast("失敗：" + err.message, "error");
+        showToast("失敗：" + friendlyErrorMessage(err), "error");
         btn.disabled = false;
       }
     });

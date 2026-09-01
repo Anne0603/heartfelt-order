@@ -1,24 +1,24 @@
 // ============================================================
 // 主程式：登入流程 + 側邊導覽 + 簡易路由
 // ============================================================
-import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName, consumeRedirectResult } from "./auth.js?v=20260829-53";
-import { iconHtml } from "./icons.js?v=20260829-53";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-53";
-import { openProfileModal } from "./profile-ui.js?v=20260829-53";
-import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, renderBackupPage, getPendingCount } from "./settings.js?v=20260829-53";
-import { renderHomePage } from "./home.js?v=20260829-53";
-import { renderItemsPage } from "./items-ui.js?v=20260829-53";
-import { clearFab } from "./fab-ui.js?v=20260829-53";
-import { renderContactsPage } from "./contacts-ui.js?v=20260829-53";
-import { renderOrdersPage } from "./orders-ui.js?v=20260829-53";
-import { renderReportsPage } from "./reports-ui.js?v=20260829-53";
-import { renderProfitPage } from "./profit-ui.js?v=20260829-53";
-import { renderActivityLogPage } from "./activity-log-ui.js?v=20260829-53";
-import { renderExpensesPage } from "./expenses-ui.js?v=20260829-53";
-import { lowStockItems } from "./items.js?v=20260829-53";
-import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260829-53";
-import { showToast } from "./utils.js?v=20260829-53";
-import { db } from "./firebase-config.js?v=20260829-53";
+import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName, consumeRedirectResult } from "./auth.js?v=20260830-54";
+import { iconHtml } from "./icons.js?v=20260830-54";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-54";
+import { openProfileModal } from "./profile-ui.js?v=20260830-54";
+import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, renderBackupPage, getPendingCount } from "./settings.js?v=20260830-54";
+import { renderHomePage } from "./home.js?v=20260830-54";
+import { renderItemsPage } from "./items-ui.js?v=20260830-54";
+import { clearFab } from "./fab-ui.js?v=20260830-54";
+import { renderContactsPage } from "./contacts-ui.js?v=20260830-54";
+import { renderOrdersPage } from "./orders-ui.js?v=20260830-54";
+import { renderReportsPage } from "./reports-ui.js?v=20260830-54";
+import { renderProfitPage } from "./profit-ui.js?v=20260830-54";
+import { renderActivityLogPage } from "./activity-log-ui.js?v=20260830-54";
+import { renderExpensesPage } from "./expenses-ui.js?v=20260830-54";
+import { lowStockItems } from "./items.js?v=20260830-54";
+import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260830-54";
+import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-54";
+import { db } from "./firebase-config.js?v=20260830-54";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 // ---------- 品牌圖案：統一套用在登入頁 / 側邊欄 / 每個人的頭像位置 ----------
@@ -153,7 +153,7 @@ btnGoogleLogin.addEventListener("click", async () => {
     if (result === null) return;
   } catch (err) {
     console.error(err);
-    loginError.textContent = "登入失敗：" + (err.code ? `[${err.code}] ` : "") + (err.message || "未知錯誤");
+    loginError.textContent = "登入失敗：" + (err.code ? `[${err.code}] ` : "") + (friendlyErrorMessage(err) || "未知錯誤");
     loginError.classList.add("show");
   } finally {
     loginLoading.classList.remove("show");
@@ -398,7 +398,7 @@ updateOnlineStatus();
 // 正常成功的情況會由下面的 watchAuthState / onAuthStateChanged 自動接手顯示畫面。
 consumeRedirectResult().catch((err) => {
   console.error(err);
-  showToast("登入失敗：" + (err.code ? `[${err.code}] ` : "") + (err.message || "未知錯誤"), "error");
+  showToast("登入失敗：" + (err.code ? `[${err.code}] ` : "") + (friendlyErrorMessage(err) || "未知錯誤"), "error");
 });
 
 watchAuthState({
@@ -410,6 +410,6 @@ watchAuthState({
   },
   onError: (err) => {
     console.error(err);
-    showToast("讀取權限資料失敗：" + err.message, "error");
+    showToast("讀取權限資料失敗：" + friendlyErrorMessage(err), "error");
   }
 });

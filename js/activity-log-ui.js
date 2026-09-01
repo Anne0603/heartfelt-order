@@ -4,11 +4,11 @@
 // 分頁籤依項目分類；預設用「載入更多」往回翻，也可以切到日期
 // 區間篩選，直接查某段特定期間發生的事。
 // ============================================================
-import { listActivityLogPage, listActivityLogByDateRange, MODULE_LABELS } from "./activity-log.js?v=20260829-53";
-import { renderDateRangePicker } from "./date-range-ui.js?v=20260829-53";
-import { toJSDate } from "./utils.js?v=20260829-53";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-53";
-import { wireNameResolution } from "./auth.js?v=20260829-53";
+import { listActivityLogPage, listActivityLogByDateRange, MODULE_LABELS } from "./activity-log.js?v=20260830-54";
+import { renderDateRangePicker } from "./date-range-ui.js?v=20260830-54";
+import { toJSDate, friendlyErrorMessage } from "./utils.js?v=20260830-54";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-54";
+import { wireNameResolution } from "./auth.js?v=20260830-54";
 
 const ACTION_LABELS = {
   create: "新增", update: "編輯", archive: "停用", restore: "恢復使用",
@@ -109,7 +109,7 @@ export async function renderActivityLogPage(container) {
       hintEl.textContent = "搜尋/分頁籤只會比對「已經載入」的紀錄，資料多的話可以先點「載入更多」把想找的範圍都載進來再搜尋。";
       renderList();
     } catch (err) {
-      listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${err.message}</div>`;
+      listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${friendlyErrorMessage(err)}</div>`;
     } finally {
       loadingMore = false;
       loadMoreBtn.disabled = false;
@@ -126,7 +126,7 @@ export async function renderActivityLogPage(container) {
       hintEl.textContent = `顯示 ${currentRange.start} ～ ${currentRange.end} 這段期間的所有紀錄，共 ${logs.length} 筆。`;
       renderList();
     } catch (err) {
-      listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${err.message}</div>`;
+      listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${friendlyErrorMessage(err)}</div>`;
     }
   }
 

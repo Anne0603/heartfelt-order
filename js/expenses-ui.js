@@ -2,15 +2,15 @@
 // 支出管理頁面（獨立功能區）
 // 每筆支出分「銷貨成本」或「營業費用」，各自有自己的分類清單
 // ============================================================
-import { showToast, linkifyErrorMessage } from "./utils.js?v=20260829-53";
-import { currentSession } from "./auth.js?v=20260829-53";
-import { listExpenses, addExpense, updateExpense, deleteExpense, PAYMENT_METHODS, COST_TYPE_LABELS } from "./expenses.js?v=20260829-53";
-import { listCategories } from "./categories.js?v=20260829-53";
-import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260829-53";
-import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js?v=20260829-53";
-import { setFab } from "./fab-ui.js?v=20260829-53";
-import { iconHtml } from "./icons.js?v=20260829-53";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260829-53";
+import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-54";
+import { currentSession } from "./auth.js?v=20260830-54";
+import { listExpenses, addExpense, updateExpense, deleteExpense, PAYMENT_METHODS, COST_TYPE_LABELS } from "./expenses.js?v=20260830-54";
+import { listCategories } from "./categories.js?v=20260830-54";
+import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260830-54";
+import { getCloudinarySettings, uploadImageToCloudinary } from "./settings.js?v=20260830-54";
+import { setFab } from "./fab-ui.js?v=20260830-54";
+import { iconHtml } from "./icons.js?v=20260830-54";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-54";
 
 function canWrite() {
   return ["superadmin", "admin"].includes(currentSession.member?.role);
@@ -104,7 +104,7 @@ export async function renderExpensesPage(container, initialFilter = null) {
       updateCategoryFilterOptions();
       renderList();
     } catch (err) {
-      listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${linkifyErrorMessage(err.message)}</div>`;
+      listEl.innerHTML = `<div class="card" style="color:var(--rose);">載入失敗：${linkifyErrorMessage(friendlyErrorMessage(err))}</div>`;
     }
   }
 
@@ -174,7 +174,7 @@ export async function renderExpensesPage(container, initialFilter = null) {
           await deleteExpense(btn.getAttribute("data-del"), exp?.category, exp?.amount);
           await reload();
         } catch (err) {
-          showToast("失敗：" + err.message, "error");
+          showToast("失敗：" + friendlyErrorMessage(err), "error");
         }
       });
     });
@@ -253,7 +253,7 @@ export async function renderExpensesPage(container, initialFilter = null) {
         uploadedReceiptUrl = await uploadImageToCloudinary(file);
         photoBox.innerHTML = `<img src="${uploadedReceiptUrl}" style="width:100%;height:100%;object-fit:cover;">`;
       } catch (err) {
-        showToast("照片上傳失敗：" + err.message, "error");
+        showToast("照片上傳失敗：" + friendlyErrorMessage(err), "error");
         photoBox.innerHTML = `<div style="color:var(--text-muted);">${iconHtml("receipt", "--icon-size:26px;")}</div><div style="font-size:10px;color:var(--text-muted);margin-top:4px;">收據照片</div>`;
       }
     });
@@ -279,7 +279,7 @@ export async function renderExpensesPage(container, initialFilter = null) {
         overlay.remove();
         onSaved();
       } catch (err) {
-        showToast("失敗：" + err.message, "error");
+        showToast("失敗：" + friendlyErrorMessage(err), "error");
         btn.disabled = false;
       }
     });

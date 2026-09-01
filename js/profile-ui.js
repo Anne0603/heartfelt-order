@@ -2,11 +2,11 @@
 // 個人資料彈跳視窗：設定暱稱、查看綁定帳號與角色、
 // （管理員以上）更換品牌圖案
 // ============================================================
-import { currentSession, ROLE_LABELS, updateMyNickname } from "./auth.js?v=20260829-53";
-import { showToast } from "./utils.js?v=20260829-53";
-import { openModal } from "./modal-ui.js?v=20260829-53";
-import { uploadImageToCloudinary, saveBrandLogoUrl } from "./settings.js?v=20260829-53";
-import { logActivity } from "./activity-log.js?v=20260829-53";
+import { currentSession, ROLE_LABELS, updateMyNickname } from "./auth.js?v=20260830-54";
+import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-54";
+import { openModal } from "./modal-ui.js?v=20260830-54";
+import { uploadImageToCloudinary, saveBrandLogoUrl } from "./settings.js?v=20260830-54";
+import { logActivity } from "./activity-log.js?v=20260830-54";
 
 export function openProfileModal({ brandLogoUrl, onBrandUpdated }) {
   const user = currentSession.user;
@@ -51,7 +51,7 @@ export function openProfileModal({ brandLogoUrl, onBrandUpdated }) {
         logActivity({ module: "profile", action: "update", summary: "更換了品牌圖案" });
         onBrandUpdated && onBrandUpdated(url);
       } catch (err) {
-        showToast("上傳失敗：" + err.message, "error");
+        showToast("上傳失敗：" + friendlyErrorMessage(err), "error");
         photoBox.innerHTML = `<span style="font-family:var(--font-display);font-weight:900;font-size:26px;">心</span>`;
       }
     });
@@ -71,7 +71,7 @@ export function openProfileModal({ brandLogoUrl, onBrandUpdated }) {
       overlay.remove();
       window.location.reload(); // 簡單作法：重整讓全站的姓名顯示同步更新
     } catch (err) {
-      showToast("失敗：" + err.message, "error");
+      showToast("失敗：" + friendlyErrorMessage(err), "error");
       btn.disabled = false;
     }
   });
