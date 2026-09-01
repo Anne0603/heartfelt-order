@@ -2,8 +2,8 @@
 // 出貨單列印
 // 開一個新視窗，排版乾淨的出貨單，不含成本/毛利，叫出瀏覽器列印功能。
 // ============================================================
-import { alertDialog } from "./modal-ui.js?v=20260830-60";
-import { SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getPaymentStatus } from "./orders.js?v=20260830-60";
+import { alertDialog } from "./modal-ui.js?v=20260830-61";
+import { SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getPaymentStatus } from "./orders.js?v=20260830-61";
 
 export function printOrderSlip(order) {
   const win = window.open("", "_blank", "width=480,height=700");
@@ -106,7 +106,17 @@ export function printShippingList(ordersList) {
     return;
   }
 
-  const rows = ordersList.map((order, idx) => {
+  // 先依「預計出貨/取貨日期」排序，同一天的訂單會自然排在一起，
+  // 不會因為勾選順序不同而混在一起、變得很難照日期分批處理。
+  // 沒填日期的排最後面（比較不急、還沒排定日期）。
+  const sortedOrders = [...ordersList].sort((a, b) => {
+    if (!a.expectedDate && !b.expectedDate) return 0;
+    if (!a.expectedDate) return 1;
+    if (!b.expectedDate) return -1;
+    return a.expectedDate.localeCompare(b.expectedDate);
+  });
+
+  const rows = sortedOrders.map((order, idx) => {
     const itemsHtml = order.lineItems.map((li) => `<div class="item-line">${li.productName} <b>x${li.qty}</b></div>`).join("");
     const outstanding = order.totalAmount - (order.amountReceived || 0);
     const amountHtml = outstanding > 0
@@ -124,7 +134,7 @@ export function printShippingList(ordersList) {
           <div class="handwrite-line"></div>
         </td>
         <td>${itemsHtml}</td>
-        <td>${order.pickupMethod || ""}</td>
+        <td>${order.pickupMethod || ""}${order.expectedDate ? `<div class="sub2">預計 ${order.expectedDate}</div>` : ""}</td>
         <td>${amountHtml}</td>
       </tr>
     `;

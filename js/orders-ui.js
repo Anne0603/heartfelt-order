@@ -1,21 +1,21 @@
 // ============================================================
 // 訂單管理頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-60";
-import { currentSession, wireNameResolution } from "./auth.js?v=20260830-60";
+import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-61";
+import { currentSession, wireNameResolution } from "./auth.js?v=20260830-61";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, updateOrderNoteAndAddress, getPaymentStatus,
   markShipped, voidOrder, deleteOrderPermanently, registerReturn, listReturnsByOrder, getOutstandingBalance,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel, normalizeShipStatus,
-} from "./orders.js?v=20260830-60";
-import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260830-60";
-import { listContacts, createContact, ORDER_CHANNELS } from "./contacts.js?v=20260830-60";
-import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260830-60";
-import { exportOrders } from "./export-xlsx.js?v=20260830-60";
-import { setFab, clearFab } from "./fab-ui.js?v=20260830-60";
-import { openSearchPicker } from "./picker-ui.js?v=20260830-60";
-import { openModal, openCustomTextModal } from "./modal-ui.js?v=20260830-60";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-60";
+} from "./orders.js?v=20260830-61";
+import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260830-61";
+import { listContacts, createContact, ORDER_CHANNELS } from "./contacts.js?v=20260830-61";
+import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260830-61";
+import { exportOrders } from "./export-xlsx.js?v=20260830-61";
+import { setFab, clearFab } from "./fab-ui.js?v=20260830-61";
+import { openSearchPicker } from "./picker-ui.js?v=20260830-61";
+import { openModal, openCustomTextModal } from "./modal-ui.js?v=20260830-61";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-61";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
