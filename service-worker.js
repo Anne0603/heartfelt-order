@@ -20,5 +20,18 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
+  // 只有「本站同源的 GET 請求」才由 Service Worker 接手（接手後也只是
+  // 原封不動轉發，不做任何快取，見上方說明）。
+  //
+  // 其他情況完全不攔截，讓瀏覽器用原生方式直接處理——這是刻意的：
+  // 上傳照片這種「帶檔案的 POST 請求」，或是打到 Cloudinary、Firebase
+  // 這種不同網域的 API 呼叫，iOS Safari 在 Service Worker 轉發這類
+  // 請求時，已知會有內容遺失的相容性問題（曾經造成手機上傳照片時，
+  // 表單裡的 upload_preset 欄位莫名消失，送到 Cloudinary 變成空值，
+  // 跳出「Upload preset must be specified」的錯誤，即使設定資料本身
+  // 完全正確）。乾脆完全不去碰這類請求，讓瀏覽器原生處理最安全。
+  const isSameOriginGet = event.request.method === "GET" && new URL(event.request.url).origin === self.location.origin;
+  if (!isSameOriginGet) return; // 不呼叫 respondWith，等同沒有 Service Worker 介入這個請求
+
   event.respondWith(fetch(event.request));
 });
