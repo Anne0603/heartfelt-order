@@ -1,11 +1,11 @@
 // ============================================================
 // 統計報表：分成「總覽」「銷售分析」「客戶分析」「出貨趨勢」四個分頁籤
 // ============================================================
-import { listOrders, getPaymentStatus, getOutstandingBalance, normalizeShipStatus, listAllReturns } from "./orders.js?v=20260830-61";
-import { listItems, buildItemsIndex } from "./items.js?v=20260830-61";
-import { renderDateRangePicker } from "./date-range-ui.js?v=20260830-61";
-import { linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-61";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-61";
+import { listOrders, getPaymentStatus, getOutstandingBalance, normalizeShipStatus, listAllReturns } from "./orders.js?v=20260830-62";
+import { listItems, buildItemsIndex } from "./items.js?v=20260830-62";
+import { renderDateRangePicker } from "./date-range-ui.js?v=20260830-62";
+import { linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-62";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-62";
 
 function barRow(label, value, maxValue, formatValue) {
   const pct = maxValue > 0 ? Math.max(4, (value / maxValue) * 100) : 0;
@@ -96,19 +96,28 @@ export async function renderReportsPage(container) {
     const avgOrderValue = inRange.length > 0 ? revenue / inRange.length : 0;
 
     // 商品銷售排行（扣除退貨數量）
-    const productStats = new Map();
+    // 用商品的固定 ID 分組，不是用名稱——不然商品改名後，改名前後的
+    // 銷售數字會被拆成兩筆不同的項目，看起來像是這個商品的紀錄斷掉了。
+    // 顯示的名稱優先用商品「目前」的名稱（改名後舊訂單的銷售數字也會
+    // 跟著顯示新名字，比較好辨認是同一個商品）；如果商品已經被永久
+    // 刪除、查不到目前名稱了，才退回用訂單當時記錄的名稱快照。
+    const productStats = new Map(); // key: productId
     inRange.forEach((o) => {
       o.lineItems.forEach((li) => {
         const effectiveQty = effectiveQtyOf(o, li);
         if (effectiveQty <= 0) return;
-        const cur = productStats.get(li.productName) || { qty: 0, revenue: 0, cost: 0 };
+        const key = li.productId || li.productName;
+        const currentItem = itemsById.get(li.productId);
+        const displayName = currentItem ? currentItem.name : li.productName;
+        const cur = productStats.get(key) || { name: displayName, qty: 0, revenue: 0, cost: 0 };
+        cur.name = displayName;
         cur.qty += effectiveQty;
         cur.revenue += effectiveQty * li.unitPrice;
         cur.cost += effectiveQty * li.unitCost;
-        productStats.set(li.productName, cur);
+        productStats.set(key, cur);
       });
     });
-    const topProducts = [...productStats.entries()].sort((a, b) => b[1].qty - a[1].qty);
+    const topProducts = [...productStats.values()].sort((a, b) => b.qty - a.qty);
 
     // 商品分類銷售占比（扣除退貨數量）
     const categoryStats = new Map();
@@ -217,9 +226,9 @@ export async function renderReportsPage(container) {
             <table class="simple-table">
               <thead><tr><th>商品</th><th style="text-align:right;">數量</th><th style="text-align:right;">營收</th><th style="text-align:right;">毛利</th></tr></thead>
               <tbody>
-                ${s.topProducts.map(([name, st]) => `
+                ${s.topProducts.map((st) => `
                   <tr>
-                    <td>${name}</td>
+                    <td>${st.name}</td>
                     <td style="text-align:right;font-family:var(--font-mono);">${st.qty}</td>
                     <td style="text-align:right;font-family:var(--font-mono);">$${st.revenue.toFixed(0)}</td>
                     <td style="text-align:right;font-family:var(--font-mono);color:${st.revenue-st.cost>=0?"var(--jade)":"var(--rose)"};">$${(st.revenue-st.cost).toFixed(0)}</td>

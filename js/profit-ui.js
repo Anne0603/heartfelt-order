@@ -9,12 +9,12 @@
 // 版面採用會計報表慣例：項目靠左、金額靠右，明細緊接在對應的
 // 總額下面；每一行明細都能點看更細的拆解。
 // ============================================================
-import { listOrders, listAllReturns } from "./orders.js?v=20260830-61";
-import { listItems, computeStock, computeAvgCost, STOCK_TRACKED_TYPES } from "./items.js?v=20260830-61";
-import { listExpensesInRange } from "./expenses.js?v=20260830-61";
-import { renderDateRangePicker } from "./date-range-ui.js?v=20260830-61";
-import { linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-61";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-61";
+import { listOrders, listAllReturns } from "./orders.js?v=20260830-62";
+import { listItems, computeStock, computeAvgCost, STOCK_TRACKED_TYPES, buildItemsIndex } from "./items.js?v=20260830-62";
+import { listExpensesInRange } from "./expenses.js?v=20260830-62";
+import { renderDateRangePicker } from "./date-range-ui.js?v=20260830-62";
+import { linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-62";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-62";
 
 export async function renderProfitPage(container, navigateTo) {
   function renderSummaryShell(initialRange) {
@@ -151,6 +151,7 @@ export async function renderProfitPage(container, navigateTo) {
 
       const stockValueItems = allItems.filter((i) => STOCK_TRACKED_TYPES.includes(i.type) && i.status !== "archived" && computeStock(i) > 0);
       const totalStockValue = stockValueItems.reduce((s, i) => s + computeStock(i) * computeAvgCost(i), 0);
+      const itemsById = buildItemsIndex(allItems);
 
       const stats = computeStats(ordersInRange, expenses, allReturns);
       const lastYearStats = lastYearOrders.length > 0 ? computeStats(lastYearOrders, lastYearExpenses, allReturns) : null;
@@ -199,10 +200,10 @@ export async function renderProfitPage(container, navigateTo) {
       `;
 
       summaryEl.querySelector("#btn-packaging-detail").addEventListener("click", () => {
-        renderPackagingDetailPage(range, ordersInRange, allReturns);
+        renderPackagingDetailPage(range, ordersInRange, allReturns, itemsById);
       });
       summaryEl.querySelector("#btn-resale-detail").addEventListener("click", () => {
-        renderResaleDetailPage(range, ordersInRange, allReturns);
+        renderResaleDetailPage(range, ordersInRange, allReturns, itemsById);
       });
       summaryEl.querySelectorAll(".expense-cat-row").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -305,10 +306,10 @@ export async function renderProfitPage(container, navigateTo) {
     renderTabContent();
   }
 
-  function renderPackagingDetailPage(range, ordersInRange, allReturns) {
+  function renderPackagingDetailPage(range, ordersInRange, allReturns, itemsById) {
     const restockedQtyByOrderProduct = buildRestockedQtyMap(allReturns);
-    const byProduct = new Map();
-    const byMaterial = new Map();
+    const byProduct = new Map(); // key: productId，值含目前名稱，避免改名後被拆成兩筆
+    const byMaterial = new Map(); // key: itemId，同樣道理
     const byOrder = new Map();
     let hasAnyBreakdown = false;
 
@@ -319,7 +320,12 @@ export async function renderProfitPage(container, navigateTo) {
         const qty = effectiveQty(o, li, restockedQtyByOrderProduct);
         const lineCost = li.unitCost * qty;
         if (lineCost <= 0) return;
-        byProduct.set(li.productName, (byProduct.get(li.productName) || 0) + lineCost);
+        const productKey = li.productId || li.productName;
+        const productName = itemsById.get(li.productId)?.name || li.productName;
+        const pCur = byProduct.get(productKey) || { name: productName, cost: 0 };
+        pCur.name = productName;
+        pCur.cost += lineCost;
+        byProduct.set(productKey, pCur);
         orderCost += lineCost;
 
         (li.costBreakdown || []).forEach((b) => {
@@ -327,7 +333,9 @@ export async function renderProfitPage(container, navigateTo) {
           hasAnyBreakdown = true;
           const cost = b.amount * qty;
           const matQty = (b.qty || 0) * qty;
-          const cur = byMaterial.get(b.itemId) || { itemName: b.itemName, qty: 0, cost: 0 };
+          const materialName = itemsById.get(b.itemId)?.name || b.itemName;
+          const cur = byMaterial.get(b.itemId) || { itemName: materialName, qty: 0, cost: 0 };
+          cur.itemName = materialName;
           cur.qty += matQty;
           cur.cost += cost;
           byMaterial.set(b.itemId, cur);
@@ -336,7 +344,9 @@ export async function renderProfitPage(container, navigateTo) {
       if (orderCost > 0) byOrder.set(o.orderNumber, { orderNumber: o.orderNumber, orderDate: o.orderDate, contactName: o.contactName, amount: orderCost });
     });
 
-    const productRows = [...byProduct.entries()].sort((a, b) => b[1] - a[1]);
+    // byProduct 存的是 {name, cost} 物件（key 是 productId），這裡轉成
+    // [目前名稱, 金額] 的格式，維持跟下面 detailTable/matches 相容
+    const productRows = [...byProduct.values()].map((v) => [v.name, v.cost]).sort((a, b) => b[1] - a[1]);
     const materialRows = [...byMaterial.values()].sort((a, b) => b.cost - a.cost);
     const orderRows = [...byOrder.values()].sort((a, b) => b.amount - a.amount);
 
@@ -365,9 +375,9 @@ export async function renderProfitPage(container, navigateTo) {
     });
   }
 
-  function renderResaleDetailPage(range, ordersInRange, allReturns) {
+  function renderResaleDetailPage(range, ordersInRange, allReturns, itemsById) {
     const restockedQtyByOrderProduct = buildRestockedQtyMap(allReturns);
-    const byProduct = new Map();
+    const byProduct = new Map(); // key: productId，避免改名後被拆成兩筆
     const byOrder = new Map();
     ordersInRange.forEach((o) => {
       let orderCost = 0;
@@ -376,12 +386,17 @@ export async function renderProfitPage(container, navigateTo) {
         const qty = effectiveQty(o, li, restockedQtyByOrderProduct);
         const cost = li.unitCost * qty;
         if (cost <= 0) return;
-        byProduct.set(li.productName, (byProduct.get(li.productName) || 0) + cost);
+        const productKey = li.productId || li.productName;
+        const productName = itemsById.get(li.productId)?.name || li.productName;
+        const pCur = byProduct.get(productKey) || { name: productName, cost: 0 };
+        pCur.name = productName;
+        pCur.cost += cost;
+        byProduct.set(productKey, pCur);
         orderCost += cost;
       });
       if (orderCost > 0) byOrder.set(o.orderNumber, { orderNumber: o.orderNumber, orderDate: o.orderDate, contactName: o.contactName, amount: orderCost });
     });
-    const productRows = [...byProduct.entries()].sort((a, b) => b[1] - a[1]);
+    const productRows = [...byProduct.values()].map((v) => [v.name, v.cost]).sort((a, b) => b[1] - a[1]);
     const orderRows = [...byOrder.values()].sort((a, b) => b.amount - a.amount);
 
     renderDrilldownPage({
