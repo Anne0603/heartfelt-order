@@ -1,22 +1,22 @@
 // ============================================================
 // 訂單管理頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-84";
-import { currentSession, wireNameResolution } from "./auth.js?v=20260830-84";
+import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-85";
+import { currentSession, wireNameResolution } from "./auth.js?v=20260830-85";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, updateOrderNoteAndAddress, getPaymentStatus,
   markShipped, voidOrder, deleteOrderPermanently, registerReturn, listReturnsByOrder, getOutstandingBalance,
   updateConfirmationStatus,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel, normalizeShipStatus,
-} from "./orders.js?v=20260830-84";
-import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260830-84";
-import { listContacts, createContact, ORDER_CHANNELS } from "./contacts.js?v=20260830-84";
-import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260830-84";
-import { exportOrders } from "./export-xlsx.js?v=20260830-84";
-import { setFab, clearFab } from "./fab-ui.js?v=20260830-84";
-import { openSearchPicker } from "./picker-ui.js?v=20260830-84";
-import { openModal, openCustomTextModal } from "./modal-ui.js?v=20260830-84";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-84";
+} from "./orders.js?v=20260830-85";
+import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260830-85";
+import { listContacts, createContact, ORDER_CHANNELS } from "./contacts.js?v=20260830-85";
+import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260830-85";
+import { exportOrders } from "./export-xlsx.js?v=20260830-85";
+import { setFab, clearFab } from "./fab-ui.js?v=20260830-85";
+import { openSearchPicker } from "./picker-ui.js?v=20260830-85";
+import { openModal, openCustomTextModal } from "./modal-ui.js?v=20260830-85";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-85";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);

@@ -2,8 +2,8 @@
 // 出貨單列印
 // 開一個新視窗，排版乾淨的出貨單，不含成本/毛利，叫出瀏覽器列印功能。
 // ============================================================
-import { alertDialog } from "./modal-ui.js?v=20260830-84";
-import { SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getPaymentStatus } from "./orders.js?v=20260830-84";
+import { alertDialog } from "./modal-ui.js?v=20260830-85";
+import { SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260830-85";
 
 export function printOrderSlip(order) {
   const win = window.open("", "_blank", "width=480,height=700");
@@ -62,7 +62,7 @@ export function printOrderSlip(order) {
     ${order.expectedDate ? `<span class="badge">預計 ${order.expectedDate}</span>` : ""}
   </div>
 
-  ${order.needsConfirmation ? `
+  ${(order.needsConfirmation && normalizeShipStatus(order.shipStatus) !== "shipped") ? `
     <div class="confirm-box">
       <div class="confirm-title">⚠ 這張訂單還有資訊要跟客戶確認</div>
       ${order.confirmationNote ? `<div class="confirm-note">${order.confirmationNote}</div>` : ""}
@@ -132,8 +132,9 @@ export function printShippingList(ordersList) {
     const amountHtml = outstanding > 0
       ? `<div class="amount-due">應收 $${outstanding}</div>`
       : `<div class="amount-paid">已收款</div>`;
+    const showConfirm = order.needsConfirmation && normalizeShipStatus(order.shipStatus) !== "shipped";
     return `
-      <tr${order.needsConfirmation ? ' class="row-confirm"' : ""}>
+      <tr${showConfirm ? ' class="row-confirm"' : ""}>
         <td class="check-col"><span class="checkbox"></span></td>
         <td>${idx + 1}</td>
         <td>
@@ -141,7 +142,7 @@ export function printShippingList(ordersList) {
           <div class="sub2">${order.contactName || "（未指定）"}${order.contactPhone ? " · " + order.contactPhone : ""}</div>
           ${order.contactAddress ? `<div class="sub2">${order.contactAddress}</div>` : ""}
           ${order.note ? `<div class="sub2">備註：${order.note}</div>` : ""}
-          ${order.needsConfirmation ? `<div class="confirm-note">⚠ 待確認${order.confirmationNote ? "：" + order.confirmationNote : ""}</div>` : ""}
+          ${showConfirm ? `<div class="confirm-note">⚠ 待確認${order.confirmationNote ? "：" + order.confirmationNote : ""}</div>` : ""}
           <div class="handwrite-line"></div>
         </td>
         <td>${itemsHtml}</td>

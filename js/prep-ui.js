@@ -7,10 +7,10 @@
 // 用意是幫忙回答「我要準備多少原料」這個問題，不用自己一張一張訂單
 // 累加計算。
 // ============================================================
-import { listOrders, normalizeShipStatus } from "./orders.js?v=20260830-84";
-import { listItems, buildItemsIndex, computeStock, STOCK_TRACKED_TYPES, expandRecipe } from "./items.js?v=20260830-84";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-84";
-import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-84";
+import { listOrders, normalizeShipStatus } from "./orders.js?v=20260830-85";
+import { listItems, buildItemsIndex, computeStock, STOCK_TRACKED_TYPES, expandRecipe } from "./items.js?v=20260830-85";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-85";
+import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-85";
 
 export async function renderPrepListPage(container) {
   let orders = [];

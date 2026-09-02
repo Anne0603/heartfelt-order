@@ -2,7 +2,7 @@
 // 共用的「可搜尋、置中彈跳」選擇視窗
 // 取代普通下拉選單，選項多的時候（客戶、商品）比較好用
 // ============================================================
-import { mountOverlay } from "./modal-ui.js?v=20260830-84";
+import { mountOverlay } from "./modal-ui.js?v=20260830-85";
 
 export function openSearchPicker({ title, items, renderLabel, renderSub, renderThumb, onSelect, emptyText = "沒有可選的項目" }) {
   const overlay = document.createElement("div");
