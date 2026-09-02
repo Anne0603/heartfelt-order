@@ -3,17 +3,17 @@
 // Cloudinary 設定 / 待審核申請 / 成員
 // 品牌圖案改成「直接點側邊欄 Logo 上傳」，邏輯在 app.js
 // ============================================================
-import { db } from "./firebase-config.js?v=20260830-85";
+import { db } from "./firebase-config.js?v=20260830-86";
 import {
   doc, getDoc, setDoc, deleteDoc,
   collection, getDocs, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-85";
-import { currentSession, ROLE_LABELS } from "./auth.js?v=20260830-85";
-import { listCategories, createCategory, renameCategory, deleteCategory } from "./categories.js?v=20260830-85";
-import { listUnits, createUnit, renameUnit, deleteUnit } from "./units.js?v=20260830-85";
-import { confirmDialog, openModal } from "./modal-ui.js?v=20260830-85";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-85";
+import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-86";
+import { currentSession, ROLE_LABELS } from "./auth.js?v=20260830-86";
+import { listCategories, createCategory, renameCategory, deleteCategory } from "./categories.js?v=20260830-86";
+import { listUnits, createUnit, renameUnit, deleteUnit } from "./units.js?v=20260830-86";
+import { confirmDialog, openModal } from "./modal-ui.js?v=20260830-86";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-86";
 
 const CLOUDINARY_DOC = doc(db, "publicSettings", "cloudinary");
 const BRAND_DOC = doc(db, "publicSettings", "brand");
@@ -418,6 +418,32 @@ export async function renderPendingPage(container) {
 }
 
 // ---------- 成員 ----------
+/**
+ * 把「最後上線時間」轉成好讀的文字。剛上線不久就顯示相對時間
+ * （幾分鐘前/幾小時前/幾天前），太久沒上線就直接顯示日期，
+ * 這樣一眼就能看出誰已經很久沒用系統了。
+ */
+function formatLastSeen(lastLoginAt) {
+  if (!lastLoginAt?.seconds) return "從未上線";
+  const diffMs = Date.now() - lastLoginAt.seconds * 1000;
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return "剛剛上線";
+  if (diffMin < 60) return `${diffMin} 分鐘前上線`;
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return `${diffHour} 小時前上線`;
+  const diffDay = Math.floor(diffHour / 24);
+  if (diffDay < 30) return `${diffDay} 天前上線`;
+  const d = new Date(lastLoginAt.seconds * 1000);
+  return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} 上線`;
+}
+
+/** 超過30天沒上線的話，顯示上會用醒目顏色標示，方便超級管理員一眼看出誰該關心一下 */
+function isLongInactive(lastLoginAt) {
+  if (!lastLoginAt?.seconds) return true; // 從未上線過也算需要留意
+  const diffDay = (Date.now() - lastLoginAt.seconds * 1000) / (1000 * 60 * 60 * 24);
+  return diffDay > 30;
+}
+
 export async function renderMembersPage(container) {
   container.innerHTML = `
     ${pageNavHtml("成員")}
@@ -441,6 +467,7 @@ export async function renderMembersPage(container) {
               <div class="card" style="margin-bottom:10px;">
                 <div style="font-size:16px;font-weight:700;${m.nickname ? "color:var(--ink);" : "color:var(--rose);"}">${m.nickname || "（尚未設定暱稱）"}${isSelf ? ` <span class="hint" style="font-weight:400;">(你)</span>` : ""}</div>
                 <div style="font-size:13px;color:var(--text-muted);word-break:break-all;margin-top:2px;">${m.email}</div>
+                <div class="hint" style="margin-top:4px;${isLongInactive(m.lastLoginAt) ? "color:var(--rose);" : ""}">${formatLastSeen(m.lastLoginAt)}</div>
                 <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
                   ${isTargetSuperadmin
                     ? `<span class="seal-badge warn" style="white-space:nowrap;"><span class="dot"></span>超級管理員</span>`

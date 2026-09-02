@@ -9,7 +9,7 @@
 //    - 存在但 status 是 'pending' -> 顯示「審核中」，登出
 //    - 存在且 status 是 'active' -> 放行，帶著 role 一起進系統
 // ============================================================
-import { auth, db, googleProvider } from "./firebase-config.js?v=20260830-85";
+import { auth, db, googleProvider } from "./firebase-config.js?v=20260830-86";
 import {
   signInWithPopup,
   signInWithRedirect,
@@ -204,6 +204,10 @@ export function watchAuthState({ onActive, onPending, onSignedOut, onError, onRe
       currentSession.member = member;
 
       if (member.status === "active" && member.role) {
+        // 記錄「最後上線時間」，方便超級管理員在成員管理頁面看出誰
+        // 已經很久沒用系統了。不等這次寫入完成才放行，避免拖慢登入
+        // 速度——寫失敗也不影響正常使用，安靜忽略即可。
+        updateDoc(doc(db, "members", user.email.toLowerCase()), { lastLoginAt: serverTimestamp() }).catch(() => {});
         onActive && onActive(user, member);
         // 只有在「目前是有效成員」的狀態下才需要即時盯著資料變化——
         // 這是這次要修的重點：如果超級管理員把這個人移除、或改了角色，
