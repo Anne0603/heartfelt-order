@@ -1,22 +1,22 @@
 // ============================================================
 // 訂單管理頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-70";
-import { currentSession, wireNameResolution } from "./auth.js?v=20260830-70";
+import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-71";
+import { currentSession, wireNameResolution } from "./auth.js?v=20260830-71";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, updateOrderNoteAndAddress, getPaymentStatus,
   markShipped, voidOrder, deleteOrderPermanently, registerReturn, listReturnsByOrder, getOutstandingBalance,
   updateConfirmationStatus,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel, normalizeShipStatus,
-} from "./orders.js?v=20260830-70";
-import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260830-70";
-import { listContacts, createContact, ORDER_CHANNELS } from "./contacts.js?v=20260830-70";
-import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260830-70";
-import { exportOrders } from "./export-xlsx.js?v=20260830-70";
-import { setFab, clearFab } from "./fab-ui.js?v=20260830-70";
-import { openSearchPicker } from "./picker-ui.js?v=20260830-70";
-import { openModal, openCustomTextModal } from "./modal-ui.js?v=20260830-70";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-70";
+} from "./orders.js?v=20260830-71";
+import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260830-71";
+import { listContacts, createContact, ORDER_CHANNELS } from "./contacts.js?v=20260830-71";
+import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260830-71";
+import { exportOrders } from "./export-xlsx.js?v=20260830-71";
+import { setFab, clearFab } from "./fab-ui.js?v=20260830-71";
+import { openSearchPicker } from "./picker-ui.js?v=20260830-71";
+import { openModal, openCustomTextModal } from "./modal-ui.js?v=20260830-71";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-71";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
@@ -435,7 +435,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
           ${selectMode ? `<div style="flex-shrink:0;padding-top:2px;"><span class="switch"><input type="checkbox" data-select-cb="${o.id}" ${checked ? "checked" : ""}><span class="switch-slider"></span></span></div>` : ""}
           <div style="flex:1;min-width:0;">
             <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;">
-              <div style="font-weight:700;font-size:14.5px;color:var(--ink);font-family:var(--font-mono);">${o.orderNumber}${o.voided ? `<span class="hint"> (已作廢)</span>` : ""}</div>
+              <div style="font-weight:700;font-size:14.5px;color:var(--ink);font-family:var(--font-mono);">${o.orderNumber}</div>
               <div style="font-family:var(--font-mono);font-size:17px;font-weight:700;color:var(--ink);white-space:nowrap;">$${o.totalAmount}</div>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:4px;">
@@ -443,9 +443,13 @@ export async function renderOrdersPage(container, initialFilter = null) {
               ${canSeeProfit() ? `<div style="font-size:12px;color:${profit>=0?"var(--jade)":"var(--rose)"};white-space:nowrap;">毛利 $${profit.toFixed(0)}</div>` : ""}
             </div>
             <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
-              <span class="seal-badge ${shipBadgeClass(o.shipStatus)}"><span class="dot"></span>${getShipStatusLabel(o.shipStatus)}</span>
-              <span class="seal-badge ${paymentBadgeClass(getPaymentStatus(o))}"><span class="dot"></span>${PAYMENT_STATUS_LABELS[getPaymentStatus(o)]}</span>
-              ${o.needsConfirmation ? `<span class="seal-badge warn"><span class="dot"></span>待確認${o.confirmationNote ? "：" + o.confirmationNote : ""}</span>` : ""}
+              ${o.voided ? `
+                <span class="seal-badge bad"><span class="dot"></span>已作廢</span>
+              ` : `
+                <span class="seal-badge ${shipBadgeClass(o.shipStatus)}"><span class="dot"></span>${getShipStatusLabel(o.shipStatus)}</span>
+                <span class="seal-badge ${paymentBadgeClass(getPaymentStatus(o))}"><span class="dot"></span>${PAYMENT_STATUS_LABELS[getPaymentStatus(o)]}</span>
+                ${o.needsConfirmation ? `<span class="seal-badge warn"><span class="dot"></span>待確認${o.confirmationNote ? "：" + o.confirmationNote : ""}</span>` : ""}
+              `}
             </div>
           </div>
         </div>
@@ -765,13 +769,16 @@ export async function renderOrdersPage(container, initialFilter = null) {
       ${pageNavHtml(order.orderNumber)}
 
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
-        <span class="seal-badge ${shipBadgeClass(order.shipStatus)}"><span class="dot"></span>${getShipStatusLabel(order.shipStatus)}</span>
-        <span class="seal-badge ${paymentBadgeClass(payStatus)}"><span class="dot"></span>${PAYMENT_STATUS_LABELS[payStatus]}</span>
-        ${order.needsConfirmation ? `<span class="seal-badge warn"><span class="dot"></span>待確認</span>` : ""}
-        ${order.voided ? `<span class="seal-badge bad"><span class="dot"></span>已作廢</span>` : ""}
+        ${order.voided ? `
+          <span class="seal-badge bad"><span class="dot"></span>已作廢</span>
+        ` : `
+          <span class="seal-badge ${shipBadgeClass(order.shipStatus)}"><span class="dot"></span>${getShipStatusLabel(order.shipStatus)}</span>
+          <span class="seal-badge ${paymentBadgeClass(payStatus)}"><span class="dot"></span>${PAYMENT_STATUS_LABELS[payStatus]}</span>
+          ${order.needsConfirmation ? `<span class="seal-badge warn"><span class="dot"></span>待確認</span>` : ""}
+        `}
       </div>
 
-      ${order.needsConfirmation ? `
+      ${(order.needsConfirmation && !order.voided) ? `
         <div class="card" style="margin-bottom:16px;background:var(--gold-pale);border-color:var(--gold-deep);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
           <div>
             <div style="font-weight:700;color:var(--gold-deep);">這張訂單還有資訊要跟客戶確認</div>
