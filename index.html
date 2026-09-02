@@ -29,10 +29,10 @@
            打轉的畫面，不如直接清楚引導去用 Safari，登入過一次之後
            之後從主畫面圖示打開就會維持登入狀態，不用每次都這樣做。 -->
       <div id="standalone-login-guide" style="display:none;">
-        <p class="sub" style="margin-bottom:20px;">目前這個開啟方式沒辦法登入，請改用 Safari 瀏覽器開啟一次，登入成功後之後從主畫面圖示打開就會維持登入狀態。</p>
-        <button class="btn-google" id="btn-open-in-safari" type="button">在 Safari 中開啟</button>
-        <p class="hint" style="margin-top:14px;font-size:13px;">如果沒有自動跳轉，請手動複製下面的網址到 Safari 開啟：</p>
-        <div class="hint" style="font-size:12px;word-break:break-all;margin-top:4px;" id="standalone-login-url"></div>
+        <p class="sub" style="margin-bottom:20px;">目前這個開啟方式沒辦法登入，請手動打開 Safari，貼上網址開啟一次；登入成功後，之後從主畫面圖示打開就會維持登入狀態，不用每次都這樣做。</p>
+        <button class="btn-google" id="btn-copy-url" type="button">📋 複製網址</button>
+        <div class="hint" style="font-size:12px;word-break:break-all;margin-top:14px;padding:10px;background:var(--paper);border-radius:8px;" id="standalone-login-url"></div>
+        <p class="hint" style="margin-top:10px;font-size:12.5px;">如果上面的按鈕沒反應，長按上面這串網址文字也能手動複製。</p>
       </div>
 
       <div id="normal-login-guide">
@@ -116,9 +116,19 @@
       document.getElementById("normal-login-guide").style.display = "none";
       const guide = document.getElementById("standalone-login-guide");
       guide.style.display = "block";
-      document.getElementById("standalone-login-url").textContent = location.href;
-      document.getElementById("btn-open-in-safari").addEventListener("click", () => {
-        window.open(location.href, "_blank");
+      const urlText = location.href;
+      document.getElementById("standalone-login-url").textContent = urlText;
+
+      const copyBtn = document.getElementById("btn-copy-url");
+      copyBtn.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(urlText);
+          copyBtn.textContent = "✅ 已複製，請打開 Safari 貼上";
+          setTimeout(() => { copyBtn.textContent = "📋 複製網址"; }, 3000);
+        } catch (err) {
+          // 剪貼簿 API 萬一被擋下來，退回請使用者自己長按選取下面的網址文字
+          copyBtn.textContent = "請長按下面的網址手動複製";
+        }
       });
     })();
   </script>
