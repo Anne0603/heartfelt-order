@@ -2,8 +2,8 @@
 // 出貨單列印
 // 開一個新視窗，排版乾淨的出貨單，不含成本/毛利，叫出瀏覽器列印功能。
 // ============================================================
-import { alertDialog } from "./modal-ui.js?v=20260830-71";
-import { SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getPaymentStatus } from "./orders.js?v=20260830-71";
+import { alertDialog } from "./modal-ui.js?v=20260830-72";
+import { SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getPaymentStatus } from "./orders.js?v=20260830-72";
 
 export function printOrderSlip(order) {
   const win = window.open("", "_blank", "width=480,height=700");
@@ -39,6 +39,9 @@ export function printOrderSlip(order) {
   .totals { text-align: right; font-size: 18px; margin-top: 10px; }
   .totals .grand { font-size: 24px; font-weight: 700; margin-top: 6px; }
   .badge { display: inline-block; padding: 5px 14px; border-radius: 999px; background: #F4F1E9; font-size: 16px; margin-right: 8px; }
+  .confirm-box { border: 2px solid #B48A2E; background: #FBF3DE; border-radius: 10px; padding: 12px 14px; margin-bottom: 18px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .confirm-title { font-weight: 700; font-size: 18px; color: #8C6526; }
+  .confirm-note { font-size: 16px; color: #23262E; margin-top: 4px; }
   .footer { margin-top: 24px; font-size: 13px; color: #9AA0B4; text-align: center; }
   @media print { body { padding: 0; } }
 </style>
@@ -58,6 +61,13 @@ export function printOrderSlip(order) {
     <span class="badge">${order.pickupMethod || "未指定取貨方式"}</span>
     ${order.expectedDate ? `<span class="badge">預計 ${order.expectedDate}</span>` : ""}
   </div>
+
+  ${order.needsConfirmation ? `
+    <div class="confirm-box">
+      <div class="confirm-title">⚠ 這張訂單還有資訊要跟客戶確認</div>
+      ${order.confirmationNote ? `<div class="confirm-note">${order.confirmationNote}</div>` : ""}
+    </div>
+  ` : ""}
 
   <table>
     <thead><tr><th>品項</th><th style="text-align:center;">數量</th><th style="text-align:right;">單價</th><th style="text-align:right;">小計</th></tr></thead>
@@ -123,7 +133,7 @@ export function printShippingList(ordersList) {
       ? `<div class="amount-due">應收 $${outstanding}</div>`
       : `<div class="amount-paid">已收款</div>`;
     return `
-      <tr>
+      <tr${order.needsConfirmation ? ' class="row-confirm"' : ""}>
         <td class="check-col"><span class="checkbox"></span></td>
         <td>${idx + 1}</td>
         <td>
@@ -131,6 +141,7 @@ export function printShippingList(ordersList) {
           <div class="sub2">${order.contactName || "（未指定）"}${order.contactPhone ? " · " + order.contactPhone : ""}</div>
           ${order.contactAddress ? `<div class="sub2">${order.contactAddress}</div>` : ""}
           ${order.note ? `<div class="sub2">備註：${order.note}</div>` : ""}
+          ${order.needsConfirmation ? `<div class="confirm-note">⚠ 待確認${order.confirmationNote ? "：" + order.confirmationNote : ""}</div>` : ""}
           <div class="handwrite-line"></div>
         </td>
         <td>${itemsHtml}</td>
@@ -160,6 +171,8 @@ export function printShippingList(ordersList) {
   .item-line { margin-bottom: 3px; }
   .amount-due { font-weight: 700; color: #A8433A; white-space: nowrap; font-size: 18px; }
   .amount-paid { color: #4A7A5E; white-space: nowrap; }
+  .row-confirm { background: #FBF3DE; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .confirm-note { font-size: 14.5px; font-weight: 700; color: #8C6526; margin-top: 4px; }
   .handwrite-line { border-bottom: 1.5px solid #23262E; min-height: 22px; margin-top: 8px; }
   .footer { margin-top: 20px; font-size: 13px; color: #9AA0B4; text-align: right; }
   @media print { body { padding: 0; } tr { page-break-inside: avoid; } }
