@@ -9,7 +9,7 @@
 //    - 存在但 status 是 'pending' -> 顯示「審核中」，登出
 //    - 存在且 status 是 'active' -> 放行，帶著 role 一起進系統
 // ============================================================
-import { auth, db, googleProvider } from "./firebase-config.js?v=20260830-87";
+import { auth, db, googleProvider, authPersistenceReady } from "./firebase-config.js?v=20260830-88";
 import {
   signInWithPopup,
   signInWithRedirect,
@@ -139,6 +139,11 @@ function isStandaloneMode() {
 }
 
 export async function loginWithGoogle() {
+  // 確保「登入狀態要怎麼記住」這個設定已經真的生效，才進行轉跳——
+  // 避免設定還沒完成、頁面就先轉跳離開，導致轉跳回來後系統認不出
+  // 剛剛登入過。
+  await authPersistenceReady;
+
   if (isStandaloneMode()) {
     // 記一個旗標，讓轉跳回來後不管結果如何都能顯示診斷訊息給使用者看，
     // 不要讓失敗的狀況又變成使用者完全看不出發生了什麼事的靜默失敗。
@@ -152,6 +157,7 @@ export async function loginWithGoogle() {
     if (POPUP_FALLBACK_CODES.has(err.code)) {
       // Safari（尤其 iPhone）常見的封鎖彈出視窗情況：改用整頁轉跳，
       // 轉跳回來後由 watchAuthState + getRedirectResult 接手完成登入。
+      try { localStorage.setItem("pendingGoogleRedirect", "1"); } catch (e) { /* 忽略 */ }
       await signInWithRedirect(auth, googleProvider);
       return null; // 頁面即將轉跳離開，不會執行到這行之後
     }

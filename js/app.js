@@ -1,28 +1,28 @@
 // ============================================================
 // 主程式：登入流程 + 側邊導覽 + 簡易路由
 // ============================================================
-import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName, consumeRedirectResult } from "./auth.js?v=20260830-87";
-import { iconHtml } from "./icons.js?v=20260830-87";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-87";
-import { openProfileModal } from "./profile-ui.js?v=20260830-87";
-import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, renderBackupPage, getPendingCount } from "./settings.js?v=20260830-87";
-import { renderPrepListPage } from "./prep-ui.js?v=20260830-87";
-import { renderRecalcCostPage } from "./recalc-ui.js?v=20260830-87";
-import { renderFaqPage } from "./faq-ui.js?v=20260830-87";
-import { renderHomePage } from "./home.js?v=20260830-87";
-import { renderItemsPage } from "./items-ui.js?v=20260830-87";
-import { clearFab } from "./fab-ui.js?v=20260830-87";
-import { renderContactsPage } from "./contacts-ui.js?v=20260830-87";
-import { renderOrdersPage } from "./orders-ui.js?v=20260830-87";
-import { renderReportsPage } from "./reports-ui.js?v=20260830-87";
-import { renderProfitPage } from "./profit-ui.js?v=20260830-87";
-import { renderActivityLogPage } from "./activity-log-ui.js?v=20260830-87";
-import { renderExpensesPage } from "./expenses-ui.js?v=20260830-87";
-import { lowStockItems } from "./items.js?v=20260830-87";
-import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260830-87";
-import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-87";
-import { db } from "./firebase-config.js?v=20260830-87";
-import { openModal } from "./modal-ui.js?v=20260830-87";
+import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName, consumeRedirectResult } from "./auth.js?v=20260830-88";
+import { iconHtml } from "./icons.js?v=20260830-88";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-88";
+import { openProfileModal } from "./profile-ui.js?v=20260830-88";
+import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, renderBackupPage, getPendingCount } from "./settings.js?v=20260830-88";
+import { renderPrepListPage } from "./prep-ui.js?v=20260830-88";
+import { renderRecalcCostPage } from "./recalc-ui.js?v=20260830-88";
+import { renderFaqPage } from "./faq-ui.js?v=20260830-88";
+import { renderHomePage } from "./home.js?v=20260830-88";
+import { renderItemsPage } from "./items-ui.js?v=20260830-88";
+import { clearFab } from "./fab-ui.js?v=20260830-88";
+import { renderContactsPage } from "./contacts-ui.js?v=20260830-88";
+import { renderOrdersPage } from "./orders-ui.js?v=20260830-88";
+import { renderReportsPage } from "./reports-ui.js?v=20260830-88";
+import { renderProfitPage } from "./profit-ui.js?v=20260830-88";
+import { renderActivityLogPage } from "./activity-log-ui.js?v=20260830-88";
+import { renderExpensesPage } from "./expenses-ui.js?v=20260830-88";
+import { lowStockItems } from "./items.js?v=20260830-88";
+import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260830-88";
+import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-88";
+import { db } from "./firebase-config.js?v=20260830-88";
+import { openModal } from "./modal-ui.js?v=20260830-88";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 // ---------- 品牌圖案：統一套用在登入頁 / 側邊欄 / 每個人的頭像位置 ----------
