@@ -5,8 +5,8 @@
 // 只會造成困擾。每一個章節、每一則問答都可以個別設定「哪些角色看得到」，
 // 沒特別設定的話就沿用整個章節的權限範圍。
 // ============================================================
-import { currentSession, ROLE_LABELS } from "./auth.js?v=20260830-78";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-78";
+import { currentSession } from "./auth.js?v=20260830-79";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-79";
 
 const FAQ_SECTIONS = [
   {
@@ -189,7 +189,6 @@ export async function renderFaqPage(container) {
           `).join("")}
         </div>
       `).join("")}
-      <div class="hint" style="text-align:center;margin-bottom:20px;">目前顯示的內容已經依你的角色（${ROLE_LABELS[role] || role}）篩選過，只列出你用得到的功能說明。</div>
     `;
     wirePageNav(container);
     const input = container.querySelector("#faq-search");
