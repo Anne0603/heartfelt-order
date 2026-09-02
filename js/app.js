@@ -1,26 +1,28 @@
 // ============================================================
 // 主程式：登入流程 + 側邊導覽 + 簡易路由
 // ============================================================
-import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName, consumeRedirectResult } from "./auth.js?v=20260830-77";
-import { iconHtml } from "./icons.js?v=20260830-77";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-77";
-import { openProfileModal } from "./profile-ui.js?v=20260830-77";
-import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, renderBackupPage, getPendingCount } from "./settings.js?v=20260830-77";
-import { renderPrepListPage } from "./prep-ui.js?v=20260830-77";
-import { renderRecalcCostPage } from "./recalc-ui.js?v=20260830-77";
-import { renderHomePage } from "./home.js?v=20260830-77";
-import { renderItemsPage } from "./items-ui.js?v=20260830-77";
-import { clearFab } from "./fab-ui.js?v=20260830-77";
-import { renderContactsPage } from "./contacts-ui.js?v=20260830-77";
-import { renderOrdersPage } from "./orders-ui.js?v=20260830-77";
-import { renderReportsPage } from "./reports-ui.js?v=20260830-77";
-import { renderProfitPage } from "./profit-ui.js?v=20260830-77";
-import { renderActivityLogPage } from "./activity-log-ui.js?v=20260830-77";
-import { renderExpensesPage } from "./expenses-ui.js?v=20260830-77";
-import { lowStockItems } from "./items.js?v=20260830-77";
-import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260830-77";
-import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-77";
-import { db } from "./firebase-config.js?v=20260830-77";
+import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName, consumeRedirectResult } from "./auth.js?v=20260830-78";
+import { iconHtml } from "./icons.js?v=20260830-78";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-78";
+import { openProfileModal } from "./profile-ui.js?v=20260830-78";
+import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, renderBackupPage, getPendingCount } from "./settings.js?v=20260830-78";
+import { renderPrepListPage } from "./prep-ui.js?v=20260830-78";
+import { renderRecalcCostPage } from "./recalc-ui.js?v=20260830-78";
+import { renderFaqPage } from "./faq-ui.js?v=20260830-78";
+import { renderHomePage } from "./home.js?v=20260830-78";
+import { renderItemsPage } from "./items-ui.js?v=20260830-78";
+import { clearFab } from "./fab-ui.js?v=20260830-78";
+import { renderContactsPage } from "./contacts-ui.js?v=20260830-78";
+import { renderOrdersPage } from "./orders-ui.js?v=20260830-78";
+import { renderReportsPage } from "./reports-ui.js?v=20260830-78";
+import { renderProfitPage } from "./profit-ui.js?v=20260830-78";
+import { renderActivityLogPage } from "./activity-log-ui.js?v=20260830-78";
+import { renderExpensesPage } from "./expenses-ui.js?v=20260830-78";
+import { lowStockItems } from "./items.js?v=20260830-78";
+import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260830-78";
+import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-78";
+import { db } from "./firebase-config.js?v=20260830-78";
+import { openModal } from "./modal-ui.js?v=20260830-78";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 // ---------- 品牌圖案：統一套用在登入頁 / 側邊欄 / 每個人的頭像位置 ----------
@@ -64,10 +66,11 @@ loadAndApplyBrandLogo();
 
 const MODULES = [
   { id: "home",      label: "首頁",           icon: "house", group: "", roles: ["superadmin","admin","order_staff","viewer"] },
-  { id: "orders",    label: "訂單管理",       icon: "clipboard", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
-  { id: "items",     label: "商品與庫存",     icon: "box", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
-  { id: "prep",      label: "備料清單",       icon: "grain", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
-  { id: "contacts",  label: "客戶與廠商",     icon: "idcard", group: "營運", roles: ["superadmin","admin","order_staff","viewer"] },
+  { id: "faq",       label: "常見問題",       icon: "bulb", group: "", roles: ["superadmin","admin","order_staff","viewer"] },
+  { id: "orders",    label: "訂單管理",       icon: "clipboard", group: "日常", roles: ["superadmin","admin","order_staff","viewer"] },
+  { id: "items",     label: "商品與庫存",     icon: "box", group: "日常", roles: ["superadmin","admin","order_staff","viewer"] },
+  { id: "prep",      label: "備料清單",       icon: "grain", group: "日常", roles: ["superadmin","admin","order_staff","viewer"] },
+  { id: "contacts",  label: "客戶與廠商",     icon: "idcard", group: "日常", roles: ["superadmin","admin","order_staff","viewer"] },
   { id: "reports",   label: "統計報表",       icon: "chart", group: "分析", roles: ["superadmin","admin","viewer"] },
   { id: "profit",    label: "利潤總覽",       icon: "coin", group: "分析", roles: ["superadmin","admin","viewer"] },
   { id: "expenses",  label: "支出管理",       icon: "cash", group: "分析", roles: ["superadmin","admin","viewer"] },
@@ -167,6 +170,47 @@ btnGoogleLogin.addEventListener("click", async () => {
 btnLogout.addEventListener("click", () => logout());
 btnPendingLogout.addEventListener("click", () => logout());
 
+// ---------- 版本更新紀錄（給使用者看的簡易版，不是技術細節） ----------
+// 每次有新功能上線，在陣列最前面加一條新的即可，最新的放最上面。
+const CHANGELOG = [
+  { date: "2026-08-30", items: [
+    "新增「常見問題」說明頁面，內容依角色自動篩選",
+    "側邊欄「營運」改名為「日常」",
+    "備料清單排版改成卡片式，看禮盒展開的內容更清楚",
+  ]},
+  { date: "2026-08-30", items: [
+    "自製商品配方支援「巢狀配方」：禮盒可以直接設定裡面裝了哪些單顆商品，成本、庫存、備料清單都會自動正確計算",
+    "新增「重算訂單成本」功能（超級管理員），配方調整後可以一鍵更新還沒出貨的訂單",
+  ]},
+  { date: "2026-08-30", items: [
+    "訂單新增「待確認」標記，方便找出還有資訊要跟客戶核對的訂單，可以直接篩選出來",
+    "新增「備料清單」功能，一次看清楚要準備多少商品跟原料",
+    "出貨單/批次清單新增橫向列印、待確認提示",
+  ]},
+  { date: "2026-08-30", items: [
+    "新增退貨功能，可以登記部分/全部退貨、選擇要不要加回庫存",
+    "新增一鍵資料備份、加到手機主畫面（像 App 一樣開啟）",
+    "修正手機上輸入框自動放大、彈窗背景會跟著滑動等問題，操作起來更像原生 App",
+  ]},
+  { date: "2026-08-29", items: [
+    "全站畫面整體放大，側邊欄、按鈕都更適合手機操作",
+    "登入流程改為自動容錯，手機瀏覽器封鎖彈跳視窗時會自動改用整頁轉跳",
+  ]},
+];
+
+function openChangelogModal() {
+  const html = CHANGELOG.map((entry) => `
+    <div style="margin-bottom:16px;">
+      <div style="font-family:var(--font-mono);font-size:13px;color:var(--text-muted);margin-bottom:6px;">${entry.date}</div>
+      <ul style="margin:0;padding-left:18px;">
+        ${entry.items.map((it) => `<li style="font-size:14.5px;line-height:1.7;margin-bottom:2px;">${it}</li>`).join("")}
+      </ul>
+    </div>
+  `).join("");
+  openModal(`<h3 style="margin-bottom:14px;">版本更新紀錄</h3>${html}`, 460);
+}
+document.getElementById("btn-open-changelog")?.addEventListener("click", openChangelogModal);
+
 function hardRefresh() {
   location.reload();
 }
@@ -256,6 +300,7 @@ async function renderCurrentModule() {
   if (currentModule === "units") return renderUnitsPage(mainContent);
   if (currentModule === "backup") return renderBackupPage(mainContent);
   if (currentModule === "recalc") return renderRecalcCostPage(mainContent);
+  if (currentModule === "faq") return renderFaqPage(mainContent);
   if (currentModule === "prep") return renderPrepListPage(mainContent);
   if (currentModule === "pending") {
     await renderPendingPage(mainContent);

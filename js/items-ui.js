@@ -1,8 +1,8 @@
 // ============================================================
 // 商品與庫存頁面 UI（合併版）
 // ============================================================
-import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-77";
-import { currentSession, wireNameResolution } from "./auth.js?v=20260830-77";
+import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-78";
+import { currentSession, wireNameResolution } from "./auth.js?v=20260830-78";
 import {
   listItems, createItem, updateItem, setItemArchived, deleteItemPermanently,
   addPurchaseBatch, stocktakeAdjust, disposeStock,
@@ -10,16 +10,16 @@ import {
   voidRecord, permanentlyDelete,
   computeStock, computeAvgCost, calcItemCost, buildItemsIndex,
   TYPE_LABELS, ORDERABLE_TYPES, STOCK_TRACKED_TYPES,
-} from "./items.js?v=20260830-77";
-import { listCategories } from "./categories.js?v=20260830-77";
-import { listUnits } from "./units.js?v=20260830-77";
-import { uploadImageToCloudinary } from "./settings.js?v=20260830-77";
-import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260830-77";
-import { openSearchPicker } from "./picker-ui.js?v=20260830-77";
-import { exportItems } from "./export-xlsx.js?v=20260830-77";
-import { setFab } from "./fab-ui.js?v=20260830-77";
-import { iconHtml } from "./icons.js?v=20260830-77";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-77";
+} from "./items.js?v=20260830-78";
+import { listCategories } from "./categories.js?v=20260830-78";
+import { listUnits } from "./units.js?v=20260830-78";
+import { uploadImageToCloudinary } from "./settings.js?v=20260830-78";
+import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260830-78";
+import { openSearchPicker } from "./picker-ui.js?v=20260830-78";
+import { exportItems } from "./export-xlsx.js?v=20260830-78";
+import { setFab } from "./fab-ui.js?v=20260830-78";
+import { iconHtml } from "./icons.js?v=20260830-78";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-78";
 
 const TYPE_HINTS = {
   self_made: "自己現做的東西，客戶可訂購。不追蹤庫存量，成本 = 配方裡每一項包材的成本加總（原料/人工每月算在「利潤總覽」）。",
