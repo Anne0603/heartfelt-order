@@ -9,7 +9,7 @@
 //    - 存在但 status 是 'pending' -> 顯示「審核中」，登出
 //    - 存在且 status 是 'active' -> 放行，帶著 role 一起進系統
 // ============================================================
-import { auth, db, googleProvider } from "./firebase-config.js?v=20260830-67";
+import { auth, db, googleProvider } from "./firebase-config.js?v=20260830-68";
 import {
   signInWithPopup,
   signInWithRedirect,
@@ -126,7 +126,23 @@ const POPUP_FALLBACK_CODES = new Set([
   "auth/cancelled-popup-request",
 ]);
 
+/**
+ * 判斷現在是不是在「加到主畫面」的獨立模式下開啟（不是在一般瀏覽器
+ * 分頁裡）。iOS 的獨立模式對跳出彈跳視窗登入的支援不好，常常會
+ * 完全沒有任何反應（連錯誤都不會回報，導致下面的「跳窗失敗自動改用
+ * 轉跳」邏輯根本沒機會被觸發），所以獨立模式下乾脆一開始就直接用
+ * 整頁轉跳登入，不要嘗試跳窗。
+ */
+function isStandaloneMode() {
+  return window.navigator.standalone === true // iOS Safari 專用屬性
+    || window.matchMedia("(display-mode: standalone)").matches; // 其他瀏覽器/系統通用判斷
+}
+
 export async function loginWithGoogle() {
+  if (isStandaloneMode()) {
+    await signInWithRedirect(auth, googleProvider);
+    return null;
+  }
   try {
     return await signInWithPopup(auth, googleProvider);
   } catch (err) {
