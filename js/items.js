@@ -23,14 +23,14 @@
 //   itemUsages/{id}      領用/消耗記錄（含出貨自動扣、手動例外）
 //   itemStocktakes/{id}  盤點記錄
 // ============================================================
-import { db } from "./firebase-config.js?v=20260830-68";
+import { db } from "./firebase-config.js?v=20260830-69";
 import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, runTransaction,
   serverTimestamp, query, where
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { currentSession, getDisplayName } from "./auth.js?v=20260830-68";
-import { logActivity } from "./activity-log.js?v=20260830-68";
-import { addExpense } from "./expenses.js?v=20260830-68";
+import { currentSession, getDisplayName } from "./auth.js?v=20260830-69";
+import { logActivity } from "./activity-log.js?v=20260830-69";
+import { addExpense } from "./expenses.js?v=20260830-69";
 
 const itemsCol = collection(db, "items");
 const purchasesCol = collection(db, "itemPurchases");
@@ -343,7 +343,8 @@ export function expandRecipe(item, multiplier, itemsById) {
   return { selfMadeNeeds, packagingNeeds };
 }
 
-
+/**
+ * 退貨回補庫存：客戶退回的商品狀況良好、可以繼續賣，就用這個把庫存加
  * 回去。跟 addUsage 是相反方向的操作，故意獨立成一個函式而不是共用
  * 「傳負數 qty 給 addUsage」這種寫法——避免在領用記錄列表裡看到一筆
  * 「領用 -3 個」這種容易誤讀的紀錄，這裡用獨立的 source: 'return'，
