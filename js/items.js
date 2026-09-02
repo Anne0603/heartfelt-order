@@ -23,14 +23,14 @@
 //   itemUsages/{id}      領用/消耗記錄（含出貨自動扣、手動例外）
 //   itemStocktakes/{id}  盤點記錄
 // ============================================================
-import { db } from "./firebase-config.js?v=20260830-73";
+import { db } from "./firebase-config.js?v=20260830-74";
 import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, runTransaction,
   serverTimestamp, query, where
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { currentSession, getDisplayName } from "./auth.js?v=20260830-73";
-import { logActivity } from "./activity-log.js?v=20260830-73";
-import { addExpense } from "./expenses.js?v=20260830-73";
+import { currentSession, getDisplayName } from "./auth.js?v=20260830-74";
+import { logActivity } from "./activity-log.js?v=20260830-74";
+import { addExpense } from "./expenses.js?v=20260830-74";
 
 const itemsCol = collection(db, "items");
 const purchasesCol = collection(db, "itemPurchases");
@@ -78,7 +78,7 @@ export function computeAvgCost(item) {
  * 記錄「目前正在算誰的成本」，發現繞回自己就直接停止，回傳一個
  * 明確的警告訊息，不會讓畫面卡住或算出奇怪的數字。
  */
-export function calcItemCost(item, itemsById, _visiting) {
+export function calcItemCost(item, itemsById, _visiting, _skipOwnPackaging = false) {
   if (item.type === "resale") {
     const cost = computeAvgCost(item);
     const profit = item.price - cost;
@@ -105,14 +105,28 @@ export function calcItemCost(item, itemsById, _visiting) {
     const breakdown = recipe.map((r) => {
       const comp = itemsById?.get(r.itemId);
       let unitCost = 0;
+      let skippedNote = "";
       if (comp) {
-        unitCost = comp.type === "self_made"
-          ? calcItemCost(comp, itemsById, nextVisiting).cost
-          : computeAvgCost(comp);
+        if (comp.type === "self_made") {
+          // 遞迴算這個自製子項目自己的成本；這一列自己的「不計入包材」
+          // 設定，只影響「這個子項目本身」的包材要不要算，不會影響
+          // 子項目自己底下又用到的其他自製商品（那些各自獨立判斷）。
+          unitCost = calcItemCost(comp, itemsById, nextVisiting, !!r.excludePackaging).cost;
+        } else {
+          // comp 是包材：如果上一層呼叫時說「這個商品自己的包材不用算」
+          // （例如蛋黃酥裝進禮盒，散裝進去、不需要單顆蛋黃酥自己的
+          // 小包裝），這裡就跳過，成本算 0。
+          if (_skipOwnPackaging) {
+            unitCost = 0;
+            skippedNote = "（已排除，不列入本商品成本）";
+          } else {
+            unitCost = computeAvgCost(comp);
+          }
+        }
       }
       const amount = unitCost * r.qty;
       return {
-        label: comp ? `${comp.name} x${r.qty}` : "（找不到項目）",
+        label: comp ? `${comp.name} x${r.qty}${skippedNote}` : "（找不到項目）",
         amount,
         itemId: r.itemId,
         itemName: comp?.name || "（找不到項目）",
@@ -322,7 +336,7 @@ export function expandRecipe(item, multiplier, itemsById) {
   const selfMadeNeeds = new Map();
   const packagingNeeds = new Map();
 
-  function walk(curItem, curMultiplier, visiting) {
+  function walk(curItem, curMultiplier, visiting, skipOwnPackaging) {
     if (visiting.has(curItem.id)) return;
     const nextVisiting = new Set(visiting);
     nextVisiting.add(curItem.id);
@@ -333,13 +347,16 @@ export function expandRecipe(item, multiplier, itemsById) {
       if (qty <= 0) continue;
       if (comp.type === "self_made") {
         selfMadeNeeds.set(comp.id, (selfMadeNeeds.get(comp.id) || 0) + qty);
-        walk(comp, qty, nextVisiting);
-      } else {
+        // 這一列如果標記「不計入這個子項目自己的包材」，往下展開時
+        // 就不要把它自己的包材算進最終需求（也就不會被扣庫存）——
+        // 例如蛋黃酥裝進禮盒散裝，出貨禮盒不該扣蛋黃酥自己的小貼紙庫存。
+        walk(comp, qty, nextVisiting, !!r.excludePackaging);
+      } else if (!skipOwnPackaging) {
         packagingNeeds.set(r.itemId, (packagingNeeds.get(r.itemId) || 0) + qty);
       }
     }
   }
-  walk(item, multiplier, new Set());
+  walk(item, multiplier, new Set(), false);
   return { selfMadeNeeds, packagingNeeds };
 }
 

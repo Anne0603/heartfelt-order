@@ -1,8 +1,8 @@
 // ============================================================
 // 商品與庫存頁面 UI（合併版）
 // ============================================================
-import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-73";
-import { currentSession, wireNameResolution } from "./auth.js?v=20260830-73";
+import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-74";
+import { currentSession, wireNameResolution } from "./auth.js?v=20260830-74";
 import {
   listItems, createItem, updateItem, setItemArchived, deleteItemPermanently,
   addPurchaseBatch, stocktakeAdjust, disposeStock,
@@ -10,16 +10,16 @@ import {
   voidRecord, permanentlyDelete,
   computeStock, computeAvgCost, calcItemCost, buildItemsIndex,
   TYPE_LABELS, ORDERABLE_TYPES, STOCK_TRACKED_TYPES,
-} from "./items.js?v=20260830-73";
-import { listCategories } from "./categories.js?v=20260830-73";
-import { listUnits } from "./units.js?v=20260830-73";
-import { uploadImageToCloudinary } from "./settings.js?v=20260830-73";
-import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260830-73";
-import { openSearchPicker } from "./picker-ui.js?v=20260830-73";
-import { exportItems } from "./export-xlsx.js?v=20260830-73";
-import { setFab } from "./fab-ui.js?v=20260830-73";
-import { iconHtml } from "./icons.js?v=20260830-73";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-73";
+} from "./items.js?v=20260830-74";
+import { listCategories } from "./categories.js?v=20260830-74";
+import { listUnits } from "./units.js?v=20260830-74";
+import { uploadImageToCloudinary } from "./settings.js?v=20260830-74";
+import { openModal, confirmDialog, openImageLightbox } from "./modal-ui.js?v=20260830-74";
+import { openSearchPicker } from "./picker-ui.js?v=20260830-74";
+import { exportItems } from "./export-xlsx.js?v=20260830-74";
+import { setFab } from "./fab-ui.js?v=20260830-74";
+import { iconHtml } from "./icons.js?v=20260830-74";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-74";
 
 const TYPE_HINTS = {
   self_made: "自己現做的東西，客戶可訂購。不追蹤庫存量，成本 = 配方裡每一項包材的成本加總（原料/人工每月算在「利潤總覽」）。",
@@ -573,7 +573,7 @@ export async function renderItemsPage(container, initialFilter = null) {
       i.id !== item?.id
     );
     let recipeRows = isEdit && item.type === "self_made"
-      ? (item.recipe || []).map((r) => ({ itemId: r.itemId, qty: r.qty }))
+      ? (item.recipe || []).map((r) => ({ itemId: r.itemId, qty: r.qty, excludePackaging: !!r.excludePackaging }))
       : [{ itemId: "", qty: 1 }];
 
     const overlay = openModal(`
@@ -665,11 +665,20 @@ export async function renderItemsPage(container, initialFilter = null) {
       rowsEl.innerHTML = recipeRows.map((r, idx) => {
         const comp = recipeOptions.find((i) => i.id === r.itemId);
         const compLabel = comp ? `${comp.name}${comp.type === "self_made" ? "（自製）" : ""}` : "點選項目";
+        const isSelfMade = comp?.type === "self_made";
         return `
-          <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;" data-rrow="${idx}">
-            <button type="button" class="r-item-btn picker-trigger compact" style="flex:2;">${compLabel}</button>
-            <input type="number" class="r-qty" placeholder="用量" value="${r.qty}" style="width:80px;padding:8px;border:1px solid var(--paper-line);border-radius:8px;" />
-            ${recipeRows.length > 1 ? `<button class="btn btn-danger r-remove" type="button" style="padding:6px 10px;font-size:12px;">刪</button>` : ""}
+          <div style="margin-bottom:10px;" data-rrow="${idx}">
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button type="button" class="r-item-btn picker-trigger compact" style="flex:2;">${compLabel}</button>
+              <input type="number" class="r-qty" placeholder="用量" value="${r.qty}" style="width:80px;padding:8px;border:1px solid var(--paper-line);border-radius:8px;" />
+              ${recipeRows.length > 1 ? `<button class="btn btn-danger r-remove" type="button" style="padding:6px 10px;font-size:12px;">刪</button>` : ""}
+            </div>
+            ${isSelfMade ? `
+              <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:13px;color:var(--text-muted);cursor:pointer;">
+                <input type="checkbox" class="r-exclude-packaging" ${r.excludePackaging ? "checked" : ""} style="width:16px;height:16px;" />
+                不計入「${comp.name}」自己的包材成本／庫存（例如散裝進禮盒，不需要它單獨的包裝）
+              </label>
+            ` : ""}
           </div>
         `;
       }).join("");
@@ -683,10 +692,17 @@ export async function renderItemsPage(container, initialFilter = null) {
             renderSub: (i) => i.type === "self_made" ? "自製商品" : `包材・庫存 ${computeStock(i)} ${i.unit || "個"}`,
             renderThumb: (i) => i.photoUrl || null,
             emptyText: "還沒有可以選的包材或自製商品，請先新增",
-            onSelect: (i) => { recipeRows[idx].itemId = i.id; renderRecipeRows(); },
+            onSelect: (i) => {
+              recipeRows[idx].itemId = i.id;
+              if (i.type !== "self_made") recipeRows[idx].excludePackaging = false; // 改選包材的話，這個設定沒意義，重置掉
+              renderRecipeRows();
+            },
           });
         });
         rowEl.querySelector(".r-qty").addEventListener("input", (e) => recipeRows[idx].qty = Number(e.target.value));
+        rowEl.querySelector(".r-exclude-packaging")?.addEventListener("change", (e) => {
+          recipeRows[idx].excludePackaging = e.target.checked;
+        });
         const rmBtn = rowEl.querySelector(".r-remove");
         if (rmBtn) rmBtn.addEventListener("click", () => { recipeRows.splice(idx, 1); renderRecipeRows(); });
       });
