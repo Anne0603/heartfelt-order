@@ -515,7 +515,11 @@ input[type="number"]::-webkit-inner-spin-button {
   color: var(--ink);
   margin-bottom: 6px;
 }
-.field .hint { font-size: 13.5px; color: var(--text-muted); margin-top: 5px; }
+/* 提示用的小字（灰色、字級較小），全站到處都在用這個 class。
+   之前只在 .field 容器裡有定義，容器外面直接用的地方完全沒套用到
+   樣式，變成跟一般文字一樣大小的黑字——這裡補上全域定義修正。 */
+.hint { font-size: 13.5px; color: var(--text-muted); }
+.field .hint { margin-top: 5px; }
 .field input[type="text"],
 .field input[type="email"],
 .field input[type="number"],

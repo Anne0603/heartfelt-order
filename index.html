@@ -23,13 +23,27 @@
     <div class="login-card">
       <div class="login-seal">心</div>
       <h1>心意訂單系統</h1>
-      <p class="sub">請用授權的 Google 帳號登入</p>
-      <button class="btn-google" id="btn-google-login">
-        <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 01-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.98v2.33A9 9 0 009 18z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 013.68 9c0-.59.1-1.17.27-1.7V4.97H.98A9 9 0 000 9c0 1.45.35 2.83.98 4.03l2.97-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.46 3.44 1.35l2.58-2.58C13.46.9 11.43 0 9 0A9 9 0 00.98 4.97l2.97 2.33C4.66 5.17 6.65 3.58 9 3.58z"/></svg>
-        使用 Google 帳號登入
-      </button>
-      <div class="login-loading" id="login-loading">登入中…</div>
-      <div class="login-error" id="login-error"></div>
+
+      <!-- 獨立模式（加到主畫面）下的引導畫面：這個環境下 Google 登入
+           一直沒辦法穩定運作，與其讓使用者卡在一個看似要成功卻永遠
+           打轉的畫面，不如直接清楚引導去用 Safari，登入過一次之後
+           之後從主畫面圖示打開就會維持登入狀態，不用每次都這樣做。 -->
+      <div id="standalone-login-guide" style="display:none;">
+        <p class="sub" style="margin-bottom:20px;">目前這個開啟方式沒辦法登入，請改用 Safari 瀏覽器開啟一次，登入成功後之後從主畫面圖示打開就會維持登入狀態。</p>
+        <button class="btn-google" id="btn-open-in-safari" type="button">在 Safari 中開啟</button>
+        <p class="hint" style="margin-top:14px;font-size:13px;">如果沒有自動跳轉，請手動複製下面的網址到 Safari 開啟：</p>
+        <div class="hint" style="font-size:12px;word-break:break-all;margin-top:4px;" id="standalone-login-url"></div>
+      </div>
+
+      <div id="normal-login-guide">
+        <p class="sub">請用授權的 Google 帳號登入</p>
+        <button class="btn-google" id="btn-google-login">
+          <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 01-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.98v2.33A9 9 0 009 18z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 013.68 9c0-.59.1-1.17.27-1.7V4.97H.98A9 9 0 000 9c0 1.45.35 2.83.98 4.03l2.97-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.46 3.44 1.35l2.58-2.58C13.46.9 11.43 0 9 0A9 9 0 00.98 4.97l2.97 2.33C4.66 5.17 6.65 3.58 9 3.58z"/></svg>
+          使用 Google 帳號登入
+        </button>
+        <div class="login-loading" id="login-loading">登入中…</div>
+        <div class="login-error" id="login-error"></div>
+      </div>
     </div>
   </div>
 
@@ -89,6 +103,25 @@
     </div>
   </div>
 
+  <script>
+    // 獨立模式（加到主畫面）下，Google 登入一直沒辦法穩定運作（試過
+    // 好幾種修法都沒解決），與其讓使用者卡在一個看似要成功卻永遠
+    // 打轉的畫面，不如一開始偵測到就直接顯示清楚的引導畫面，不要
+    // 再嘗試那個會卡住的登入流程。放在最前面、不等 app.js 模組載入
+    // 完成就先判斷，避免使用者先看到一般登入畫面閃一下才切換。
+    (function () {
+      const isStandalone = window.navigator.standalone === true
+        || window.matchMedia("(display-mode: standalone)").matches;
+      if (!isStandalone) return;
+      document.getElementById("normal-login-guide").style.display = "none";
+      const guide = document.getElementById("standalone-login-guide");
+      guide.style.display = "block";
+      document.getElementById("standalone-login-url").textContent = location.href;
+      document.getElementById("btn-open-in-safari").addEventListener("click", () => {
+        window.open(location.href, "_blank");
+      });
+    })();
+  </script>
   <script type="module" src="js/app.js?v=20260830-89"></script>
   <script>
     // 之前為了「加到主畫面」而加的 Service Worker，後來發現其實 iOS
