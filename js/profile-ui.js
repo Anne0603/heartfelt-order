@@ -2,19 +2,26 @@
 // 個人資料彈跳視窗：設定暱稱、查看綁定帳號與角色、
 // （管理員以上）更換品牌圖案
 // ============================================================
-import { currentSession, ROLE_LABELS, updateMyNickname } from "./auth.js?v=20260830-81";
-import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-81";
-import { openModal } from "./modal-ui.js?v=20260830-81";
-import { uploadImageToCloudinary, saveBrandLogoUrl } from "./settings.js?v=20260830-81";
-import { logActivity } from "./activity-log.js?v=20260830-81";
+import { currentSession, ROLE_LABELS, updateMyNickname } from "./auth.js?v=20260830-82";
+import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-82";
+import { openModal } from "./modal-ui.js?v=20260830-82";
+import { uploadImageToCloudinary, saveBrandLogoUrl } from "./settings.js?v=20260830-82";
+import { logActivity } from "./activity-log.js?v=20260830-82";
 
-export function openProfileModal({ brandLogoUrl, onBrandUpdated }) {
+export function openProfileModal({ brandLogoUrl, onBrandUpdated, mandatory = false }) {
   const user = currentSession.user;
   const member = currentSession.member;
   const canEditBrand = ["superadmin", "admin"].includes(member?.role);
 
   const overlay = openModal(`
     <h3 style="margin-bottom:16px;">個人資料</h3>
+
+    ${mandatory ? `
+      <div class="card" style="background:var(--gold-pale);border-color:var(--gold-deep);margin-bottom:16px;">
+        <div style="font-weight:700;color:var(--gold-deep);">還沒有設定暱稱</div>
+        <div style="font-size:14px;color:var(--ink);margin-top:4px;">設定一個暱稱，讓其他成員知道操作紀錄、收款紀錄等是誰做的，麻煩花幾秒設定一下。</div>
+      </div>
+    ` : ""}
 
     ${canEditBrand ? `
       <div style="text-align:center;margin-bottom:18px;">
@@ -60,6 +67,10 @@ export function openProfileModal({ brandLogoUrl, onBrandUpdated }) {
   overlay.querySelector("#pf-save").addEventListener("click", async (e) => {
     const btn = e.currentTarget;
     const nickname = overlay.querySelector("#pf-nickname").value.trim();
+    if (mandatory && !nickname) {
+      showToast("請輸入暱稱後再儲存", "error");
+      return;
+    }
     btn.disabled = true;
     try {
       const oldNickname = member?.nickname || "";

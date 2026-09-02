@@ -3,17 +3,17 @@
 // Cloudinary 設定 / 待審核申請 / 成員
 // 品牌圖案改成「直接點側邊欄 Logo 上傳」，邏輯在 app.js
 // ============================================================
-import { db } from "./firebase-config.js?v=20260830-81";
+import { db } from "./firebase-config.js?v=20260830-82";
 import {
   doc, getDoc, setDoc, deleteDoc,
   collection, getDocs, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-81";
-import { currentSession, ROLE_LABELS } from "./auth.js?v=20260830-81";
-import { listCategories, createCategory, renameCategory, deleteCategory } from "./categories.js?v=20260830-81";
-import { listUnits, createUnit, renameUnit, deleteUnit } from "./units.js?v=20260830-81";
-import { confirmDialog, openModal } from "./modal-ui.js?v=20260830-81";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-81";
+import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-82";
+import { currentSession, ROLE_LABELS } from "./auth.js?v=20260830-82";
+import { listCategories, createCategory, renameCategory, deleteCategory } from "./categories.js?v=20260830-82";
+import { listUnits, createUnit, renameUnit, deleteUnit } from "./units.js?v=20260830-82";
+import { confirmDialog, openModal } from "./modal-ui.js?v=20260830-82";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-82";
 
 const CLOUDINARY_DOC = doc(db, "publicSettings", "cloudinary");
 const BRAND_DOC = doc(db, "publicSettings", "brand");
@@ -439,7 +439,7 @@ export async function renderMembersPage(container) {
             const isTargetSuperadmin = m.role === "superadmin";
             return `
               <div class="card" style="margin-bottom:10px;">
-                <div style="font-size:16px;font-weight:700;color:var(--ink);">${m.nickname || "（尚未設定暱稱）"}${isSelf ? ` <span class="hint" style="font-weight:400;">(你)</span>` : ""}</div>
+                <div style="font-size:16px;font-weight:700;${m.nickname ? "color:var(--ink);" : "color:var(--rose);"}">${m.nickname || "（尚未設定暱稱）"}${isSelf ? ` <span class="hint" style="font-weight:400;">(你)</span>` : ""}</div>
                 <div style="font-size:13px;color:var(--text-muted);word-break:break-all;margin-top:2px;">${m.email}</div>
                 <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
                   ${isTargetSuperadmin

@@ -5,11 +5,11 @@
 // 這個功能碰到——那些訂單出貨當下已經真的扣過庫存，回頭改成本
 // 容易讓庫存帳對不起來，風險比較高，刻意排除。
 // ============================================================
-import { recalcPendingOrderCosts, listOrders, normalizeShipStatus } from "./orders.js?v=20260830-81";
-import { listItems, buildItemsIndex } from "./items.js?v=20260830-81";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-81";
-import { openModal } from "./modal-ui.js?v=20260830-81";
-import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-81";
+import { recalcPendingOrderCosts, listOrders, normalizeShipStatus } from "./orders.js?v=20260830-82";
+import { listItems, buildItemsIndex } from "./items.js?v=20260830-82";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-82";
+import { openModal } from "./modal-ui.js?v=20260830-82";
+import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-82";
 
 export async function renderRecalcCostPage(container) {
   container.innerHTML = `${pageNavHtml("重算待處理訂單成本")}<div class="card"><div class="hint">載入中…</div></div>`;

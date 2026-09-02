@@ -1,28 +1,28 @@
 // ============================================================
 // 主程式：登入流程 + 側邊導覽 + 簡易路由
 // ============================================================
-import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName, consumeRedirectResult } from "./auth.js?v=20260830-81";
-import { iconHtml } from "./icons.js?v=20260830-81";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-81";
-import { openProfileModal } from "./profile-ui.js?v=20260830-81";
-import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, renderBackupPage, getPendingCount } from "./settings.js?v=20260830-81";
-import { renderPrepListPage } from "./prep-ui.js?v=20260830-81";
-import { renderRecalcCostPage } from "./recalc-ui.js?v=20260830-81";
-import { renderFaqPage } from "./faq-ui.js?v=20260830-81";
-import { renderHomePage } from "./home.js?v=20260830-81";
-import { renderItemsPage } from "./items-ui.js?v=20260830-81";
-import { clearFab } from "./fab-ui.js?v=20260830-81";
-import { renderContactsPage } from "./contacts-ui.js?v=20260830-81";
-import { renderOrdersPage } from "./orders-ui.js?v=20260830-81";
-import { renderReportsPage } from "./reports-ui.js?v=20260830-81";
-import { renderProfitPage } from "./profit-ui.js?v=20260830-81";
-import { renderActivityLogPage } from "./activity-log-ui.js?v=20260830-81";
-import { renderExpensesPage } from "./expenses-ui.js?v=20260830-81";
-import { lowStockItems } from "./items.js?v=20260830-81";
-import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260830-81";
-import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-81";
-import { db } from "./firebase-config.js?v=20260830-81";
-import { openModal } from "./modal-ui.js?v=20260830-81";
+import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName, consumeRedirectResult } from "./auth.js?v=20260830-82";
+import { iconHtml } from "./icons.js?v=20260830-82";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-82";
+import { openProfileModal } from "./profile-ui.js?v=20260830-82";
+import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, renderBackupPage, getPendingCount } from "./settings.js?v=20260830-82";
+import { renderPrepListPage } from "./prep-ui.js?v=20260830-82";
+import { renderRecalcCostPage } from "./recalc-ui.js?v=20260830-82";
+import { renderFaqPage } from "./faq-ui.js?v=20260830-82";
+import { renderHomePage } from "./home.js?v=20260830-82";
+import { renderItemsPage } from "./items-ui.js?v=20260830-82";
+import { clearFab } from "./fab-ui.js?v=20260830-82";
+import { renderContactsPage } from "./contacts-ui.js?v=20260830-82";
+import { renderOrdersPage } from "./orders-ui.js?v=20260830-82";
+import { renderReportsPage } from "./reports-ui.js?v=20260830-82";
+import { renderProfitPage } from "./profit-ui.js?v=20260830-82";
+import { renderActivityLogPage } from "./activity-log-ui.js?v=20260830-82";
+import { renderExpensesPage } from "./expenses-ui.js?v=20260830-82";
+import { lowStockItems } from "./items.js?v=20260830-82";
+import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260830-82";
+import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-82";
+import { db } from "./firebase-config.js?v=20260830-82";
+import { openModal } from "./modal-ui.js?v=20260830-82";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 // ---------- 品牌圖案：統一套用在登入頁 / 側邊欄 / 每個人的頭像位置 ----------
@@ -173,6 +173,9 @@ btnPendingLogout.addEventListener("click", () => logout());
 // ---------- 版本更新紀錄（給使用者看的簡易版，不是技術細節） ----------
 // 每次有新功能上線，在陣列最前面加一條新的即可，最新的放最上面。
 const CHANGELOG = [
+  { date: "2026-08-30", items: [
+    "還沒設定暱稱的成員，登入後會自動跳出提醒設定，避免畫面上顯示看不懂的英文/數字帳號",
+  ]},
   { date: "2026-08-30", items: [
     "角色名稱「訂單進出貨人員」改為「小幫手」",
   ]},
@@ -372,6 +375,21 @@ function showApp(user, member) {
   if (btnChangelog) btnChangelog.style.display = ["superadmin", "admin"].includes(myRole) ? "block" : "none";
 
   handleHashRoute();
+
+  // 沒設定過暱稱的話，登入後自動跳出提示——靠使用者自己想起來去改，
+  // 效果通常不好，每次登入都主動提醒一次比較有效。使用者還是可以
+  // 關掉這個視窗跳過，但下次登入還是會再跳出來，直到真的設定為止。
+  if (!member.nickname) {
+    openProfileModal({
+      brandLogoUrl,
+      onBrandUpdated: (url) => {
+        brandLogoUrl = url;
+        applyBrandLogoToDom(url);
+        try { localStorage.setItem(BRAND_LOGO_CACHE_KEY, url); } catch (err) { /* 忽略 */ }
+      },
+      mandatory: true,
+    });
+  }
 }
 
 btnOpenProfile.addEventListener("click", () => {
