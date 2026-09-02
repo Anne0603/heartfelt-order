@@ -1,22 +1,22 @@
 // ============================================================
 // 訂單管理頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-83";
-import { currentSession, wireNameResolution } from "./auth.js?v=20260830-83";
+import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-84";
+import { currentSession, wireNameResolution } from "./auth.js?v=20260830-84";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, updateOrderNoteAndAddress, getPaymentStatus,
   markShipped, voidOrder, deleteOrderPermanently, registerReturn, listReturnsByOrder, getOutstandingBalance,
   updateConfirmationStatus,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel, normalizeShipStatus,
-} from "./orders.js?v=20260830-83";
-import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260830-83";
-import { listContacts, createContact, ORDER_CHANNELS } from "./contacts.js?v=20260830-83";
-import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260830-83";
-import { exportOrders } from "./export-xlsx.js?v=20260830-83";
-import { setFab, clearFab } from "./fab-ui.js?v=20260830-83";
-import { openSearchPicker } from "./picker-ui.js?v=20260830-83";
-import { openModal, openCustomTextModal } from "./modal-ui.js?v=20260830-83";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-83";
+} from "./orders.js?v=20260830-84";
+import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260830-84";
+import { listContacts, createContact, ORDER_CHANNELS } from "./contacts.js?v=20260830-84";
+import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260830-84";
+import { exportOrders } from "./export-xlsx.js?v=20260830-84";
+import { setFab, clearFab } from "./fab-ui.js?v=20260830-84";
+import { openSearchPicker } from "./picker-ui.js?v=20260830-84";
+import { openModal, openCustomTextModal } from "./modal-ui.js?v=20260830-84";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-84";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
@@ -362,7 +362,9 @@ export async function renderOrdersPage(container, initialFilter = null) {
     } else if (filterQuick === "unpaid_shipped") {
       filtered = filtered.filter((o) => !o.voided && normalizeShipStatus(o.shipStatus) === "shipped" && getPaymentStatus(o) !== "paid");
     } else if (filterQuick === "needs_confirmation") {
-      filtered = filtered.filter((o) => !o.voided && o.needsConfirmation);
+      // 已經出貨的訂單不用再篩出來——東西都寄出去了，跟通知鈴鐺的
+      // 統計邏輯保持一致，避免「鈴鐺說3張、點進來卻看到5張」的矛盾
+      filtered = filtered.filter((o) => !o.voided && o.needsConfirmation && normalizeShipStatus(o.shipStatus) !== "shipped");
     }
     if (filterDateStart) filtered = filtered.filter((o) => o.orderDate >= filterDateStart);
     if (filterDateEnd) filtered = filtered.filter((o) => o.orderDate <= filterDateEnd);
@@ -448,7 +450,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
               ` : `
                 <span class="seal-badge ${shipBadgeClass(o.shipStatus)}"><span class="dot"></span>${getShipStatusLabel(o.shipStatus)}</span>
                 <span class="seal-badge ${paymentBadgeClass(getPaymentStatus(o))}"><span class="dot"></span>${PAYMENT_STATUS_LABELS[getPaymentStatus(o)]}</span>
-                ${o.needsConfirmation ? `<span class="seal-badge warn"><span class="dot"></span>待確認${o.confirmationNote ? "：" + o.confirmationNote : ""}</span>` : ""}
+                ${(o.needsConfirmation && normalizeShipStatus(o.shipStatus) !== "shipped") ? `<span class="seal-badge warn"><span class="dot"></span>待確認${o.confirmationNote ? "：" + o.confirmationNote : ""}</span>` : ""}
               `}
             </div>
           </div>
@@ -774,11 +776,11 @@ export async function renderOrdersPage(container, initialFilter = null) {
         ` : `
           <span class="seal-badge ${shipBadgeClass(order.shipStatus)}"><span class="dot"></span>${getShipStatusLabel(order.shipStatus)}</span>
           <span class="seal-badge ${paymentBadgeClass(payStatus)}"><span class="dot"></span>${PAYMENT_STATUS_LABELS[payStatus]}</span>
-          ${order.needsConfirmation ? `<span class="seal-badge warn"><span class="dot"></span>待確認</span>` : ""}
+          ${(order.needsConfirmation && normalizeShipStatus(order.shipStatus) !== "shipped") ? `<span class="seal-badge warn"><span class="dot"></span>待確認</span>` : ""}
         `}
       </div>
 
-      ${(order.needsConfirmation && !order.voided) ? `
+      ${(order.needsConfirmation && !order.voided && normalizeShipStatus(order.shipStatus) !== "shipped") ? `
         <div class="card" style="margin-bottom:16px;background:var(--gold-pale);border-color:var(--gold-deep);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
           <div>
             <div style="font-weight:700;color:var(--gold-deep);">這張訂單還有資訊要跟客戶確認</div>

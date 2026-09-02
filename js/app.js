@@ -1,28 +1,28 @@
 // ============================================================
 // 主程式：登入流程 + 側邊導覽 + 簡易路由
 // ============================================================
-import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName, consumeRedirectResult } from "./auth.js?v=20260830-83";
-import { iconHtml } from "./icons.js?v=20260830-83";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-83";
-import { openProfileModal } from "./profile-ui.js?v=20260830-83";
-import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, renderBackupPage, getPendingCount } from "./settings.js?v=20260830-83";
-import { renderPrepListPage } from "./prep-ui.js?v=20260830-83";
-import { renderRecalcCostPage } from "./recalc-ui.js?v=20260830-83";
-import { renderFaqPage } from "./faq-ui.js?v=20260830-83";
-import { renderHomePage } from "./home.js?v=20260830-83";
-import { renderItemsPage } from "./items-ui.js?v=20260830-83";
-import { clearFab } from "./fab-ui.js?v=20260830-83";
-import { renderContactsPage } from "./contacts-ui.js?v=20260830-83";
-import { renderOrdersPage } from "./orders-ui.js?v=20260830-83";
-import { renderReportsPage } from "./reports-ui.js?v=20260830-83";
-import { renderProfitPage } from "./profit-ui.js?v=20260830-83";
-import { renderActivityLogPage } from "./activity-log-ui.js?v=20260830-83";
-import { renderExpensesPage } from "./expenses-ui.js?v=20260830-83";
-import { lowStockItems } from "./items.js?v=20260830-83";
-import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260830-83";
-import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-83";
-import { db } from "./firebase-config.js?v=20260830-83";
-import { openModal } from "./modal-ui.js?v=20260830-83";
+import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName, consumeRedirectResult } from "./auth.js?v=20260830-84";
+import { iconHtml } from "./icons.js?v=20260830-84";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-84";
+import { openProfileModal } from "./profile-ui.js?v=20260830-84";
+import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, renderBackupPage, getPendingCount } from "./settings.js?v=20260830-84";
+import { renderPrepListPage } from "./prep-ui.js?v=20260830-84";
+import { renderRecalcCostPage } from "./recalc-ui.js?v=20260830-84";
+import { renderFaqPage } from "./faq-ui.js?v=20260830-84";
+import { renderHomePage } from "./home.js?v=20260830-84";
+import { renderItemsPage } from "./items-ui.js?v=20260830-84";
+import { clearFab } from "./fab-ui.js?v=20260830-84";
+import { renderContactsPage } from "./contacts-ui.js?v=20260830-84";
+import { renderOrdersPage } from "./orders-ui.js?v=20260830-84";
+import { renderReportsPage } from "./reports-ui.js?v=20260830-84";
+import { renderProfitPage } from "./profit-ui.js?v=20260830-84";
+import { renderActivityLogPage } from "./activity-log-ui.js?v=20260830-84";
+import { renderExpensesPage } from "./expenses-ui.js?v=20260830-84";
+import { lowStockItems } from "./items.js?v=20260830-84";
+import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260830-84";
+import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-84";
+import { db } from "./firebase-config.js?v=20260830-84";
+import { openModal } from "./modal-ui.js?v=20260830-84";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 // ---------- 品牌圖案：統一套用在登入頁 / 側邊欄 / 每個人的頭像位置 ----------
@@ -173,6 +173,9 @@ btnPendingLogout.addEventListener("click", () => logout());
 // ---------- 版本更新紀錄（給使用者看的簡易版，不是技術細節） ----------
 // 每次有新功能上線，在陣列最前面加一條新的即可，最新的放最上面。
 const CHANGELOG = [
+  { date: "2026-08-30", items: [
+    "通知鈴鐺加入「待確認」訂單提醒，已出貨的訂單不會再提醒（東西都寄出去了，提醒也沒用）",
+  ]},
   { date: "2026-08-30", items: [
     "還沒設定暱稱的成員，登入後會自動跳出提醒設定，避免畫面上顯示看不懂的英文/數字帳號",
   ]},
@@ -411,7 +414,7 @@ async function refreshNotifBell() {
       pendingCount = await getPendingCount();
     }
 
-    let overdueCount = 0, todayCount = 0, unpaidShippedCount = 0;
+    let overdueCount = 0, todayCount = 0, unpaidShippedCount = 0, needsConfirmationCount = 0;
     try {
       const orders = await listOrders();
       const active = orders.filter((o) => !o.voided);
@@ -419,11 +422,14 @@ async function refreshNotifBell() {
       overdueCount = active.filter((o) => o.expectedDate && o.expectedDate < today && normalizeShipStatus(o.shipStatus) !== "shipped").length;
       todayCount = active.filter((o) => o.expectedDate === today && normalizeShipStatus(o.shipStatus) !== "shipped").length;
       unpaidShippedCount = active.filter((o) => normalizeShipStatus(o.shipStatus) === "shipped" && getPaymentStatus(o) !== "paid").length;
+      // 已經出貨的訂單不用再提醒待確認——東西都已經寄出去了，
+      // 不管當初有沒有確認清楚，再提醒也於事無補
+      needsConfirmationCount = active.filter((o) => o.needsConfirmation && normalizeShipStatus(o.shipStatus) !== "shipped").length;
     } catch (err) {
       // 訂單載入失敗不影響其他通知照常顯示
     }
 
-    const total = low.length + pendingCount + overdueCount + todayCount + unpaidShippedCount;
+    const total = low.length + pendingCount + overdueCount + todayCount + unpaidShippedCount + needsConfirmationCount;
     if (total > 0) {
       notifBadge.textContent = total;
       notifBadge.style.display = "flex";
@@ -439,6 +445,7 @@ async function refreshNotifBell() {
     if (overdueCount > 0) items.push({ label: `<span class="notif-dot" style="background:var(--rose);"></span>${overdueCount} 張訂單已逾期未出貨`, target: "orders", filter: { quick: "overdue" } });
     if (todayCount > 0) items.push({ label: `<span class="notif-dot" style="background:var(--gold-deep);"></span>${todayCount} 張訂單今天應出貨`, target: "orders", filter: { quick: "today" } });
     if (unpaidShippedCount > 0) items.push({ label: `${iconHtml("coin")}${unpaidShippedCount} 張已出貨但未收款`, target: "orders", filter: { quick: "unpaid_shipped" } });
+    if (needsConfirmationCount > 0) items.push({ label: `${iconHtml("bulb")}${needsConfirmationCount} 張訂單還有資訊待確認`, target: "orders", filter: { quick: "needs_confirmation" } });
     if (low.length > 0) items.push({ label: `${iconHtml("box")}${low.length} 項庫存偏低`, target: "items", filter: null });
     if (pendingCount > 0) items.push({ label: `${iconHtml("clock")}${pendingCount} 筆待審核申請`, target: "pending", filter: null });
 
