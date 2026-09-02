@@ -91,16 +91,20 @@
 
   <script type="module" src="js/app.js?v=20260830-88"></script>
   <script>
-    // 註冊 Service Worker，讓瀏覽器判定這個網站可以「加到主畫面」。
-    // 這個 service-worker.js 本身不快取任何東西（見檔案內註解），
-    // 所以不受主程式那套版本號機制影響，不用每次部署跟著改版本號。
+    // 之前為了「加到主畫面」而加的 Service Worker，後來發現其實 iOS
+    // 的「加到主畫面」功能根本不需要它就能運作（那本來是 Android
+    // Chrome 才有的安裝條件），這個東西反而很可能是造成 Google 登入
+    // 轉跳回來後系統認不出登入結果的原因——Service Worker 會攔截
+    // 同網域的所有請求，包含 Google 登入完轉跳回本站的那個請求。
+    //
+    // 這裡改成主動把「已經裝在使用者裝置上的」Service Worker 解除
+    // 註冊掉，而不是單純不再註冊新的——已經裝過的裝置，Service
+    // Worker 會一直留著生效，直到明確解除註冊為止，只是不寫新的
+    // register() 並不會移除舊裝置上既有的那份。
     if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker.register("service-worker.js").catch(() => {
-          // 註冊失敗（例如較舊的瀏覽器不支援）安靜忽略，不影響網站正常使用，
-          // 只是那個裝置沒辦法把網站加到主畫面而已。
-        });
-      });
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        registrations.forEach((reg) => reg.unregister());
+      }).catch(() => { /* 忽略 */ });
     }
   </script>
 </body>
