@@ -7,10 +7,10 @@
 // 用意是幫忙回答「我要準備多少原料」這個問題，不用自己一張一張訂單
 // 累加計算。
 // ============================================================
-import { listOrders, normalizeShipStatus } from "./orders.js?v=20260830-76";
-import { listItems, buildItemsIndex, computeStock, STOCK_TRACKED_TYPES, expandRecipe } from "./items.js?v=20260830-76";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-76";
-import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-76";
+import { listOrders, normalizeShipStatus } from "./orders.js?v=20260830-77";
+import { listItems, buildItemsIndex, computeStock, STOCK_TRACKED_TYPES, expandRecipe } from "./items.js?v=20260830-77";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-77";
+import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-77";
 
 export async function renderPrepListPage(container) {
   let orders = [];
@@ -39,7 +39,7 @@ export async function renderPrepListPage(container) {
       return true;
     });
 
-    const productNeeds = new Map(); // productId -> { name, unit, qty, type, pendingQty }
+    const productNeeds = new Map(); // productId -> { name, unit, qty, type, pendingQty, bundledQty, hasContents }
     const materialNeeds = new Map(); // itemId -> { name, unit, qty, pendingQty }
 
     relevant.forEach((o) => {
@@ -53,7 +53,7 @@ export async function renderPrepListPage(container) {
         const name = item ? item.name : li.productName;
         const unit = item?.unit || "個";
         const pKey = li.productId || li.productName;
-        const pCur = productNeeds.get(pKey) || { name, unit, qty: 0, pendingQty: 0, productId: li.productId, type: item?.type };
+        const pCur = productNeeds.get(pKey) || { name, unit, qty: 0, pendingQty: 0, bundledQty: 0, hasContents: false, productId: li.productId, type: item?.type };
         pCur.name = name;
         pCur.qty += li.qty;
         if (isPending) pCur.pendingQty += li.qty;
@@ -66,13 +66,16 @@ export async function renderPrepListPage(container) {
         if (item && item.type === "self_made") {
           const { selfMadeNeeds, packagingNeeds } = expandRecipe(item, li.qty, itemsById);
 
+          if (selfMadeNeeds.size > 0) pCur.hasContents = true; // 這個商品本身是「組合商品」，裡面裝了其他東西
+
           for (const [subItemId, subQty] of selfMadeNeeds) {
             const subItem = itemsById.get(subItemId);
             const subName = subItem ? subItem.name : "（已刪除的項目）";
             const subUnit = subItem?.unit || "個";
-            const sCur = productNeeds.get(subItemId) || { name: subName, unit: subUnit, qty: 0, pendingQty: 0, productId: subItemId, type: subItem?.type };
+            const sCur = productNeeds.get(subItemId) || { name: subName, unit: subUnit, qty: 0, pendingQty: 0, bundledQty: 0, hasContents: false, productId: subItemId, type: subItem?.type };
             sCur.name = subName;
             sCur.qty += subQty;
+            sCur.bundledQty += subQty; // 記錄「這裡面有多少是從別的組合商品拆解出來的」
             if (isPending) sCur.pendingQty += subQty;
             productNeeds.set(subItemId, sCur);
           }
@@ -135,22 +138,20 @@ export async function renderPrepListPage(container) {
 
       <div class="card" style="margin-bottom:16px;">
         <h3 style="font-size:15px;margin-bottom:4px;">商品需求（要準備幾份）</h3>
-        <div class="hint" style="margin-bottom:10px;">現貨商品已經跟目前庫存比對過；自製商品做多少賣多少，沒有庫存概念，比對欄位顯示「—」。</div>
-        ${products.length === 0 ? `<div class="hint" style="text-align:center;padding:16px 0;">沒有符合條件的訂單</div>` : `
-          <table class="simple-table">
-            <thead><tr><th>商品</th><th style="text-align:right;">需要準備</th><th style="text-align:right;">目前庫存</th><th style="text-align:right;">還缺</th></tr></thead>
-            <tbody>
-              ${products.map((p) => `
-                <tr>
-                  <td>${p.name}${p.pendingQty > 0 ? `<div class="hint">其中 ${p.pendingQty} ${p.unit} 來自尚待確認的訂單</div>` : ""}</td>
-                  <td style="text-align:right;font-family:var(--font-mono);font-weight:700;">${p.qty} ${p.unit}</td>
-                  <td style="text-align:right;font-family:var(--font-mono);color:var(--text-muted);">${p.currentStock !== null ? p.currentStock : "—"}</td>
-                  <td style="text-align:right;font-family:var(--font-mono);font-weight:700;color:${(p.shortfall || 0) > 0 ? "var(--rose)" : "var(--jade)"};">${p.shortfall !== null ? (p.shortfall > 0 ? p.shortfall : "夠用") : "—"}</td>
-                </tr>
-              `).join("")}
-            </tbody>
-          </table>
-        `}
+        <div class="hint" style="margin-bottom:10px;">現貨商品已跟目前庫存比對；自製商品做多少賣多少，沒有庫存概念，顯示「—」。禮盒這種組合商品，裡面裝的東西會分開列在下方，數量已經自動拆解合併好了。</div>
+        ${products.length === 0 ? `<div class="hint" style="text-align:center;padding:16px 0;">沒有符合條件的訂單</div>` : products.map((p) => `
+          <div style="padding:12px 0;border-top:1px solid var(--paper-line);">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;">
+              <span style="font-size:15px;color:var(--ink);font-weight:600;">${p.name}${p.hasContents ? `<span class="hint" style="font-weight:400;"> · 內含其他商品，已分開列出</span>` : ""}</span>
+              <span style="font-family:var(--font-mono);font-weight:700;font-size:17px;color:var(--ink);white-space:nowrap;">${p.qty} ${p.unit}</span>
+            </div>
+            <div class="hint" style="margin-top:2px;">
+              ${p.currentStock !== null ? `目前庫存 ${p.currentStock} · ` : ""}${p.shortfall !== null ? (p.shortfall > 0 ? `<span style="color:var(--rose);font-weight:600;">還缺 ${p.shortfall}</span>` : `<span style="color:var(--jade);">庫存夠用</span>`) : "不追蹤庫存"}
+            </div>
+            ${p.bundledQty > 0 ? `<div class="hint">其中 ${p.bundledQty} ${p.unit} 是從禮盒等組合商品拆解出來的</div>` : ""}
+            ${p.pendingQty > 0 ? `<div class="hint">其中 ${p.pendingQty} ${p.unit} 來自尚待確認的訂單</div>` : ""}
+          </div>
+        `).join("")}
       </div>
 
       ${materials.length > 0 ? `
@@ -160,19 +161,18 @@ export async function renderPrepListPage(container) {
             自製商品依配方展開後的總用量，已經跟目前庫存比對過。
             ${shortfallCount > 0 ? `<span style="color:var(--rose);font-weight:600;">有 ${shortfallCount} 項庫存不夠，需要補貨。</span>` : `目前庫存都夠用，不用額外採購。`}
           </div>
-          <table class="simple-table">
-            <thead><tr><th>項目</th><th style="text-align:right;">需要用量</th><th style="text-align:right;">目前庫存</th><th style="text-align:right;">還缺</th></tr></thead>
-            <tbody>
-              ${materials.map((m) => `
-                <tr>
-                  <td>${m.name}${m.pendingQty > 0 ? `<div class="hint">其中 ${m.pendingQty} ${m.unit} 來自尚待確認的訂單</div>` : ""}</td>
-                  <td style="text-align:right;font-family:var(--font-mono);">${m.qty} ${m.unit}</td>
-                  <td style="text-align:right;font-family:var(--font-mono);color:var(--text-muted);">${m.currentStock !== null ? m.currentStock : "—"}</td>
-                  <td style="text-align:right;font-family:var(--font-mono);font-weight:700;color:${(m.shortfall || 0) > 0 ? "var(--rose)" : "var(--jade)"};">${m.shortfall !== null ? (m.shortfall > 0 ? m.shortfall : "夠用") : "—"}</td>
-                </tr>
-              `).join("")}
-            </tbody>
-          </table>
+          ${materials.map((m) => `
+            <div style="padding:12px 0;border-top:1px solid var(--paper-line);">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;">
+                <span style="font-size:15px;color:var(--ink);font-weight:600;">${m.name}</span>
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:17px;color:var(--ink);white-space:nowrap;">${m.qty} ${m.unit}</span>
+              </div>
+              <div class="hint" style="margin-top:2px;">
+                目前庫存 ${m.currentStock !== null ? m.currentStock : "—"} · ${m.shortfall !== null ? (m.shortfall > 0 ? `<span style="color:var(--rose);font-weight:600;">還缺 ${m.shortfall}</span>` : `<span style="color:var(--jade);">庫存夠用</span>`) : "—"}
+              </div>
+              ${m.pendingQty > 0 ? `<div class="hint">其中 ${m.pendingQty} ${m.unit} 來自尚待確認的訂單</div>` : ""}
+            </div>
+          `).join("")}
         </div>
       ` : ""}
     `;
