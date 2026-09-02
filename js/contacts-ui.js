@@ -1,13 +1,13 @@
 // ============================================================
 // 客戶與廠商頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-74";
-import { currentSession } from "./auth.js?v=20260830-74";
-import { openModal, confirmDialog, openCustomTextModal } from "./modal-ui.js?v=20260830-74";
-import { openSearchPicker } from "./picker-ui.js?v=20260830-74";
-import { listContacts, createContact, updateContact, setContactArchived, ORDER_CHANNELS } from "./contacts.js?v=20260830-74";
-import { listOrders, getPaymentStatus } from "./orders.js?v=20260830-74";
-import { listCategories } from "./categories.js?v=20260830-74";
+import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-75";
+import { currentSession } from "./auth.js?v=20260830-75";
+import { openModal, confirmDialog, openCustomTextModal } from "./modal-ui.js?v=20260830-75";
+import { openSearchPicker } from "./picker-ui.js?v=20260830-75";
+import { listContacts, createContact, updateContact, setContactArchived, ORDER_CHANNELS } from "./contacts.js?v=20260830-75";
+import { listOrders, getPaymentStatus } from "./orders.js?v=20260830-75";
+import { listCategories } from "./categories.js?v=20260830-75";
 
 async function listMergedSupplyCategories() {
   // 廠商供應的通常是現貨商品或包材，不是自製商品，所以合併這兩種分類清單
@@ -19,10 +19,10 @@ async function listMergedSupplyCategories() {
   [...resale, ...packaging].forEach((c) => { if (!seen.has(c.name)) seen.set(c.name, c); });
   return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
-import { exportContacts } from "./export-xlsx.js?v=20260830-74";
-import { setFab } from "./fab-ui.js?v=20260830-74";
-import { iconHtml } from "./icons.js?v=20260830-74";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-74";
+import { exportContacts } from "./export-xlsx.js?v=20260830-75";
+import { setFab } from "./fab-ui.js?v=20260830-75";
+import { iconHtml } from "./icons.js?v=20260830-75";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-75";
 
 const ROLE_LABELS = { customer: "客戶", supplier: "廠商" };
 

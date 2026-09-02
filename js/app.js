@@ -1,25 +1,26 @@
 // ============================================================
 // 主程式：登入流程 + 側邊導覽 + 簡易路由
 // ============================================================
-import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName, consumeRedirectResult } from "./auth.js?v=20260830-74";
-import { iconHtml } from "./icons.js?v=20260830-74";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-74";
-import { openProfileModal } from "./profile-ui.js?v=20260830-74";
-import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, renderBackupPage, getPendingCount } from "./settings.js?v=20260830-74";
-import { renderPrepListPage } from "./prep-ui.js?v=20260830-74";
-import { renderHomePage } from "./home.js?v=20260830-74";
-import { renderItemsPage } from "./items-ui.js?v=20260830-74";
-import { clearFab } from "./fab-ui.js?v=20260830-74";
-import { renderContactsPage } from "./contacts-ui.js?v=20260830-74";
-import { renderOrdersPage } from "./orders-ui.js?v=20260830-74";
-import { renderReportsPage } from "./reports-ui.js?v=20260830-74";
-import { renderProfitPage } from "./profit-ui.js?v=20260830-74";
-import { renderActivityLogPage } from "./activity-log-ui.js?v=20260830-74";
-import { renderExpensesPage } from "./expenses-ui.js?v=20260830-74";
-import { lowStockItems } from "./items.js?v=20260830-74";
-import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260830-74";
-import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-74";
-import { db } from "./firebase-config.js?v=20260830-74";
+import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName, consumeRedirectResult } from "./auth.js?v=20260830-75";
+import { iconHtml } from "./icons.js?v=20260830-75";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-75";
+import { openProfileModal } from "./profile-ui.js?v=20260830-75";
+import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, renderBackupPage, getPendingCount } from "./settings.js?v=20260830-75";
+import { renderPrepListPage } from "./prep-ui.js?v=20260830-75";
+import { renderRecalcCostPage } from "./recalc-ui.js?v=20260830-75";
+import { renderHomePage } from "./home.js?v=20260830-75";
+import { renderItemsPage } from "./items-ui.js?v=20260830-75";
+import { clearFab } from "./fab-ui.js?v=20260830-75";
+import { renderContactsPage } from "./contacts-ui.js?v=20260830-75";
+import { renderOrdersPage } from "./orders-ui.js?v=20260830-75";
+import { renderReportsPage } from "./reports-ui.js?v=20260830-75";
+import { renderProfitPage } from "./profit-ui.js?v=20260830-75";
+import { renderActivityLogPage } from "./activity-log-ui.js?v=20260830-75";
+import { renderExpensesPage } from "./expenses-ui.js?v=20260830-75";
+import { lowStockItems } from "./items.js?v=20260830-75";
+import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260830-75";
+import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-75";
+import { db } from "./firebase-config.js?v=20260830-75";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 // ---------- 品牌圖案：統一套用在登入頁 / 側邊欄 / 每個人的頭像位置 ----------
@@ -74,6 +75,7 @@ const MODULES = [
   { id: "categories", label: "分類管理",       icon: "tag", group: "超級管理員", roles: ["superadmin"] },
   { id: "units",      label: "單位管理",       icon: "ruler", group: "超級管理員", roles: ["superadmin"] },
   { id: "backup",     label: "資料備份",       icon: "download", group: "超級管理員", roles: ["superadmin"] },
+  { id: "recalc",     label: "重算訂單成本",   icon: "refresh", group: "超級管理員", roles: ["superadmin"] },
   { id: "activity",  label: "操作紀錄",       icon: "scroll", group: "超級管理員", roles: ["superadmin"] },
   { id: "pending",    label: "待審核申請",     icon: "clock", group: "超級管理員", roles: ["superadmin"] },
   { id: "members",    label: "成員",         icon: "users", group: "超級管理員", roles: ["superadmin"] },
@@ -253,6 +255,7 @@ async function renderCurrentModule() {
   if (currentModule === "categories") return renderCategoriesPage(mainContent);
   if (currentModule === "units") return renderUnitsPage(mainContent);
   if (currentModule === "backup") return renderBackupPage(mainContent);
+  if (currentModule === "recalc") return renderRecalcCostPage(mainContent);
   if (currentModule === "prep") return renderPrepListPage(mainContent);
   if (currentModule === "pending") {
     await renderPendingPage(mainContent);

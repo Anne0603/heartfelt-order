@@ -12,14 +12,14 @@
 // lineItems[].unitCost，之後商品成本再怎麼調整，都不會動到這張訂單
 // 已經算好的毛利。
 // ============================================================
-import { db } from "./firebase-config.js?v=20260830-74";
+import { db } from "./firebase-config.js?v=20260830-75";
 import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
   serverTimestamp, runTransaction, query, where, orderBy as fbOrderBy
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { currentSession, getDisplayName } from "./auth.js?v=20260830-74";
-import { addUsage, listUsagesByOrder, voidRecord, calcItemCost, permanentlyDelete, restockFromReturn, expandRecipe } from "./items.js?v=20260830-74";
-import { logActivity } from "./activity-log.js?v=20260830-74";
+import { currentSession, getDisplayName } from "./auth.js?v=20260830-75";
+import { addUsage, listUsagesByOrder, voidRecord, calcItemCost, permanentlyDelete, restockFromReturn, expandRecipe } from "./items.js?v=20260830-75";
+import { logActivity } from "./activity-log.js?v=20260830-75";
 
 const ordersCol = collection(db, "orders");
 
@@ -466,6 +466,60 @@ export async function registerReturn(orderId, { items, note }, itemsById) {
   invalidateOrdersCache();
   return refundAmount;
 }
+
+/**
+ * 只重算「還沒出貨」訂單的成本欄位（unitCost / costBreakdown），
+ * 不動出貨/庫存/收款相關資料，也不動客戶要付的金額（那些是售價，
+ * 跟成本無關）。用在商品配方調整之後（尤其是巢狀配方功能上線後），
+ * 讓還沒出貨的舊訂單成本數字跟上最新配方，不用重打訂單。
+ *
+ * 已出貨的訂單刻意不處理——那些訂單出貨當下已經真的扣過庫存，
+ * 回頭改成本容易讓庫存帳對不起來，風險比較高。
+ *
+ * 個別商品如果已經找不到（例如被永久刪除），那個項目保留原本的
+ * 舊成本不動，不會讓整筆訂單的重算失敗，但會回報是哪幾筆有這個情況。
+ * 偵測到循環引用配方也會回報，不會讓重算卡死。
+ */
+export async function recalcPendingOrderCosts(itemsById) {
+  const allOrders = await listOrders();
+  const targets = allOrders.filter((o) => !o.voided && normalizeShipStatus(o.shipStatus) !== "shipped");
+
+  let updated = 0;
+  const skipped = [];
+  const warnings = [];
+
+  for (const order of targets) {
+    let anyMissing = false;
+    let anyWarning = false;
+    const newLineItems = order.lineItems.map((li) => {
+      const item = itemsById.get(li.productId);
+      if (!item) {
+        anyMissing = true;
+        return li; // 找不到商品，保留這個項目原本的舊成本不動
+      }
+      const calc = calcItemCost(item, itemsById);
+      if (calc.breakdown.some((b) => b.label.includes("循環引用"))) anyWarning = true;
+      return {
+        ...li,
+        unitCost: calc.cost,
+        costBreakdown: item.type === "self_made" ? calc.breakdown : [],
+      };
+    });
+
+    await updateDoc(doc(db, "orders", order.id), {
+      lineItems: newLineItems,
+      updatedAt: serverTimestamp(),
+    });
+    updated++;
+    if (anyMissing) skipped.push({ orderNumber: order.orderNumber, reason: "有商品已找不到（可能被永久刪除），該項目成本保留原值" });
+    if (anyWarning) warnings.push({ orderNumber: order.orderNumber, reason: "配方偵測到循環引用，請檢查商品配方設定" });
+  }
+
+  logActivity({ module: "orders", action: "recalc_cost", summary: `重算 ${updated} 筆待處理訂單的成本` });
+  invalidateOrdersCache();
+  return { total: targets.length, updated, skipped, warnings };
+}
+
 
 export async function listReturnsByOrder(orderId) {
   const q = query(collection(db, "orderReturns"), where("orderId", "==", orderId));
