@@ -2,7 +2,7 @@
 // 共用的日期區間選擇器：預設當月整月，兩個日期選擇器直接調，
 // 選了就立刻套用，不用額外按鈕
 // ============================================================
-import { localDateStr } from "./utils.js?v=20260830-69";
+import { localDateStr } from "./utils.js?v=20260830-70";
 
 function startOfMonth(d) {
   return new Date(d.getFullYear(), d.getMonth(), 1);

@@ -12,14 +12,14 @@
 // lineItems[].unitCost，之後商品成本再怎麼調整，都不會動到這張訂單
 // 已經算好的毛利。
 // ============================================================
-import { db } from "./firebase-config.js?v=20260830-69";
+import { db } from "./firebase-config.js?v=20260830-70";
 import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
   serverTimestamp, runTransaction, query, where, orderBy as fbOrderBy
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { currentSession, getDisplayName } from "./auth.js?v=20260830-69";
-import { addUsage, listUsagesByOrder, voidRecord, calcItemCost, permanentlyDelete, restockFromReturn, expandRecipe } from "./items.js?v=20260830-69";
-import { logActivity } from "./activity-log.js?v=20260830-69";
+import { currentSession, getDisplayName } from "./auth.js?v=20260830-70";
+import { addUsage, listUsagesByOrder, voidRecord, calcItemCost, permanentlyDelete, restockFromReturn, expandRecipe } from "./items.js?v=20260830-70";
+import { logActivity } from "./activity-log.js?v=20260830-70";
 
 const ordersCol = collection(db, "orders");
 
@@ -144,6 +144,16 @@ export async function listOrders({ startDate } = {}) {
   const snap = await getDocs(q);
   const list = [];
   snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
+  // Firestore 查詢只照 orderDate（只精確到「日期」）排序，同一天的
+  // 訂單在資料庫層級沒有再進一步排序，順序會看起來隨機。這裡在瀏覽器
+  // 收到資料後，用 createdAt（精確到秒的建立時間）補做第二層排序，
+  // 同一天的訂單就會照建立先後順序排列。故意不把這個排序需求直接
+  // 寫進 Firestore 查詢本身——那樣做需要額外的資料庫複合索引，
+  // 沒有先建好索引就贏得部署的話，會讓整個訂單查詢直接失敗。
+  list.sort((a, b) => {
+    if (a.orderDate !== b.orderDate) return (b.orderDate || "").localeCompare(a.orderDate || "");
+    return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
+  });
   ordersCacheByRange.set(cacheKey, { data: list, expiresAt: Date.now() + ORDERS_CACHE_TTL_MS });
   return list;
 }
