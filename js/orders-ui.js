@@ -1,22 +1,22 @@
 // ============================================================
 // 訂單管理頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-89";
-import { currentSession, wireNameResolution } from "./auth.js?v=20260830-89";
+import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-90";
+import { currentSession, wireNameResolution } from "./auth.js?v=20260830-90";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, updateOrderNoteAndAddress, getPaymentStatus,
   markShipped, voidOrder, deleteOrderPermanently, registerReturn, listReturnsByOrder, getOutstandingBalance,
   updateConfirmationStatus,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel, normalizeShipStatus,
-} from "./orders.js?v=20260830-89";
-import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260830-89";
-import { listContacts, createContact, ORDER_CHANNELS } from "./contacts.js?v=20260830-89";
-import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260830-89";
-import { exportOrders } from "./export-xlsx.js?v=20260830-89";
-import { setFab, clearFab } from "./fab-ui.js?v=20260830-89";
-import { openSearchPicker } from "./picker-ui.js?v=20260830-89";
-import { openModal, openCustomTextModal } from "./modal-ui.js?v=20260830-89";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-89";
+} from "./orders.js?v=20260830-90";
+import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260830-90";
+import { listContacts, createContact, ORDER_CHANNELS } from "./contacts.js?v=20260830-90";
+import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260830-90";
+import { exportOrders } from "./export-xlsx.js?v=20260830-90";
+import { setFab, clearFab } from "./fab-ui.js?v=20260830-90";
+import { openSearchPicker } from "./picker-ui.js?v=20260830-90";
+import { openModal, openCustomTextModal } from "./modal-ui.js?v=20260830-90";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-90";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
@@ -88,6 +88,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
           <option value="all">全部狀態</option>
           <option value="pending">待處理</option>
           <option value="shipped">已出貨</option>
+          ${canVoid() ? `<option value="voided">已作廢</option>` : ""}
         </select>
         <select id="filter-quick" style="width:100%;padding:9px 12px;border:1px solid var(--paper-line);border-radius:8px;font-size:16px;margin-bottom:10px;">
           <option value="all">不特別篩選</option>
@@ -120,9 +121,10 @@ export async function renderOrdersPage(container, initialFilter = null) {
     });
     container.querySelector("#filter-status").addEventListener("change", async (e) => {
       filterShipStatus = e.target.value;
-      // 「待處理」可能包含很久以前一直沒處理的舊訂單，只看近3個月會漏掉，
-      // 這裡也一併自動展開全部歷史，理由跟上面的日期篩選一樣
-      if (loadedFrom && filterShipStatus === "pending") {
+      // 「待處理」可能包含很久以前一直沒處理的舊訂單，「已作廢」也
+      // 可能是很久以前作廢的，只看近3個月會漏掉，這裡也一併自動
+      // 展開全部歷史，理由跟上面的日期篩選一樣
+      if (loadedFrom && (filterShipStatus === "pending" || filterShipStatus === "voided")) {
         await expandToFullHistory();
         return;
       }
@@ -354,7 +356,11 @@ export async function renderOrdersPage(container, initialFilter = null) {
   function getFilteredOrders() {
     const today = new Date().toISOString().slice(0, 10);
     let filtered = orders;
-    if (filterShipStatus !== "all") filtered = filtered.filter((o) => normalizeShipStatus(o.shipStatus) === filterShipStatus);
+    if (filterShipStatus === "voided") {
+      filtered = filtered.filter((o) => o.voided);
+    } else if (filterShipStatus !== "all") {
+      filtered = filtered.filter((o) => !o.voided && normalizeShipStatus(o.shipStatus) === filterShipStatus);
+    }
     if (filterQuick === "today") {
       filtered = filtered.filter((o) => !o.voided && o.expectedDate === today && normalizeShipStatus(o.shipStatus) !== "shipped");
     } else if (filterQuick === "overdue") {
