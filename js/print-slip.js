@@ -2,8 +2,8 @@
 // 出貨單列印
 // 開一個新視窗，排版乾淨的出貨單，不含成本/毛利，叫出瀏覽器列印功能。
 // ============================================================
-import { alertDialog } from "./modal-ui.js?v=20260830-72";
-import { SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getPaymentStatus } from "./orders.js?v=20260830-72";
+import { alertDialog } from "./modal-ui.js?v=20260830-73";
+import { SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getPaymentStatus } from "./orders.js?v=20260830-73";
 
 export function printOrderSlip(order) {
   const win = window.open("", "_blank", "width=480,height=700");
@@ -175,7 +175,11 @@ export function printShippingList(ordersList) {
   .confirm-note { font-size: 14.5px; font-weight: 700; color: #8C6526; margin-top: 4px; }
   .handwrite-line { border-bottom: 1.5px solid #23262E; min-height: 22px; margin-top: 8px; }
   .footer { margin-top: 20px; font-size: 13px; color: #9AA0B4; text-align: right; }
-  @media print { body { padding: 0; } tr { page-break-inside: avoid; } }
+  @media print {
+    body { padding: 0; }
+    tr { page-break-inside: avoid; }
+    @page { size: A4 landscape; margin: 12mm; }
+  }
 </style>
 </head>
 <body>
