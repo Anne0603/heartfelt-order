@@ -9,9 +9,8 @@
 //    - 存在但 status 是 'pending' -> 顯示「審核中」，登出
 //    - 存在且 status 是 'active' -> 放行，帶著 role 一起進系統
 // ============================================================
-import { auth, db, googleProvider, authPersistenceReady } from "./firebase-config.js?v=20260830-90";
+import { auth, db, googleProvider, authPersistenceReady } from "./firebase-config.js?v=20260830-91";
 import {
-  signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
   signOut,
@@ -119,46 +118,18 @@ async function createPendingRequest(user) {
   });
 }
 
-// 會導致 popup 走不通、需要自動改用整頁轉跳的錯誤代碼
-const POPUP_FALLBACK_CODES = new Set([
-  "auth/popup-blocked",
-  "auth/popup-closed-by-user",
-  "auth/cancelled-popup-request",
-]);
-
-/**
- * 判斷現在是不是在「加到主畫面」的獨立模式下開啟（不是在一般瀏覽器
- * 分頁裡）。iOS 的獨立模式對跳出彈跳視窗登入的支援不好，常常會
- * 完全沒有任何反應（連錯誤都不會回報，導致下面的「跳窗失敗自動改用
- * 轉跳」邏輯根本沒機會被觸發），所以獨立模式下乾脆一開始就直接用
- * 整頁轉跳登入，不要嘗試跳窗。
- */
-function isStandaloneMode() {
-  return window.navigator.standalone === true // iOS Safari 專用屬性
-    || window.matchMedia("(display-mode: standalone)").matches; // 其他瀏覽器/系統通用判斷
-}
-
 export async function loginWithGoogle() {
   // 確保「登入狀態要怎麼記住」這個設定已經真的生效，才進行登入——
   // 避免設定還沒完成、頁面就先跳走，導致回來後系統認不出剛剛登入過。
   await authPersistenceReady;
 
-  // 不管是不是獨立模式，一律先嘗試跳出視窗登入——之前「獨立模式一律
-  // 強制改用整頁轉跳」的判斷，比對另一個專案實際驗證有效的做法後，
-  // 懷疑從一開始就繞了遠路：真正的問題只是沒有明確設定登入狀態要
-  // 怎麼記住，不是跳出視窗本身在獨立模式下不能用。
-  try {
-    return await signInWithPopup(auth, googleProvider);
-  } catch (err) {
-    if (POPUP_FALLBACK_CODES.has(err.code)) {
-      // 跳窗真的被擋掉或關閉了，才改用整頁轉跳：轉跳回來後由
-      // watchAuthState + getRedirectResult 接手完成登入。
-      try { localStorage.setItem("pendingGoogleRedirect", "1"); } catch (e) { /* 忽略 */ }
-      await signInWithRedirect(auth, googleProvider);
-      return null; // 頁面即將轉跳離開，不會執行到這行之後
-    }
-    throw err;
-  }
+  // 這裡只服務「一般瀏覽器分頁」的登入（獨立模式現在有自己專屬的
+  // 引導畫面，根本不會走到這個函式）。單純用整頁轉跳，不嘗試跳窗——
+  // 跳窗會讓瀏覽器跳出「網站正嘗試打開彈出式視窗」的原生詢問，
+  // 打擾使用者；整頁轉跳從頭到尾都運作得很穩定，不需要多此一舉。
+  try { localStorage.setItem("pendingGoogleRedirect", "1"); } catch (e) { /* 忽略 */ }
+  await signInWithRedirect(auth, googleProvider);
+  return null; // 頁面即將轉跳離開，不會執行到這行之後
 }
 
 // 從 Google 轉跳回來後，把登入結果撈出來（純粹是為了讓轉跳流程本身的錯誤，
