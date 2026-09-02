@@ -9,7 +9,7 @@
 //    - 存在但 status 是 'pending' -> 顯示「審核中」，登出
 //    - 存在且 status 是 'active' -> 放行，帶著 role 一起進系統
 // ============================================================
-import { auth, db, googleProvider } from "./firebase-config.js?v=20260830-86";
+import { auth, db, googleProvider } from "./firebase-config.js?v=20260830-87";
 import {
   signInWithPopup,
   signInWithRedirect,
@@ -140,6 +140,9 @@ function isStandaloneMode() {
 
 export async function loginWithGoogle() {
   if (isStandaloneMode()) {
+    // 記一個旗標，讓轉跳回來後不管結果如何都能顯示診斷訊息給使用者看，
+    // 不要讓失敗的狀況又變成使用者完全看不出發生了什麼事的靜默失敗。
+    try { localStorage.setItem("pendingGoogleRedirect", "1"); } catch (err) { /* 忽略 */ }
     await signInWithRedirect(auth, googleProvider);
     return null;
   }

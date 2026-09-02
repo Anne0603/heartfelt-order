@@ -1,28 +1,28 @@
 // ============================================================
 // 主程式：登入流程 + 側邊導覽 + 簡易路由
 // ============================================================
-import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName, consumeRedirectResult } from "./auth.js?v=20260830-86";
-import { iconHtml } from "./icons.js?v=20260830-86";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-86";
-import { openProfileModal } from "./profile-ui.js?v=20260830-86";
-import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, renderBackupPage, getPendingCount } from "./settings.js?v=20260830-86";
-import { renderPrepListPage } from "./prep-ui.js?v=20260830-86";
-import { renderRecalcCostPage } from "./recalc-ui.js?v=20260830-86";
-import { renderFaqPage } from "./faq-ui.js?v=20260830-86";
-import { renderHomePage } from "./home.js?v=20260830-86";
-import { renderItemsPage } from "./items-ui.js?v=20260830-86";
-import { clearFab } from "./fab-ui.js?v=20260830-86";
-import { renderContactsPage } from "./contacts-ui.js?v=20260830-86";
-import { renderOrdersPage } from "./orders-ui.js?v=20260830-86";
-import { renderReportsPage } from "./reports-ui.js?v=20260830-86";
-import { renderProfitPage } from "./profit-ui.js?v=20260830-86";
-import { renderActivityLogPage } from "./activity-log-ui.js?v=20260830-86";
-import { renderExpensesPage } from "./expenses-ui.js?v=20260830-86";
-import { lowStockItems } from "./items.js?v=20260830-86";
-import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260830-86";
-import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-86";
-import { db } from "./firebase-config.js?v=20260830-86";
-import { openModal } from "./modal-ui.js?v=20260830-86";
+import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName, consumeRedirectResult } from "./auth.js?v=20260830-87";
+import { iconHtml } from "./icons.js?v=20260830-87";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-87";
+import { openProfileModal } from "./profile-ui.js?v=20260830-87";
+import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, renderBackupPage, getPendingCount } from "./settings.js?v=20260830-87";
+import { renderPrepListPage } from "./prep-ui.js?v=20260830-87";
+import { renderRecalcCostPage } from "./recalc-ui.js?v=20260830-87";
+import { renderFaqPage } from "./faq-ui.js?v=20260830-87";
+import { renderHomePage } from "./home.js?v=20260830-87";
+import { renderItemsPage } from "./items-ui.js?v=20260830-87";
+import { clearFab } from "./fab-ui.js?v=20260830-87";
+import { renderContactsPage } from "./contacts-ui.js?v=20260830-87";
+import { renderOrdersPage } from "./orders-ui.js?v=20260830-87";
+import { renderReportsPage } from "./reports-ui.js?v=20260830-87";
+import { renderProfitPage } from "./profit-ui.js?v=20260830-87";
+import { renderActivityLogPage } from "./activity-log-ui.js?v=20260830-87";
+import { renderExpensesPage } from "./expenses-ui.js?v=20260830-87";
+import { lowStockItems } from "./items.js?v=20260830-87";
+import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260830-87";
+import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-87";
+import { db } from "./firebase-config.js?v=20260830-87";
+import { openModal } from "./modal-ui.js?v=20260830-87";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 // ---------- 品牌圖案：統一套用在登入頁 / 側邊欄 / 每個人的頭像位置 ----------
@@ -482,7 +482,23 @@ updateOnlineStatus();
 // 從 Google 轉跳登入頁回來後，先把結果讀出來一次：
 // 主要是為了在轉跳流程本身失敗時（例如使用者中途取消）能看到明確錯誤訊息，
 // 正常成功的情況會由下面的 watchAuthState / onAuthStateChanged 自動接手顯示畫面。
-consumeRedirectResult().catch((err) => {
+let hadPendingRedirect = false;
+try { hadPendingRedirect = localStorage.getItem("pendingGoogleRedirect") === "1"; } catch (err) { /* 忽略 */ }
+try { localStorage.removeItem("pendingGoogleRedirect"); } catch (err) { /* 忽略 */ }
+
+consumeRedirectResult().then((result) => {
+  // 只有在「剛剛真的有嘗試過整頁轉跳登入」的情況下才顯示這個診斷訊息，
+  // 避免每次正常打開網頁都跳出來很煩。不管成功或失敗都會顯示，
+  // 這樣使用者遇到問題時能直接截圖給我看，不會是完全看不出發生什麼事的
+  // 靜默失敗。
+  if (hadPendingRedirect) {
+    if (result && result.user) {
+      showToast("✅ 登入轉跳成功，帳號：" + result.user.email, "success");
+    } else {
+      showToast("⚠️ 登入轉跳沒有帶回帳號資訊（診斷訊息，請截圖回報）", "error");
+    }
+  }
+}).catch((err) => {
   console.error(err);
   showToast("登入失敗：" + (err.code ? `[${err.code}] ` : "") + (friendlyErrorMessage(err) || "未知錯誤"), "error");
 });
