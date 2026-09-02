@@ -5,8 +5,8 @@
 // 只會造成困擾。每一個章節、每一則問答都可以個別設定「哪些角色看得到」，
 // 沒特別設定的話就沿用整個章節的權限範圍。
 // ============================================================
-import { currentSession } from "./auth.js?v=20260830-82";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-82";
+import { currentSession } from "./auth.js?v=20260830-83";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-83";
 
 const FAQ_SECTIONS = [
   {
