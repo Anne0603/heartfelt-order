@@ -104,11 +104,14 @@
   </div>
 
   <script>
-    // 獨立模式（加到主畫面）下，Google 登入一直沒辦法穩定運作（試過
-    // 好幾種修法都沒解決），與其讓使用者卡在一個看似要成功卻永遠
-    // 打轉的畫面，不如一開始偵測到就直接顯示清楚的引導畫面，不要
-    // 再嘗試那個會卡住的登入流程。放在最前面、不等 app.js 模組載入
-    // 完成就先判斷，避免使用者先看到一般登入畫面閃一下才切換。
+    // 之前獨立模式（加到主畫面）下 Google 登入一直卡住，做過一個
+    // 「偵測到獨立模式就顯示引導畫面、不嘗試登入」的處理。但後來
+    // 登入機制又調整過（持久化設定改成 browserLocalPersistence、
+    // 且不再嘗試跳窗只用整頁轉跳），這個新組合在獨立模式下還沒有
+    // 真正測試過，先停用這段、讓獨立模式也走一般登入流程試試看。
+    //
+    // 如果測試後還是不行，把下面整段取消註解就能重新啟用引導畫面：
+    /*
     (function () {
       const isStandalone = window.navigator.standalone === true
         || window.matchMedia("(display-mode: standalone)").matches;
@@ -131,6 +134,7 @@
         }
       });
     })();
+    */
   </script>
   <script type="module" src="js/app.js?v=20260830-91"></script>
   <script>
