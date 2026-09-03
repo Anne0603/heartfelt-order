@@ -1,22 +1,22 @@
 // ============================================================
 // 訂單管理頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-97";
-import { currentSession, wireNameResolution } from "./auth.js?v=20260830-97";
+import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-98";
+import { currentSession, wireNameResolution } from "./auth.js?v=20260830-98";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, updateOrderNoteAndAddress, getPaymentStatus,
   markShipped, voidOrder, deleteOrderPermanently, registerReturn, listReturnsByOrder, getOutstandingBalance,
   updateConfirmationStatus, acknowledgeVoidReview,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel, normalizeShipStatus,
-} from "./orders.js?v=20260830-97";
-import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260830-97";
-import { listContacts, createContact, ORDER_CHANNELS } from "./contacts.js?v=20260830-97";
-import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260830-97";
-import { exportOrders } from "./export-xlsx.js?v=20260830-97";
-import { setFab, clearFab } from "./fab-ui.js?v=20260830-97";
-import { openSearchPicker } from "./picker-ui.js?v=20260830-97";
-import { openModal, openCustomTextModal } from "./modal-ui.js?v=20260830-97";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-97";
+} from "./orders.js?v=20260830-98";
+import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260830-98";
+import { listContacts, createContact, ORDER_CHANNELS } from "./contacts.js?v=20260830-98";
+import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260830-98";
+import { exportOrders } from "./export-xlsx.js?v=20260830-98";
+import { setFab, clearFab } from "./fab-ui.js?v=20260830-98";
+import { openSearchPicker } from "./picker-ui.js?v=20260830-98";
+import { openModal, openCustomTextModal, confirmDialog } from "./modal-ui.js?v=20260830-98";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-98";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
@@ -1191,7 +1191,14 @@ export async function renderOrdersPage(container, initialFilter = null) {
 
     if (canWrite() && normalizedStatus === "pending") {
       shipBtns.push({ label: "標記已出貨", cls: "btn-primary", handler: async (e) => {
-        const btn = e.currentTarget;
+        const btn = e.currentTarget; // 先存起來，等一下有 await，事件物件的 currentTarget 之後會被清空
+        // 這個動作會真的扣庫存，難以乾淨復原，之前發生過好幾次手滑
+        // 誤觸（想點旁邊的「編輯訂單」卻按到這個），加一層簡單確認
+        // 擋下來。出貨是每天都會做的常態操作，不用像作廢那樣要求
+        // 輸入文字這麼嚴格，一個「確定/取消」的二次確認就足夠擋下
+        // 手滑誤觸，又不會拖慢日常操作速度。
+        const ok = await confirmDialog(`確定要把「${order.orderNumber}」標記為已出貨嗎？會自動扣除庫存。`);
+        if (!ok) return;
         btn.disabled = true;
         try {
           await markShipped(order.id, itemsById);
@@ -1233,6 +1240,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
 
     actionsCard.innerHTML = `
       ${buttonRowHtml("d-ship-row", shipBtns)}
+      ${(shipBtns.length > 0 && utilityBtns.length > 0) ? `<div style="border-top:1px dashed var(--paper-line);margin:6px 0 14px;"></div>` : ""}
       ${buttonRowHtml("d-utility-row", utilityBtns, true)}
       <div id="d-msg-slot"></div>
       ${canVoid() ? `
