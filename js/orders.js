@@ -12,14 +12,14 @@
 // lineItems[].unitCost，之後商品成本再怎麼調整，都不會動到這張訂單
 // 已經算好的毛利。
 // ============================================================
-import { db } from "./firebase-config.js?v=20260830-96";
+import { db } from "./firebase-config.js?v=20260830-97";
 import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
   serverTimestamp, runTransaction, query, where, orderBy as fbOrderBy
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { currentSession, getDisplayName } from "./auth.js?v=20260830-96";
-import { addUsage, listUsagesByOrder, voidRecord, calcItemCost, permanentlyDelete, restockFromReturn, expandRecipe } from "./items.js?v=20260830-96";
-import { logActivity } from "./activity-log.js?v=20260830-96";
+import { currentSession, getDisplayName } from "./auth.js?v=20260830-97";
+import { addUsage, listUsagesByOrder, voidRecord, calcItemCost, permanentlyDelete, restockFromReturn, expandRecipe } from "./items.js?v=20260830-97";
+import { logActivity } from "./activity-log.js?v=20260830-97";
 
 const ordersCol = collection(db, "orders");
 
@@ -344,10 +344,13 @@ export async function voidOrder(orderId) {
     }
   }
 
-  // 「管理員」作廢的訂單要標記給超級管理員確認一下不是誤觸——
-  // 超級管理員自己作廢的不用再確認自己，只有管理員這個層級才需要。
+  // 每一筆作廢訂單都要有明確的確認狀態，不要有「沒有標記=?」這種
+  // 曖昧不清楚的情況（不然從列表上根本看不出來是「不用確認」還是
+  // 「忘記顯示」）。管理員作廢的話狀態是「待確認」，需要超級管理員
+  // 事後確認不是誤觸；超級管理員自己作廢的話，狀態直接就是「已確認」
+  // （不用再確認自己）。
   const voidedByRole = currentSession.member?.role || null;
-  const needsVoidReview = voidedByRole === "admin";
+  const voidReviewStatus = voidedByRole === "admin" ? "pending" : "confirmed";
 
   await updateDoc(doc(db, "orders", orderId), {
     voided: true,
@@ -355,7 +358,7 @@ export async function voidOrder(orderId) {
     voidedByName: who.name,
     voidedByRole,
     voidedAt: serverTimestamp(),
-    needsVoidReview,
+    voidReviewStatus,
     updatedAt: serverTimestamp(),
   });
   logActivity({ module: "orders", action: "void", summary: `訂單 ${order.orderNumber} 已作廢` });
@@ -363,12 +366,12 @@ export async function voidOrder(orderId) {
 }
 
 /**
- * 超級管理員確認「這張作廢的訂單不是管理員誤觸」，清掉待確認標記。
+ * 超級管理員確認「這張作廢的訂單不是管理員誤觸」，把狀態改成已確認。
  */
 export async function acknowledgeVoidReview(orderId) {
   const who = whoAmI();
   await updateDoc(doc(db, "orders", orderId), {
-    needsVoidReview: false,
+    voidReviewStatus: "confirmed",
     voidReviewedBy: who.email,
     voidReviewedAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
