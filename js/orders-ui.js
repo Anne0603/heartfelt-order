@@ -1,22 +1,22 @@
 // ============================================================
 // 訂單管理頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-95";
-import { currentSession, wireNameResolution } from "./auth.js?v=20260830-95";
+import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-96";
+import { currentSession, wireNameResolution } from "./auth.js?v=20260830-96";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, updateOrderNoteAndAddress, getPaymentStatus,
   markShipped, voidOrder, deleteOrderPermanently, registerReturn, listReturnsByOrder, getOutstandingBalance,
   updateConfirmationStatus, acknowledgeVoidReview,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel, normalizeShipStatus,
-} from "./orders.js?v=20260830-95";
-import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260830-95";
-import { listContacts, createContact, ORDER_CHANNELS } from "./contacts.js?v=20260830-95";
-import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260830-95";
-import { exportOrders } from "./export-xlsx.js?v=20260830-95";
-import { setFab, clearFab } from "./fab-ui.js?v=20260830-95";
-import { openSearchPicker } from "./picker-ui.js?v=20260830-95";
-import { openModal, openCustomTextModal } from "./modal-ui.js?v=20260830-95";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-95";
+} from "./orders.js?v=20260830-96";
+import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260830-96";
+import { listContacts, createContact, ORDER_CHANNELS } from "./contacts.js?v=20260830-96";
+import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260830-96";
+import { exportOrders } from "./export-xlsx.js?v=20260830-96";
+import { setFab, clearFab } from "./fab-ui.js?v=20260830-96";
+import { openSearchPicker } from "./picker-ui.js?v=20260830-96";
+import { openModal, openCustomTextModal } from "./modal-ui.js?v=20260830-96";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-96";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
@@ -456,7 +456,9 @@ export async function renderOrdersPage(container, initialFilter = null) {
             <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
               ${o.voided ? `
                 <span class="seal-badge bad"><span class="dot"></span>已作廢</span>
-                ${o.needsVoidReview ? `<span class="seal-badge warn"><span class="dot"></span>待確認</span>` : ""}
+                ${o.needsVoidReview
+                  ? `<span class="seal-badge warn"><span class="dot"></span>待確認</span>`
+                  : `<span class="seal-badge ok"><span class="dot"></span>已確認</span>`}
               ` : `
                 <span class="seal-badge ${shipBadgeClass(o.shipStatus)}"><span class="dot"></span>${getShipStatusLabel(o.shipStatus)}</span>
                 <span class="seal-badge ${paymentBadgeClass(getPaymentStatus(o))}"><span class="dot"></span>${PAYMENT_STATUS_LABELS[getPaymentStatus(o)]}</span>
@@ -783,7 +785,9 @@ export async function renderOrdersPage(container, initialFilter = null) {
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
         ${order.voided ? `
           <span class="seal-badge bad"><span class="dot"></span>已作廢</span>
-          ${order.needsVoidReview ? `<span class="seal-badge warn"><span class="dot"></span>待超級管理員確認</span>` : ""}
+          ${order.needsVoidReview
+            ? `<span class="seal-badge warn"><span class="dot"></span>待超級管理員確認</span>`
+            : `<span class="seal-badge ok"><span class="dot"></span>已確認</span>`}
         ` : `
           <span class="seal-badge ${shipBadgeClass(order.shipStatus)}"><span class="dot"></span>${getShipStatusLabel(order.shipStatus)}</span>
           <span class="seal-badge ${paymentBadgeClass(payStatus)}"><span class="dot"></span>${PAYMENT_STATUS_LABELS[payStatus]}</span>
