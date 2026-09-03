@@ -458,7 +458,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
                 <span class="seal-badge bad"><span class="dot"></span>已作廢</span>
                 ${o.needsVoidReview
                   ? `<span class="seal-badge warn"><span class="dot"></span>待確認</span>`
-                  : `<span class="seal-badge ok"><span class="dot"></span>已確認</span>`}
+                  : (o.voidReviewedAt ? `<span class="seal-badge ok"><span class="dot"></span>已確認</span>` : "")}
               ` : `
                 <span class="seal-badge ${shipBadgeClass(o.shipStatus)}"><span class="dot"></span>${getShipStatusLabel(o.shipStatus)}</span>
                 <span class="seal-badge ${paymentBadgeClass(getPaymentStatus(o))}"><span class="dot"></span>${PAYMENT_STATUS_LABELS[getPaymentStatus(o)]}</span>
@@ -787,7 +787,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
           <span class="seal-badge bad"><span class="dot"></span>已作廢</span>
           ${order.needsVoidReview
             ? `<span class="seal-badge warn"><span class="dot"></span>待超級管理員確認</span>`
-            : `<span class="seal-badge ok"><span class="dot"></span>已確認</span>`}
+            : (order.voidReviewedAt ? `<span class="seal-badge ok"><span class="dot"></span>已確認</span>` : "")}
         ` : `
           <span class="seal-badge ${shipBadgeClass(order.shipStatus)}"><span class="dot"></span>${getShipStatusLabel(order.shipStatus)}</span>
           <span class="seal-badge ${paymentBadgeClass(payStatus)}"><span class="dot"></span>${PAYMENT_STATUS_LABELS[payStatus]}</span>
