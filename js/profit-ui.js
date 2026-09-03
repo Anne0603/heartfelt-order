@@ -9,12 +9,12 @@
 // 版面採用會計報表慣例：項目靠左、金額靠右，明細緊接在對應的
 // 總額下面；每一行明細都能點看更細的拆解。
 // ============================================================
-import { listOrders, listAllReturns } from "./orders.js?v=20260830-91";
-import { listItems, computeStock, computeAvgCost, STOCK_TRACKED_TYPES, buildItemsIndex } from "./items.js?v=20260830-91";
-import { listExpensesInRange } from "./expenses.js?v=20260830-91";
-import { renderDateRangePicker } from "./date-range-ui.js?v=20260830-91";
-import { linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-91";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-91";
+import { listOrders, listAllReturns } from "./orders.js?v=20260830-92";
+import { listItems, computeStock, computeAvgCost, STOCK_TRACKED_TYPES, buildItemsIndex } from "./items.js?v=20260830-92";
+import { listExpensesInRange } from "./expenses.js?v=20260830-92";
+import { renderDateRangePicker } from "./date-range-ui.js?v=20260830-92";
+import { linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-92";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-92";
 
 export async function renderProfitPage(container, navigateTo) {
   function renderSummaryShell(initialRange) {

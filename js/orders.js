@@ -12,14 +12,14 @@
 // lineItems[].unitCost，之後商品成本再怎麼調整，都不會動到這張訂單
 // 已經算好的毛利。
 // ============================================================
-import { db } from "./firebase-config.js?v=20260830-91";
+import { db } from "./firebase-config.js?v=20260830-92";
 import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
   serverTimestamp, runTransaction, query, where, orderBy as fbOrderBy
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { currentSession, getDisplayName } from "./auth.js?v=20260830-91";
-import { addUsage, listUsagesByOrder, voidRecord, calcItemCost, permanentlyDelete, restockFromReturn, expandRecipe } from "./items.js?v=20260830-91";
-import { logActivity } from "./activity-log.js?v=20260830-91";
+import { currentSession, getDisplayName } from "./auth.js?v=20260830-92";
+import { addUsage, listUsagesByOrder, voidRecord, calcItemCost, permanentlyDelete, restockFromReturn, expandRecipe } from "./items.js?v=20260830-92";
+import { logActivity } from "./activity-log.js?v=20260830-92";
 
 const ordersCol = collection(db, "orders");
 
@@ -344,14 +344,35 @@ export async function voidOrder(orderId) {
     }
   }
 
+  // 「管理員」作廢的訂單要標記給超級管理員確認一下不是誤觸——
+  // 超級管理員自己作廢的不用再確認自己，只有管理員這個層級才需要。
+  const voidedByRole = currentSession.member?.role || null;
+  const needsVoidReview = voidedByRole === "admin";
+
   await updateDoc(doc(db, "orders", orderId), {
     voided: true,
     voidedBy: who.email,
     voidedByName: who.name,
+    voidedByRole,
     voidedAt: serverTimestamp(),
+    needsVoidReview,
     updatedAt: serverTimestamp(),
   });
   logActivity({ module: "orders", action: "void", summary: `訂單 ${order.orderNumber} 已作廢` });
+  invalidateOrdersCache();
+}
+
+/**
+ * 超級管理員確認「這張作廢的訂單不是管理員誤觸」，清掉待確認標記。
+ */
+export async function acknowledgeVoidReview(orderId) {
+  const who = whoAmI();
+  await updateDoc(doc(db, "orders", orderId), {
+    needsVoidReview: false,
+    voidReviewedBy: who.email,
+    voidReviewedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
   invalidateOrdersCache();
 }
 

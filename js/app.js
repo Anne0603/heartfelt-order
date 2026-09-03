@@ -1,28 +1,28 @@
 // ============================================================
 // 主程式：登入流程 + 側邊導覽 + 簡易路由
 // ============================================================
-import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName, consumeRedirectResult } from "./auth.js?v=20260830-91";
-import { iconHtml } from "./icons.js?v=20260830-91";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-91";
-import { openProfileModal } from "./profile-ui.js?v=20260830-91";
-import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, renderBackupPage, getPendingCount } from "./settings.js?v=20260830-91";
-import { renderPrepListPage } from "./prep-ui.js?v=20260830-91";
-import { renderRecalcCostPage } from "./recalc-ui.js?v=20260830-91";
-import { renderFaqPage } from "./faq-ui.js?v=20260830-91";
-import { renderHomePage } from "./home.js?v=20260830-91";
-import { renderItemsPage } from "./items-ui.js?v=20260830-91";
-import { clearFab } from "./fab-ui.js?v=20260830-91";
-import { renderContactsPage } from "./contacts-ui.js?v=20260830-91";
-import { renderOrdersPage } from "./orders-ui.js?v=20260830-91";
-import { renderReportsPage } from "./reports-ui.js?v=20260830-91";
-import { renderProfitPage } from "./profit-ui.js?v=20260830-91";
-import { renderActivityLogPage } from "./activity-log-ui.js?v=20260830-91";
-import { renderExpensesPage } from "./expenses-ui.js?v=20260830-91";
-import { lowStockItems } from "./items.js?v=20260830-91";
-import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260830-91";
-import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-91";
-import { db } from "./firebase-config.js?v=20260830-91";
-import { openModal } from "./modal-ui.js?v=20260830-91";
+import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName, consumeRedirectResult } from "./auth.js?v=20260830-92";
+import { iconHtml } from "./icons.js?v=20260830-92";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-92";
+import { openProfileModal } from "./profile-ui.js?v=20260830-92";
+import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, renderBackupPage, getPendingCount } from "./settings.js?v=20260830-92";
+import { renderPrepListPage } from "./prep-ui.js?v=20260830-92";
+import { renderRecalcCostPage } from "./recalc-ui.js?v=20260830-92";
+import { renderFaqPage } from "./faq-ui.js?v=20260830-92";
+import { renderHomePage } from "./home.js?v=20260830-92";
+import { renderItemsPage } from "./items-ui.js?v=20260830-92";
+import { clearFab } from "./fab-ui.js?v=20260830-92";
+import { renderContactsPage } from "./contacts-ui.js?v=20260830-92";
+import { renderOrdersPage } from "./orders-ui.js?v=20260830-92";
+import { renderReportsPage } from "./reports-ui.js?v=20260830-92";
+import { renderProfitPage } from "./profit-ui.js?v=20260830-92";
+import { renderActivityLogPage } from "./activity-log-ui.js?v=20260830-92";
+import { renderExpensesPage } from "./expenses-ui.js?v=20260830-92";
+import { lowStockItems } from "./items.js?v=20260830-92";
+import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260830-92";
+import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-92";
+import { db } from "./firebase-config.js?v=20260830-92";
+import { openModal } from "./modal-ui.js?v=20260830-92";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 // ---------- 品牌圖案：統一套用在登入頁 / 側邊欄 / 每個人的頭像位置 ----------
@@ -417,7 +417,7 @@ async function refreshNotifBell() {
       pendingCount = await getPendingCount();
     }
 
-    let overdueCount = 0, todayCount = 0, unpaidShippedCount = 0, needsConfirmationCount = 0;
+    let overdueCount = 0, todayCount = 0, unpaidShippedCount = 0, needsConfirmationCount = 0, voidReviewCount = 0;
     try {
       const orders = await listOrders();
       const active = orders.filter((o) => !o.voided);
@@ -428,11 +428,15 @@ async function refreshNotifBell() {
       // 已經出貨的訂單不用再提醒待確認——東西都已經寄出去了，
       // 不管當初有沒有確認清楚，再提醒也於事無補
       needsConfirmationCount = active.filter((o) => o.needsConfirmation && normalizeShipStatus(o.shipStatus) !== "shipped").length;
+      // 管理員作廢的訂單，要讓超級管理員確認一下不是誤觸
+      if (myRole === "superadmin") {
+        voidReviewCount = orders.filter((o) => o.voided && o.needsVoidReview).length;
+      }
     } catch (err) {
       // 訂單載入失敗不影響其他通知照常顯示
     }
 
-    const total = low.length + pendingCount + overdueCount + todayCount + unpaidShippedCount + needsConfirmationCount;
+    const total = low.length + pendingCount + overdueCount + todayCount + unpaidShippedCount + needsConfirmationCount + voidReviewCount;
     if (total > 0) {
       notifBadge.textContent = total;
       notifBadge.style.display = "flex";
@@ -449,6 +453,7 @@ async function refreshNotifBell() {
     if (todayCount > 0) items.push({ label: `<span class="notif-dot" style="background:var(--gold-deep);"></span>${todayCount} 張訂單今天應出貨`, target: "orders", filter: { quick: "today" } });
     if (unpaidShippedCount > 0) items.push({ label: `${iconHtml("coin")}${unpaidShippedCount} 張已出貨但未收款`, target: "orders", filter: { quick: "unpaid_shipped" } });
     if (needsConfirmationCount > 0) items.push({ label: `${iconHtml("bulb")}${needsConfirmationCount} 張訂單還有資訊待確認`, target: "orders", filter: { quick: "needs_confirmation" } });
+    if (voidReviewCount > 0) items.push({ label: `<span class="notif-dot" style="background:var(--rose);"></span>${voidReviewCount} 張訂單被管理員作廢，待確認`, target: "orders", filter: { quick: "void_review" } });
     if (low.length > 0) items.push({ label: `${iconHtml("box")}${low.length} 項庫存偏低`, target: "items", filter: null });
     if (pendingCount > 0) items.push({ label: `${iconHtml("clock")}${pendingCount} 筆待審核申請`, target: "pending", filter: null });
 

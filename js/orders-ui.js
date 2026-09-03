@@ -1,22 +1,22 @@
 // ============================================================
 // 訂單管理頁面 UI
 // ============================================================
-import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-91";
-import { currentSession, wireNameResolution } from "./auth.js?v=20260830-91";
+import { showToast, linkifyErrorMessage, friendlyErrorMessage } from "./utils.js?v=20260830-92";
+import { currentSession, wireNameResolution } from "./auth.js?v=20260830-92";
 import {
   listOrders, createOrder, updateOrderBeforeShip, updateAmountReceived, updateOrderNoteAndAddress, getPaymentStatus,
   markShipped, voidOrder, deleteOrderPermanently, registerReturn, listReturnsByOrder, getOutstandingBalance,
-  updateConfirmationStatus,
+  updateConfirmationStatus, acknowledgeVoidReview,
   SHIP_STATUS_LABELS, PAYMENT_STATUS_LABELS, getShipStatusLabel, normalizeShipStatus,
-} from "./orders.js?v=20260830-91";
-import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260830-91";
-import { listContacts, createContact, ORDER_CHANNELS } from "./contacts.js?v=20260830-91";
-import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260830-91";
-import { exportOrders } from "./export-xlsx.js?v=20260830-91";
-import { setFab, clearFab } from "./fab-ui.js?v=20260830-91";
-import { openSearchPicker } from "./picker-ui.js?v=20260830-91";
-import { openModal, openCustomTextModal } from "./modal-ui.js?v=20260830-91";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-91";
+} from "./orders.js?v=20260830-92";
+import { listItems, buildItemsIndex, ORDERABLE_TYPES } from "./items.js?v=20260830-92";
+import { listContacts, createContact, ORDER_CHANNELS } from "./contacts.js?v=20260830-92";
+import { printOrderSlip, printShippingList } from "./print-slip.js?v=20260830-92";
+import { exportOrders } from "./export-xlsx.js?v=20260830-92";
+import { setFab, clearFab } from "./fab-ui.js?v=20260830-92";
+import { openSearchPicker } from "./picker-ui.js?v=20260830-92";
+import { openModal, openCustomTextModal } from "./modal-ui.js?v=20260830-92";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-92";
 
 function canSeeCost() {
   return ["superadmin", "admin", "viewer"].includes(currentSession.member?.role);
@@ -96,6 +96,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
           <option value="overdue">已逾期未出貨</option>
           <option value="unpaid_shipped">已出貨但未收款</option>
           <option value="needs_confirmation">待確認資訊</option>
+          ${currentSession.member?.role === "superadmin" ? `<option value="void_review">作廢待確認</option>` : ""}
         </select>
         <div style="display:flex;gap:8px;align-items:center;">
           <input type="date" id="filter-date-start" value="${filterDateStart}" style="flex:1;min-width:0;padding:9px 8px;border:1px solid var(--paper-line);border-radius:8px;font-size:16px;" />
@@ -134,7 +135,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
       filterQuick = e.target.value;
       // 「已逾期未出貨」「已出貨但未收款」「待確認資訊」都需要看全部歷史
       // 才不會漏掉舊資料——待確認的訂單也可能是很久以前建立、忘記確認的
-      if (loadedFrom && (filterQuick === "overdue" || filterQuick === "unpaid_shipped" || filterQuick === "needs_confirmation")) {
+      if (loadedFrom && (filterQuick === "overdue" || filterQuick === "unpaid_shipped" || filterQuick === "needs_confirmation" || filterQuick === "void_review")) {
         await expandToFullHistory();
         return;
       }
@@ -371,6 +372,8 @@ export async function renderOrdersPage(container, initialFilter = null) {
       // 已經出貨的訂單不用再篩出來——東西都寄出去了，跟通知鈴鐺的
       // 統計邏輯保持一致，避免「鈴鐺說3張、點進來卻看到5張」的矛盾
       filtered = filtered.filter((o) => !o.voided && o.needsConfirmation && normalizeShipStatus(o.shipStatus) !== "shipped");
+    } else if (filterQuick === "void_review") {
+      filtered = filtered.filter((o) => o.voided && o.needsVoidReview);
     }
     if (filterDateStart) filtered = filtered.filter((o) => o.orderDate >= filterDateStart);
     if (filterDateEnd) filtered = filtered.filter((o) => o.orderDate <= filterDateEnd);
@@ -453,6 +456,7 @@ export async function renderOrdersPage(container, initialFilter = null) {
             <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
               ${o.voided ? `
                 <span class="seal-badge bad"><span class="dot"></span>已作廢</span>
+                ${o.needsVoidReview ? `<span class="seal-badge warn"><span class="dot"></span>待確認</span>` : ""}
               ` : `
                 <span class="seal-badge ${shipBadgeClass(o.shipStatus)}"><span class="dot"></span>${getShipStatusLabel(o.shipStatus)}</span>
                 <span class="seal-badge ${paymentBadgeClass(getPaymentStatus(o))}"><span class="dot"></span>${PAYMENT_STATUS_LABELS[getPaymentStatus(o)]}</span>
@@ -779,12 +783,22 @@ export async function renderOrdersPage(container, initialFilter = null) {
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
         ${order.voided ? `
           <span class="seal-badge bad"><span class="dot"></span>已作廢</span>
+          ${order.needsVoidReview ? `<span class="seal-badge warn"><span class="dot"></span>待超級管理員確認</span>` : ""}
         ` : `
           <span class="seal-badge ${shipBadgeClass(order.shipStatus)}"><span class="dot"></span>${getShipStatusLabel(order.shipStatus)}</span>
           <span class="seal-badge ${paymentBadgeClass(payStatus)}"><span class="dot"></span>${PAYMENT_STATUS_LABELS[payStatus]}</span>
           ${(order.needsConfirmation && normalizeShipStatus(order.shipStatus) !== "shipped") ? `<span class="seal-badge warn"><span class="dot"></span>待確認</span>` : ""}
         `}
       </div>
+
+      ${(order.voided && order.needsVoidReview && currentSession.member?.role === "superadmin") ? `
+        <div class="card" style="margin-bottom:16px;background:var(--gold-pale);border-color:var(--gold-deep);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+          <div>
+            <div style="font-weight:700;color:var(--gold-deep);">這張訂單是「${order.voidedByName || order.voidedBy}」作廢的，請確認不是誤觸</div>
+          </div>
+          <button class="btn btn-secondary" id="btn-ack-void" style="flex-shrink:0;">確認無誤</button>
+        </div>
+      ` : ""}
 
       ${(order.needsConfirmation && !order.voided && normalizeShipStatus(order.shipStatus) !== "shipped") ? `
         <div class="card" style="margin-bottom:16px;background:var(--gold-pale);border-color:var(--gold-deep);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -852,6 +866,20 @@ export async function renderOrdersPage(container, initialFilter = null) {
       try {
         await updateConfirmationStatus(order.id, { needsConfirmation: false, confirmationNote: "" });
         showToast("已取消待確認標記", "success");
+        await reload();
+        renderOrderDetailPage(order.id);
+      } catch (err) {
+        showToast("失敗：" + friendlyErrorMessage(err), "error");
+        btn.disabled = false;
+      }
+    });
+
+    container.querySelector("#btn-ack-void")?.addEventListener("click", async (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      try {
+        await acknowledgeVoidReview(order.id);
+        showToast("已確認", "success");
         await reload();
         renderOrderDetailPage(order.id);
       } catch (err) {
