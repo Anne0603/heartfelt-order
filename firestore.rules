@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // ============================================================
-// heartfelt-order Firestore 安全規則（完整版 v6，成員自我更新開放 lastLoginAt 欄位）
+// heartfelt-order Firestore 安全規則（完整版 v7，成員自我更新開放 hasSeenHomeScreenTip 欄位）
 // 每次新增 collection 都會提供「完整版」規則，直接整份覆蓋貼到
 // Firebase Console 上比較不容易貼錯位置，貼上後記得按「發布」。
 //
@@ -75,7 +75,7 @@ service cloud.firestore {
 
       allow update: if isSuperadmin()
         || (isSignedIn() && request.auth.token.email == email
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nickname', 'lastLoginAt']));
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nickname', 'lastLoginAt', 'hasSeenHomeScreenTip']));
       allow delete: if isSuperadmin();
     }
 

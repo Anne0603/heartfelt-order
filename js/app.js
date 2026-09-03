@@ -1,28 +1,28 @@
 // ============================================================
 // 主程式：登入流程 + 側邊導覽 + 簡易路由
 // ============================================================
-import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName, consumeRedirectResult, signInWithGoogleCredential } from "./auth.js?v=20260830-93";
-import { iconHtml } from "./icons.js?v=20260830-93";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-93";
-import { openProfileModal } from "./profile-ui.js?v=20260830-93";
-import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, renderBackupPage, getPendingCount } from "./settings.js?v=20260830-93";
-import { renderPrepListPage } from "./prep-ui.js?v=20260830-93";
-import { renderRecalcCostPage } from "./recalc-ui.js?v=20260830-93";
-import { renderFaqPage } from "./faq-ui.js?v=20260830-93";
-import { renderHomePage } from "./home.js?v=20260830-93";
-import { renderItemsPage } from "./items-ui.js?v=20260830-93";
-import { clearFab } from "./fab-ui.js?v=20260830-93";
-import { renderContactsPage } from "./contacts-ui.js?v=20260830-93";
-import { renderOrdersPage } from "./orders-ui.js?v=20260830-93";
-import { renderReportsPage } from "./reports-ui.js?v=20260830-93";
-import { renderProfitPage } from "./profit-ui.js?v=20260830-93";
-import { renderActivityLogPage } from "./activity-log-ui.js?v=20260830-93";
-import { renderExpensesPage } from "./expenses-ui.js?v=20260830-93";
-import { lowStockItems } from "./items.js?v=20260830-93";
-import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260830-93";
-import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-93";
-import { db } from "./firebase-config.js?v=20260830-93";
-import { openModal } from "./modal-ui.js?v=20260830-93";
+import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName, consumeRedirectResult, signInWithGoogleCredential } from "./auth.js?v=20260830-94";
+import { iconHtml } from "./icons.js?v=20260830-94";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-94";
+import { openProfileModal } from "./profile-ui.js?v=20260830-94";
+import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, renderBackupPage, getPendingCount } from "./settings.js?v=20260830-94";
+import { renderPrepListPage } from "./prep-ui.js?v=20260830-94";
+import { renderRecalcCostPage } from "./recalc-ui.js?v=20260830-94";
+import { renderFaqPage } from "./faq-ui.js?v=20260830-94";
+import { renderHomePage } from "./home.js?v=20260830-94";
+import { renderItemsPage } from "./items-ui.js?v=20260830-94";
+import { clearFab } from "./fab-ui.js?v=20260830-94";
+import { renderContactsPage } from "./contacts-ui.js?v=20260830-94";
+import { renderOrdersPage } from "./orders-ui.js?v=20260830-94";
+import { renderReportsPage } from "./reports-ui.js?v=20260830-94";
+import { renderProfitPage } from "./profit-ui.js?v=20260830-94";
+import { renderActivityLogPage } from "./activity-log-ui.js?v=20260830-94";
+import { renderExpensesPage } from "./expenses-ui.js?v=20260830-94";
+import { lowStockItems } from "./items.js?v=20260830-94";
+import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260830-94";
+import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-94";
+import { db } from "./firebase-config.js?v=20260830-94";
+import { openModal } from "./modal-ui.js?v=20260830-94";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 // ---------- 品牌圖案：統一套用在登入頁 / 側邊欄 / 每個人的頭像位置 ----------
@@ -173,6 +173,9 @@ btnPendingLogout.addEventListener("click", () => logout());
 // ---------- 版本更新紀錄（給使用者看的簡易版，不是技術細節） ----------
 // 每次有新功能上線，在陣列最前面加一條新的即可，最新的放最上面。
 const CHANGELOG = [
+  { date: "2026-08-30", items: [
+    "第一次登入會自動跳出「加到主畫面」教學，常見問題頁面也收錄同樣內容",
+  ]},
   { date: "2026-08-30", items: [
     "成員管理頁面新增「最後上線時間」，方便看出誰已經很久沒用系統了",
   ]},
@@ -382,10 +385,14 @@ function showApp(user, member) {
 
   handleHashRoute();
 
-  // 沒設定過暱稱的話，登入後自動跳出提示——靠使用者自己想起來去改，
-  // 效果通常不好，每次登入都主動提醒一次比較有效。使用者還是可以
-  // 關掉這個視窗跳過，但下次登入還是會再跳出來，直到真的設定為止。
-  if (!member.nickname) {
+  // 沒設定過暱稱、或還沒看過「加到主畫面」教學的話，登入後自動跳出
+  // 提示——靠使用者自己想起來效果通常不好，主動提醒一次比較有效。
+  // 使用者還是可以關掉這個視窗跳過，但暱稱沒填的話下次登入還是會
+  // 再跳出來，直到真的設定為止；主畫面教學只要看過一次（不管是儲存
+  // 還是直接關掉）就不會再跳出來。
+  const needsNickname = !member.nickname;
+  const needsHomeScreenTip = !member.hasSeenHomeScreenTip;
+  if (needsNickname || needsHomeScreenTip) {
     openProfileModal({
       brandLogoUrl,
       onBrandUpdated: (url) => {
@@ -393,7 +400,8 @@ function showApp(user, member) {
         applyBrandLogoToDom(url);
         try { localStorage.setItem(BRAND_LOGO_CACHE_KEY, url); } catch (err) { /* 忽略 */ }
       },
-      mandatory: true,
+      mandatory: needsNickname,
+      showHomeScreenTip: needsHomeScreenTip,
     });
   }
 }

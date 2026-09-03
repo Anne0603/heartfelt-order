@@ -5,10 +5,24 @@
 // 只會造成困擾。每一個章節、每一則問答都可以個別設定「哪些角色看得到」，
 // 沒特別設定的話就沿用整個章節的權限範圍。
 // ============================================================
-import { currentSession } from "./auth.js?v=20260830-93";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-93";
+import { currentSession } from "./auth.js?v=20260830-94";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-94";
 
 const FAQ_SECTIONS = [
+  {
+    title: "基本使用",
+    roles: ["superadmin", "admin", "order_staff", "viewer"],
+    items: [
+      {
+        q: "可以把系統加到手機主畫面嗎？",
+        a: "可以！加到主畫面之後，打開會像一個獨立的 App，沒有網址列，更方便日常使用。iPhone（Safari）：點下方工具列的「分享」按鈕（方框加箭頭圖示）→ 往下滑點「加入主畫面」→ 右上角點「新增」。Android（Chrome）：點右上角選單（⋮）→「加到主畫面」或「安裝應用程式」。第一次登入時系統也會自動跳出這個提示。",
+      },
+      {
+        q: "怎麼設定自己的暱稱？",
+        a: "點左上角選單旁的頭像圖示，打開「個人資料」，就能設定或修改暱稱。暱稱是為了讓大家知道操作紀錄是誰做的，還沒設定的話登入時系統會自動提醒。",
+      },
+    ],
+  },
   {
     title: "訂單管理",
     roles: ["superadmin", "admin", "order_staff", "viewer"],

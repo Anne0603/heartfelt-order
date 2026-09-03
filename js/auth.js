@@ -9,7 +9,7 @@
 //    - 存在但 status 是 'pending' -> 顯示「審核中」，登出
 //    - 存在且 status 是 'active' -> 放行，帶著 role 一起進系統
 // ============================================================
-import { auth, db, googleProvider, authPersistenceReady } from "./firebase-config.js?v=20260830-93";
+import { auth, db, googleProvider, authPersistenceReady } from "./firebase-config.js?v=20260830-94";
 import {
   signInWithRedirect,
   getRedirectResult,
@@ -60,6 +60,22 @@ export async function updateMyNickname(nickname) {
   // 但這份資料不含角色等敏感資訊。
   await setDoc(doc(db, "publicProfiles", email), { nickname: trimmed }, { merge: true });
   currentSession.member = { ...currentSession.member, nickname: trimmed };
+}
+
+/**
+ * 標記「這個人已經看過加到主畫面的教學了」，不管是按儲存還是直接關掉
+ * 彈窗都算看過，之後就不會再自動跳出來。目前既有的帳號（不管有沒有
+ * 設定過暱稱）都還沒有這個欄位，所以都會被當成「第一次」看到一次。
+ */
+export async function markHomeScreenTipSeen() {
+  if (!currentSession.user?.email) return;
+  const email = currentSession.user.email.toLowerCase();
+  try {
+    await updateDoc(doc(db, "members", email), { hasSeenHomeScreenTip: true });
+    currentSession.member = { ...currentSession.member, hasSeenHomeScreenTip: true };
+  } catch (err) {
+    // 標記失敗不影響使用者繼續使用，安靜忽略即可，最多下次登入再看到一次教學
+  }
 }
 
 async function loadMemberDoc(email) {
