@@ -1,28 +1,28 @@
 // ============================================================
 // 主程式：登入流程 + 側邊導覽 + 簡易路由
 // ============================================================
-import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName, consumeRedirectResult, signInWithGoogleCredential } from "./auth.js?v=20260830-94";
-import { iconHtml } from "./icons.js?v=20260830-94";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-94";
-import { openProfileModal } from "./profile-ui.js?v=20260830-94";
-import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, renderBackupPage, getPendingCount } from "./settings.js?v=20260830-94";
-import { renderPrepListPage } from "./prep-ui.js?v=20260830-94";
-import { renderRecalcCostPage } from "./recalc-ui.js?v=20260830-94";
-import { renderFaqPage } from "./faq-ui.js?v=20260830-94";
-import { renderHomePage } from "./home.js?v=20260830-94";
-import { renderItemsPage } from "./items-ui.js?v=20260830-94";
-import { clearFab } from "./fab-ui.js?v=20260830-94";
-import { renderContactsPage } from "./contacts-ui.js?v=20260830-94";
-import { renderOrdersPage } from "./orders-ui.js?v=20260830-94";
-import { renderReportsPage } from "./reports-ui.js?v=20260830-94";
-import { renderProfitPage } from "./profit-ui.js?v=20260830-94";
-import { renderActivityLogPage } from "./activity-log-ui.js?v=20260830-94";
-import { renderExpensesPage } from "./expenses-ui.js?v=20260830-94";
-import { lowStockItems } from "./items.js?v=20260830-94";
-import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260830-94";
-import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-94";
-import { db } from "./firebase-config.js?v=20260830-94";
-import { openModal } from "./modal-ui.js?v=20260830-94";
+import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName, consumeRedirectResult, signInWithGoogleCredential } from "./auth.js?v=20260830-95";
+import { iconHtml } from "./icons.js?v=20260830-95";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-95";
+import { openProfileModal, openHomeScreenTipModal } from "./profile-ui.js?v=20260830-95";
+import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, renderBackupPage, getPendingCount } from "./settings.js?v=20260830-95";
+import { renderPrepListPage } from "./prep-ui.js?v=20260830-95";
+import { renderRecalcCostPage } from "./recalc-ui.js?v=20260830-95";
+import { renderFaqPage } from "./faq-ui.js?v=20260830-95";
+import { renderHomePage } from "./home.js?v=20260830-95";
+import { renderItemsPage } from "./items-ui.js?v=20260830-95";
+import { clearFab } from "./fab-ui.js?v=20260830-95";
+import { renderContactsPage } from "./contacts-ui.js?v=20260830-95";
+import { renderOrdersPage } from "./orders-ui.js?v=20260830-95";
+import { renderReportsPage } from "./reports-ui.js?v=20260830-95";
+import { renderProfitPage } from "./profit-ui.js?v=20260830-95";
+import { renderActivityLogPage } from "./activity-log-ui.js?v=20260830-95";
+import { renderExpensesPage } from "./expenses-ui.js?v=20260830-95";
+import { lowStockItems } from "./items.js?v=20260830-95";
+import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260830-95";
+import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-95";
+import { db } from "./firebase-config.js?v=20260830-95";
+import { openModal } from "./modal-ui.js?v=20260830-95";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 // ---------- 品牌圖案：統一套用在登入頁 / 側邊欄 / 每個人的頭像位置 ----------
@@ -385,14 +385,19 @@ function showApp(user, member) {
 
   handleHashRoute();
 
-  // 沒設定過暱稱、或還沒看過「加到主畫面」教學的話，登入後自動跳出
-  // 提示——靠使用者自己想起來效果通常不好，主動提醒一次比較有效。
-  // 使用者還是可以關掉這個視窗跳過，但暱稱沒填的話下次登入還是會
-  // 再跳出來，直到真的設定為止；主畫面教學只要看過一次（不管是儲存
-  // 還是直接關掉）就不會再跳出來。
+  // 沒設定過暱稱的話，登入後自動跳出提示——靠使用者自己想起來效果
+  // 通常不好，主動提醒一次比較有效。使用者還是可以關掉這個視窗跳過，
+  // 但下次登入還是會再跳出來，直到真的設定為止。
+  //
+  // 「加到主畫面」教學是完全獨立的另一個彈窗，不跟暱稱設定塞在一起——
+  // 已經設定過暱稱的人，如果同一個彈窗又跳出「還要做什麼」的內容，
+  // 會顯得很突兀。只有在「暱稱已經設定好、但還沒看過教學」時，
+  // 才會單獨跳出教學彈窗；如果暱稱還沒設定，這次登入只會看到暱稱
+  // 提醒，等暱稱存檔（會整頁重新整理）之後，下次載入才會接著看到
+  // 教學彈窗，不用在這裡手動串接兩個彈窗的先後順序。
   const needsNickname = !member.nickname;
   const needsHomeScreenTip = !member.hasSeenHomeScreenTip;
-  if (needsNickname || needsHomeScreenTip) {
+  if (needsNickname) {
     openProfileModal({
       brandLogoUrl,
       onBrandUpdated: (url) => {
@@ -400,9 +405,10 @@ function showApp(user, member) {
         applyBrandLogoToDom(url);
         try { localStorage.setItem(BRAND_LOGO_CACHE_KEY, url); } catch (err) { /* 忽略 */ }
       },
-      mandatory: needsNickname,
-      showHomeScreenTip: needsHomeScreenTip,
+      mandatory: true,
     });
+  } else if (needsHomeScreenTip) {
+    openHomeScreenTipModal();
   }
 }
 
