@@ -9,12 +9,14 @@
 //    - 存在但 status 是 'pending' -> 顯示「審核中」，登出
 //    - 存在且 status 是 'active' -> 放行，帶著 role 一起進系統
 // ============================================================
-import { auth, db, googleProvider, authPersistenceReady } from "./firebase-config.js?v=20260830-92";
+import { auth, db, googleProvider, authPersistenceReady } from "./firebase-config.js?v=20260830-93";
 import {
   signInWithRedirect,
   getRedirectResult,
   signOut,
-  onAuthStateChanged
+  onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithCredential,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import {
   doc,
@@ -116,6 +118,23 @@ async function createPendingRequest(user) {
     photoURL: user.photoURL || "",
     requestedAt: serverTimestamp(),
   });
+}
+
+/**
+ * 用 Google Identity Services（GIS，Google 官方的登入元件，不透過
+ * Firebase 的 popup/redirect 機制）拿到的 id_token，換成 Firebase
+ * 的登入憑證完成登入。
+ *
+ * 這是專門給「加到主畫面」的獨立模式用的另一條路——popup 在獨立模式
+ * 下常常完全沒反應，redirect 在獨立模式下又常常轉跳回來後遺失登入
+ * 結果，這兩個之前都試過而且都失敗了。GIS 用的是不同的底層機制
+ * （不需要整頁轉跳、也不是傳統的跳出視窗），理論上比較有機會在
+ * 獨立模式下正常運作。
+ */
+export async function signInWithGoogleCredential(idToken) {
+  await authPersistenceReady;
+  const credential = GoogleAuthProvider.credential(idToken);
+  return await signInWithCredential(auth, credential);
 }
 
 export async function loginWithGoogle() {

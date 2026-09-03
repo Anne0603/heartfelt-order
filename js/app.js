@@ -1,28 +1,28 @@
 // ============================================================
 // 主程式：登入流程 + 側邊導覽 + 簡易路由
 // ============================================================
-import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName, consumeRedirectResult } from "./auth.js?v=20260830-92";
-import { iconHtml } from "./icons.js?v=20260830-92";
-import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-92";
-import { openProfileModal } from "./profile-ui.js?v=20260830-92";
-import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, renderBackupPage, getPendingCount } from "./settings.js?v=20260830-92";
-import { renderPrepListPage } from "./prep-ui.js?v=20260830-92";
-import { renderRecalcCostPage } from "./recalc-ui.js?v=20260830-92";
-import { renderFaqPage } from "./faq-ui.js?v=20260830-92";
-import { renderHomePage } from "./home.js?v=20260830-92";
-import { renderItemsPage } from "./items-ui.js?v=20260830-92";
-import { clearFab } from "./fab-ui.js?v=20260830-92";
-import { renderContactsPage } from "./contacts-ui.js?v=20260830-92";
-import { renderOrdersPage } from "./orders-ui.js?v=20260830-92";
-import { renderReportsPage } from "./reports-ui.js?v=20260830-92";
-import { renderProfitPage } from "./profit-ui.js?v=20260830-92";
-import { renderActivityLogPage } from "./activity-log-ui.js?v=20260830-92";
-import { renderExpensesPage } from "./expenses-ui.js?v=20260830-92";
-import { lowStockItems } from "./items.js?v=20260830-92";
-import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260830-92";
-import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-92";
-import { db } from "./firebase-config.js?v=20260830-92";
-import { openModal } from "./modal-ui.js?v=20260830-92";
+import { loginWithGoogle, logout, watchAuthState, currentSession, ROLE_LABELS, getDisplayName, consumeRedirectResult, signInWithGoogleCredential } from "./auth.js?v=20260830-93";
+import { iconHtml } from "./icons.js?v=20260830-93";
+import { pageNavHtml, wirePageNav } from "./page-nav.js?v=20260830-93";
+import { openProfileModal } from "./profile-ui.js?v=20260830-93";
+import { renderCloudinaryPage, renderPendingPage, renderMembersPage, renderCategoriesPage, renderUnitsPage, renderBackupPage, getPendingCount } from "./settings.js?v=20260830-93";
+import { renderPrepListPage } from "./prep-ui.js?v=20260830-93";
+import { renderRecalcCostPage } from "./recalc-ui.js?v=20260830-93";
+import { renderFaqPage } from "./faq-ui.js?v=20260830-93";
+import { renderHomePage } from "./home.js?v=20260830-93";
+import { renderItemsPage } from "./items-ui.js?v=20260830-93";
+import { clearFab } from "./fab-ui.js?v=20260830-93";
+import { renderContactsPage } from "./contacts-ui.js?v=20260830-93";
+import { renderOrdersPage } from "./orders-ui.js?v=20260830-93";
+import { renderReportsPage } from "./reports-ui.js?v=20260830-93";
+import { renderProfitPage } from "./profit-ui.js?v=20260830-93";
+import { renderActivityLogPage } from "./activity-log-ui.js?v=20260830-93";
+import { renderExpensesPage } from "./expenses-ui.js?v=20260830-93";
+import { lowStockItems } from "./items.js?v=20260830-93";
+import { listOrders, getPaymentStatus, normalizeShipStatus } from "./orders.js?v=20260830-93";
+import { showToast, friendlyErrorMessage } from "./utils.js?v=20260830-93";
+import { db } from "./firebase-config.js?v=20260830-93";
+import { openModal } from "./modal-ui.js?v=20260830-93";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 // ---------- 品牌圖案：統一套用在登入頁 / 側邊欄 / 每個人的頭像位置 ----------
@@ -507,6 +507,61 @@ consumeRedirectResult().then((result) => {
   console.error(err);
   showToast("登入失敗：" + (err.code ? `[${err.code}] ` : "") + (friendlyErrorMessage(err) || "未知錯誤"), "error");
 });
+
+// ---------- 獨立模式（加到主畫面）專用登入：Google Identity Services ----------
+// popup 在獨立模式下常常完全沒反應，redirect 在獨立模式下又常常轉跳
+// 回來後遺失登入結果，這兩個都試過而且都失敗了。這裡改用 Google 官方
+// 的 Identity Services 元件，不透過 Firebase 的 popup/redirect 機制，
+// 理論上比較有機會在獨立模式下正常運作。只在獨立模式下啟用，一般
+// Safari 分頁維持原本正常運作的登入方式不變。
+const GOOGLE_CLIENT_ID = "497539783911-5m8nr09pirodb5ngd4vt0q5hvcfj7dha.apps.googleusercontent.com";
+
+function isStandaloneModeForGIS() {
+  return window.navigator.standalone === true
+    || window.matchMedia("(display-mode: standalone)").matches;
+}
+
+if (isStandaloneModeForGIS()) {
+  document.getElementById("normal-login-guide").style.display = "none";
+  const guide = document.getElementById("standalone-login-guide");
+  guide.style.display = "block";
+  const errEl = document.getElementById("standalone-login-error");
+
+  // Google 的官方腳本是用 async defer 載入的，這裡不能保證它已經載入
+  // 完成，用輪詢的方式等它準備好，最多等 8 秒，超過就顯示錯誤訊息。
+  let waited = 0;
+  const waitForGis = setInterval(() => {
+    waited += 200;
+    if (window.google?.accounts?.id) {
+      clearInterval(waitForGis);
+      try {
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: async (response) => {
+            errEl.textContent = "";
+            try {
+              await signInWithGoogleCredential(response.credential);
+              // 登入成功後，watchAuthState / onAuthStateChanged 會自動接手顯示主畫面
+            } catch (err) {
+              console.error(err);
+              errEl.textContent = "登入失敗：" + (err.code ? `[${err.code}] ` : "") + (friendlyErrorMessage(err) || "未知錯誤");
+            }
+          },
+        });
+        window.google.accounts.id.renderButton(
+          document.getElementById("g_id_button_container"),
+          { type: "standard", theme: "outline", size: "large", width: 280, text: "signin_with", locale: "zh_TW" }
+        );
+      } catch (err) {
+        console.error(err);
+        errEl.textContent = "Google 登入元件初始化失敗，請截圖回報。";
+      }
+    } else if (waited >= 8000) {
+      clearInterval(waitForGis);
+      errEl.textContent = "Google 登入元件載入逾時，請檢查網路連線後重新整理。";
+    }
+  }, 200);
+}
 
 watchAuthState({
   onSignedOut: () => showLoginScreen(),

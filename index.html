@@ -14,6 +14,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="心意訂單" />
+
+<!-- Google 官方的登入元件，只在「加到主畫面」的獨立模式下用來當作
+     另一條登入路徑（popup/redirect 在獨立模式下都試過會卡住） -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 
 <body>
@@ -24,15 +28,14 @@
       <div class="login-seal">心</div>
       <h1>心意訂單系統</h1>
 
-      <!-- 獨立模式（加到主畫面）下的引導畫面：這個環境下 Google 登入
-           一直沒辦法穩定運作，與其讓使用者卡在一個看似要成功卻永遠
-           打轉的畫面，不如直接清楚引導去用 Safari，登入過一次之後
-           之後從主畫面圖示打開就會維持登入狀態，不用每次都這樣做。 -->
+      <!-- 獨立模式（加到主畫面）專用的登入方式：用 Google 官方的
+           Identity Services 元件，不透過 Firebase 的 popup/redirect
+           （那兩個在獨立模式下都試過會卡住）。這裡放一個容器，
+           實際的按鈕由 Google 的官方腳本渲染進去。 -->
       <div id="standalone-login-guide" style="display:none;">
-        <p class="sub" style="margin-bottom:20px;">目前這個開啟方式沒辦法登入，請手動打開 Safari，貼上網址開啟一次；登入成功後，之後從主畫面圖示打開就會維持登入狀態，不用每次都這樣做。</p>
-        <button class="btn-google" id="btn-copy-url" type="button">📋 複製網址</button>
-        <div class="hint" style="font-size:12px;word-break:break-all;margin-top:14px;padding:10px;background:var(--paper);border-radius:8px;" id="standalone-login-url"></div>
-        <p class="hint" style="margin-top:10px;font-size:12.5px;">如果上面的按鈕沒反應，長按上面這串網址文字也能手動複製。</p>
+        <p class="sub" style="margin-bottom:20px;">請用授權的 Google 帳號登入</p>
+        <div id="g_id_button_container" style="display:flex;justify-content:center;"></div>
+        <div class="login-error" id="standalone-login-error"></div>
       </div>
 
       <div id="normal-login-guide">
@@ -103,40 +106,7 @@
     </div>
   </div>
 
-  <script>
-    // 之前獨立模式（加到主畫面）下 Google 登入一直卡住，做過一個
-    // 「偵測到獨立模式就顯示引導畫面、不嘗試登入」的處理。但後來
-    // 登入機制又調整過（持久化設定改成 browserLocalPersistence、
-    // 且不再嘗試跳窗只用整頁轉跳），這個新組合在獨立模式下還沒有
-    // 真正測試過，先停用這段、讓獨立模式也走一般登入流程試試看。
-    //
-    // 如果測試後還是不行，把下面整段取消註解就能重新啟用引導畫面：
-    /*
-    (function () {
-      const isStandalone = window.navigator.standalone === true
-        || window.matchMedia("(display-mode: standalone)").matches;
-      if (!isStandalone) return;
-      document.getElementById("normal-login-guide").style.display = "none";
-      const guide = document.getElementById("standalone-login-guide");
-      guide.style.display = "block";
-      const urlText = location.href;
-      document.getElementById("standalone-login-url").textContent = urlText;
-
-      const copyBtn = document.getElementById("btn-copy-url");
-      copyBtn.addEventListener("click", async () => {
-        try {
-          await navigator.clipboard.writeText(urlText);
-          copyBtn.textContent = "✅ 已複製，請打開 Safari 貼上";
-          setTimeout(() => { copyBtn.textContent = "📋 複製網址"; }, 3000);
-        } catch (err) {
-          // 剪貼簿 API 萬一被擋下來，退回請使用者自己長按選取下面的網址文字
-          copyBtn.textContent = "請長按下面的網址手動複製";
-        }
-      });
-    })();
-    */
-  </script>
-  <script type="module" src="js/app.js?v=20260830-92"></script>
+  <script type="module" src="js/app.js?v=20260830-93"></script>
   <script>
     // 之前為了「加到主畫面」而加的 Service Worker，後來發現其實 iOS
     // 的「加到主畫面」功能根本不需要它就能運作（那本來是 Android
