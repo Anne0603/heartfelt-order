@@ -361,6 +361,9 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 .nav-item:hover { background: var(--ink-soft); }
 .nav-item.active { background: var(--gold-deep); color: #fff; font-weight: 600; }
+.nav-item.active .nav-icon,
+.nav-item.active .icon-svg,
+.nav-item.active .icon-svg svg { color: #fff; }
 .nav-icon { width: 22px; text-align: center; opacity: 0.9; }
 
 .sidebar-footer {
